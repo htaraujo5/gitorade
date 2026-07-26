@@ -18,9 +18,9 @@ import { usePrefsStore } from "./stores/prefsStore";
 import { OpeningRepoOverlay } from "./components/OpeningRepoOverlay";
 import { MenuBar } from "./components/layout/MenuBar";
 import { IconTerminal } from "./components/Icons";
-import { ToastBanner } from "./components/layout/ContextMenu";
 import { WelcomeSetup } from "./components/WelcomeSetup";
 import { BootSplash } from "./components/BootSplash";
+import { AlertModal } from "./components/AlertModal";
 import {
   applyMainWindow,
   applySetupWindow,
@@ -250,11 +250,6 @@ function App() {
           <div className="flex min-h-0 flex-1">
             {showSidebar && <Sidebar />}
             <div className="flex min-w-0 flex-1 flex-col">
-              {(notice || error) && (
-                <ToastBanner kind={error ? "error" : "success"} onClose={clearNotice}>
-                  {error ?? notice}
-                </ToastBanner>
-              )}
               <main aria-label="Área de trabalho" className="flex min-h-0 min-w-0 flex-1">
                 {main}
               </main>
@@ -264,6 +259,16 @@ function App() {
       </div>
       <OperationOverlay />
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
+      {error && (
+        <AlertModal title="Algo deu errado" onClose={clearNotice}>
+          {error}
+        </AlertModal>
+      )}
+      {!error && notice && (
+        <AlertModal title="Atenção" onClose={clearNotice}>
+          {notice}
+        </AlertModal>
+      )}
     </div>
   );
 }

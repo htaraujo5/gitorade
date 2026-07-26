@@ -173,7 +173,7 @@ pub async fn clone_repository(
     input: CloneInput,
 ) -> AppResult<Repository> {
     let args = git::clone_args(&input.url, &input.target_dir);
-    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, None)?;
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, None, None)?;
     db.open_repository_path(&input.target_dir)
 }
 
@@ -189,7 +189,15 @@ pub async fn fetch_remote(
     ensure_has_remote(path)?;
     let remote = resolve_remote(path, input.remote.as_deref())?;
     let args = git::fetch_args(Some(&remote));
-    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path))?;
+    let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
+    crate::ops::run_streaming(
+        &app,
+        &registry,
+        &input.operation_id,
+        &args,
+        Some(path),
+        key.as_deref(),
+    )?;
     git::status(path)
 }
 
@@ -211,7 +219,15 @@ pub async fn pull_remote(
         .or_else(|| git::current_branch(path).ok().flatten())
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para pull.".into()))?;
     let args = git::pull_args(Some(&remote), Some(&branch));
-    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path))?;
+    let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
+    crate::ops::run_streaming(
+        &app,
+        &registry,
+        &input.operation_id,
+        &args,
+        Some(path),
+        key.as_deref(),
+    )?;
     git::status(path)
 }
 
@@ -232,7 +248,15 @@ pub async fn push_remote(
         .or_else(|| git::current_branch(path).ok().flatten())
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para push.".into()))?;
     let args = git::push_args(Some(&remote), Some(&branch), true);
-    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path))
+    let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
+    crate::ops::run_streaming(
+        &app,
+        &registry,
+        &input.operation_id,
+        &args,
+        Some(path),
+        key.as_deref(),
+    )
 }
 
 fn ensure_has_remote(path: &std::path::Path) -> AppResult<()> {
@@ -569,6 +593,27 @@ pub fn terminal_kill(
 fn require_repo(db: &Database, id: &str) -> AppResult<Repository> {
     db.get_repository(id)?
         .ok_or_else(|| AppError::Message("Repositório não encontrado.".into()))
+}
+
+fn resolve_ssh_key(
+    db: &Database,
+    repo: &Repository,
+    profile_id: Option<&str>,
+) -> Option<std::path::PathBuf> {
+    let id = profile_id
+        .map(str::to_string)
+        .or_else(|| repo.default_profile_id.clone())?;
+    let profile = db.get_profile(&id).ok().flatten()?;
+    let path = profile.ssh_key_path?.trim().to_string();
+    if path.is_empty() {
+        return None;
+    }
+    let p = std::path::PathBuf::from(path);
+    if p.is_file() {
+        Some(p)
+    } else {
+        None
+    }
 }
 
 fn resolve_identity(

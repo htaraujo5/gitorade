@@ -325,7 +325,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const repo = await api.openRepository(selected);
       await get().refreshRepositories();
       await get().selectRepository(repo.id);
-      set({ busy: false, notice: `Repositório aberto: ${repo.name}` });
+      set({ busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -412,7 +412,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const repo = await api.initRepository(selected);
       await get().refreshRepositories();
       await get().selectRepository(repo.id);
-      set({ busy: false, notice: `Repositório inicializado: ${repo.name}` });
+      set({ busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -455,7 +455,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const repo = await api.cloneRepository({ url: trimmed, targetDir, operationId });
       await get().refreshRepositories();
       await get().selectRepository(repo.id);
-      set({ busy: false, notice: `Clonado: ${repo.name}` });
+      set({ busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -570,7 +570,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const branches = await api.createBranch(id, name, checkout);
-      set({ branches, busy: false, notice: `Branch ${name} criada.` });
+      set({ branches, busy: false });
       await Promise.all([get().refreshStatus(), get().refreshHistory()]);
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
@@ -588,7 +588,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         branches,
         busy: false,
         selectedBranchName: current,
-        notice: `Checkout: ${current}`,
       });
       await Promise.all([
         get().refreshStatus(),
@@ -606,7 +605,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const branches = await api.renameBranch(id, oldName, newName);
-      set({ branches, busy: false, notice: `Branch renomeada para ${newName}.` });
+      set({ branches, busy: false });
       await get().refreshStatus();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
@@ -619,7 +618,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const branches = await api.deleteBranch(id, name, force);
-      set({ branches, busy: false, notice: `Branch ${name} removida.` });
+      set({ branches, busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -633,7 +632,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       const result = await api.mergeBranch(id, name);
       set({
         busy: false,
-        notice: result.message,
         error: result.success ? null : null,
       });
       await get().refreshStatus();
@@ -657,7 +655,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const result = await api.rebaseOnto(id, upstream);
-      set({ busy: false, notice: result.message });
+      set({ busy: false });
       await get().refreshStatus();
       await get().refreshHistory();
       await get().refreshBranches();
@@ -679,7 +677,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const result = await api.cherryPickCommit(id, commit);
-      set({ busy: false, notice: result.message });
+      set({ busy: false });
       await get().refreshStatus();
       await get().refreshHistory();
       if (!result.success) {
@@ -702,7 +700,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       await api.abortIntegrate(id);
       set({
         busy: false,
-        notice: "Operação abortada.",
         conflictDraft: "",
         conflictPath: null,
       });
@@ -719,10 +716,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!id) return;
     set({ busy: true, error: null });
     try {
-      const result = await api.continueIntegrate(id);
+      await api.continueIntegrate(id);
       set({
         busy: false,
-        notice: result.message,
         conflictDraft: "",
         conflictPath: null,
       });
@@ -777,7 +773,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const stash = await api.createStash(id, message, true);
-      set({ stash, busy: false, notice: "Stash criado." });
+      set({ stash, busy: false });
       await get().refreshStatus();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
@@ -790,7 +786,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const status = await api.applyStash(id, selector, pop);
-      set({ status, busy: false, notice: pop ? "Stash aplicado e removido." : "Stash aplicado." });
+      set({ status, busy: false });
       await get().refreshStash();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
@@ -803,7 +799,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const stash = await api.dropStash(id, selector);
-      set({ stash, busy: false, notice: "Stash removido." });
+      set({ stash, busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -815,7 +811,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const remotes = await api.addRemote(id, name, url);
-      set({ remotes, busy: false, notice: `Remote ${name} adicionado.` });
+      set({ remotes, busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -827,7 +823,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const remotes = await api.removeRemote(id, name);
-      set({ remotes, busy: false, notice: `Remote ${name} removido.` });
+      set({ remotes, busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -1025,7 +1021,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         return;
       }
       get().openStartTab();
-      set({ notice: "Abra um repositório para ver o histórico." });
+      set({ });
       return;
     }
     // repositories / favorites / ssh / plugins — open Start and set view
@@ -1132,7 +1128,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const profile = await api.createProfile(input);
       await get().refreshProfiles();
-      set({ busy: false, notice: "Perfil criado." });
+      set({ busy: false });
       if (!opts?.stay) get().openCredentialsTab();
       return profile;
     } catch (err) {
@@ -1146,7 +1142,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       await api.updateProfile(input);
       await get().refreshProfiles();
-      set({ busy: false, notice: "Perfil atualizado." });
+      set({ busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
       throw err;
@@ -1159,7 +1155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       await api.deleteProfile(id);
       await get().refreshProfiles();
       await get().refreshRepositories();
-      set({ busy: false, notice: "Perfil removido." });
+      set({ busy: false });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -1175,7 +1171,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         repositories: get().repositories.map((r) => (r.id === repoId ? updated : r)),
         commitOverrideProfileId: profileId,
         busy: false,
-        notice: profileId ? "Identidade associada ao repositório." : "Associação removida.",
       });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
@@ -1225,9 +1220,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         busy: false,
         commitMessage: "",
         lastCommit: result,
-        notice: `Commit ${result.hash} como ${result.authorName}`,
       });
-      await get().refreshStatus();
+      await Promise.all([get().refreshStatus(), get().refreshHistory()]);
       set({ selectedFile: null, diffText: "" });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
@@ -1262,8 +1256,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       error: null,
     });
     try {
-      const status = await api.fetchRemote({ repositoryId: id, operationId, remote });
-      set({ status, notice: "Fetch concluído." });
+      const status = await api.fetchRemote({
+        repositoryId: id,
+        operationId,
+        remote,
+        profileId: get().commitOverrideProfileId,
+      });
+      set({ status });
       await Promise.all([get().refreshRepositories(), get().refreshBranches()]);
     } catch (err) {
       set({ error: errMsg(err) });
@@ -1304,8 +1303,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         operationId,
         remote,
         branch,
+        profileId: get().commitOverrideProfileId,
       });
-      set({ status, notice: "Pull concluído." });
+      set({ status });
       await Promise.all([
         get().refreshStatus(),
         get().refreshHistory(),
@@ -1352,8 +1352,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         remote,
         branch,
         setUpstream: true,
+        profileId: get().commitOverrideProfileId,
       });
-      set({ notice: "Push concluído." });
+      set({});
       await Promise.all([
         get().refreshRepositories(),
         get().refreshBranches(),
@@ -1369,7 +1370,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!op || op.done) return;
     try {
       await api.cancelOperation(op.id);
-      set({ notice: "Operação cancelada." });
+      set({ });
     } catch (err) {
       set({ error: errMsg(err) });
     }

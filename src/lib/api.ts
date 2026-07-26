@@ -288,6 +288,7 @@ export type SyncInput = {
   remote?: string | null;
   branch?: string | null;
   setUpstream?: boolean;
+  profileId?: string | null;
 };
 
 export async function fetchRemote(input: SyncInput): Promise<RepoStatus> {

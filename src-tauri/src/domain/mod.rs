@@ -146,6 +146,8 @@ pub struct SyncInput {
     pub branch: Option<String>,
     #[serde(default)]
     pub set_upstream: bool,
+    /// Optional profile whose `sshKeyPath` should be used for this sync.
+    pub profile_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

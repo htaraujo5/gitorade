@@ -10,7 +10,6 @@ import { BranchSidebar } from "./BranchSidebar";
 import { StagingPanel } from "./StagingPanel";
 import { CommitDetailsPanel } from "./CommitDetailsPanel";
 import { ConflictBanner } from "../ConflictBanner";
-import { ToastBanner } from "./ContextMenu";
 import { TerminalPanel } from "../TerminalPanel";
 
 /**
@@ -23,9 +22,6 @@ export function MainWorkspace() {
     setWorkspaceTab,
     activeRepoId,
     repositories,
-    notice,
-    error,
-    clearNotice,
     selectedCommitHash,
     selectedCommitFile,
     selectedFile,
@@ -86,17 +82,6 @@ export function MainWorkspace() {
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#171a20]">
-      {error && (
-        <ToastBanner kind="error" onClose={clearNotice}>
-          {error}
-        </ToastBanner>
-      )}
-      {!error && notice && (
-        <ToastBanner kind="success" onClose={clearNotice}>
-          {notice}
-        </ToastBanner>
-      )}
-
       <div className="shrink-0 px-2 pt-1 empty:hidden">
         <ConflictBanner />
       </div>

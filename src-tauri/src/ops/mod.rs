@@ -72,8 +72,10 @@ pub fn run_streaming(
     operation_id: &str,
     args: &[String],
     cwd: Option<&Path>,
+    ssh_key: Option<&Path>,
 ) -> AppResult<String> {
     let mut cmd = Command::new("git");
+    crate::git::apply_git_remote_env(&mut cmd, ssh_key);
     cmd.args(["-c", "credential.interactive=false"])
         .args(args)
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -162,7 +164,7 @@ pub fn run_streaming(
         return Err(AppError::Message(if output.trim().is_empty() {
             "Operação falhou ou foi cancelada.".into()
         } else {
-            redact_secrets(output.trim())
+            crate::git::enhance_ssh_error(&redact_secrets(output.trim()))
         }));
     }
 

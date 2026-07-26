@@ -8,6 +8,7 @@ use crate::error::{AppError, AppResult};
 pub mod branches;
 pub mod history;
 pub mod integrate;
+pub mod ssh_env;
 pub mod stash;
 
 pub use branches::{
@@ -18,11 +19,13 @@ pub use integrate::{
     abort_integrate, cherry_pick, continue_integrate, detect_state as detect_integrate_state,
     list_conflicts, merge_branch, read_file as read_worktree_file, rebase_onto, resolve_conflict,
 };
+pub use ssh_env::{apply_git_remote_env, discover_default_ssh_key, enhance_ssh_error};
 pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
 
 /// Runs git with explicit args (never through a shell).
 pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
     let mut cmd = Command::new("git");
+    apply_git_remote_env(&mut cmd, None);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -43,7 +46,7 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
         return Err(AppError::Message(if stderr.is_empty() {
             format!("git {} falhou", args.join(" "))
         } else {
-            redact_secrets(&stderr)
+            enhance_ssh_error(&redact_secrets(&stderr))
         }));
     }
 
@@ -52,6 +55,7 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
 
 fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
     let mut cmd = Command::new("git");
+    apply_git_remote_env(&mut cmd, None);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -72,7 +76,7 @@ fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
         return Err(AppError::Message(if stderr.is_empty() {
             format!("git {} falhou", args.join(" "))
         } else {
-            redact_secrets(&stderr)
+            enhance_ssh_error(&redact_secrets(&stderr))
         }));
     }
 
