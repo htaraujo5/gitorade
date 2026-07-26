@@ -3,6 +3,7 @@ import { Header } from "./components/layout/Header";
 import { MainWorkspace } from "./components/layout/MainWorkspace";
 import { RightPanel } from "./components/layout/RightPanel";
 import { Sidebar } from "./components/layout/Sidebar";
+import { OperationOverlay } from "./components/OperationOverlay";
 import { useAppStore } from "./stores/appStore";
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
           </div>
         </div>
       </div>
+      <OperationOverlay />
     </div>
   );
 }

@@ -63,7 +63,7 @@ Assets consumidos em `src/assets/brand/` (copiados da documentação).
 |-------------|------|
 | Shell (sidebar + header + tabs) | 0–1 |
 | Changes + commit + credentials panel | 1 |
-| Toolbar Pull/Push/Fetch | 2 |
+| Toolbar Pull/Push/Fetch + Clone/Init + Remotes + overlay de progresso | 2 |
 | Graph/Commits básico | 3 |
 | Diff lado a lado, Branches, Stash ricos | 3–V1 |
 | Plugins na sidebar | V2 |

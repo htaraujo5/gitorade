@@ -1,8 +1,9 @@
 use tauri::{AppHandle, State};
 
 use crate::domain::{
-    AppHealth, CloneInput, CommitInput, CommitResult, CreateProfileInput, Profile, RemoteInfo,
-    RepoStatus, Repository, SyncInput, UpdateProfileInput,
+    AppHealth, BranchInfo, CloneInput, CommitGraph, CommitInput, CommitResult, CommitSummary,
+    CreateProfileInput, Profile, RemoteInfo, RepoStatus, Repository, StashEntry, SyncInput,
+    UpdateProfileInput, UpstreamStatus,
 };
 use crate::error::{AppError, AppResult};
 use crate::git;
@@ -236,6 +237,141 @@ pub async fn push_remote(
         &args,
         Some(std::path::Path::new(&path)),
     )
+}
+
+#[tauri::command]
+pub fn get_commit_graph(
+    db: State<'_, Database>,
+    repository_id: String,
+    limit: Option<usize>,
+) -> AppResult<CommitGraph> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::commit_graph(std::path::Path::new(&repo.path), limit.unwrap_or(120))
+}
+
+#[tauri::command]
+pub fn search_commits(
+    db: State<'_, Database>,
+    repository_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> AppResult<Vec<CommitSummary>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::search_commits(
+        std::path::Path::new(&repo.path),
+        &query,
+        limit.unwrap_or(80),
+    )
+}
+
+#[tauri::command]
+pub fn list_branches(db: State<'_, Database>, repository_id: String) -> AppResult<Vec<BranchInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::list_branches(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn create_branch(
+    db: State<'_, Database>,
+    repository_id: String,
+    name: String,
+    checkout: bool,
+) -> AppResult<Vec<BranchInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::create_branch(path, &name, checkout)?;
+    git::list_branches(path)
+}
+
+#[tauri::command]
+pub fn checkout_branch(
+    db: State<'_, Database>,
+    repository_id: String,
+    name: String,
+) -> AppResult<Vec<BranchInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::checkout_branch(path, &name)?;
+    git::list_branches(path)
+}
+
+#[tauri::command]
+pub fn rename_branch(
+    db: State<'_, Database>,
+    repository_id: String,
+    old_name: String,
+    new_name: String,
+) -> AppResult<Vec<BranchInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::rename_branch(path, &old_name, &new_name)?;
+    git::list_branches(path)
+}
+
+#[tauri::command]
+pub fn delete_branch(
+    db: State<'_, Database>,
+    repository_id: String,
+    name: String,
+    force: bool,
+) -> AppResult<Vec<BranchInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::delete_branch(path, &name, force)?;
+    git::list_branches(path)
+}
+
+#[tauri::command]
+pub fn get_upstream_status(
+    db: State<'_, Database>,
+    repository_id: String,
+) -> AppResult<UpstreamStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::upstream_status(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn list_stash(db: State<'_, Database>, repository_id: String) -> AppResult<Vec<StashEntry>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::list_stash(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn create_stash(
+    db: State<'_, Database>,
+    repository_id: String,
+    message: Option<String>,
+    include_untracked: bool,
+) -> AppResult<Vec<StashEntry>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::create_stash(path, message.as_deref(), include_untracked)?;
+    git::list_stash(path)
+}
+
+#[tauri::command]
+pub fn apply_stash(
+    db: State<'_, Database>,
+    repository_id: String,
+    selector: String,
+    pop: bool,
+) -> AppResult<RepoStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::apply_stash(path, &selector, pop)?;
+    git::status(path)
+}
+
+#[tauri::command]
+pub fn drop_stash(
+    db: State<'_, Database>,
+    repository_id: String,
+    selector: String,
+) -> AppResult<Vec<StashEntry>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::drop_stash(path, &selector)?;
+    git::list_stash(path)
 }
 
 fn require_repo(db: &Database, id: &str) -> AppResult<Repository> {

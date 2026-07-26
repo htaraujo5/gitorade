@@ -47,6 +47,9 @@ export const repoStatusSchema = z.object({
   branch: z.string().nullable().optional(),
   staged: z.array(fileChangeSchema),
   unstaged: z.array(fileChangeSchema),
+  upstream: z.string().nullable().optional(),
+  ahead: z.number().optional().default(0),
+  behind: z.number().optional().default(0),
 });
 
 export const commitResultSchema = z.object({
@@ -71,6 +74,55 @@ export const progressEventSchema = z.object({
   success: z.boolean().nullable().optional(),
 });
 
+export const commitSummarySchema = z.object({
+  hash: z.string(),
+  shortHash: z.string(),
+  parents: z.array(z.string()),
+  subject: z.string(),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authoredAt: z.string(),
+  refs: z.array(z.string()),
+  lane: z.number(),
+});
+
+export const graphEdgeSchema = z.object({
+  fromHash: z.string(),
+  toHash: z.string(),
+  fromLane: z.number(),
+  toLane: z.number(),
+});
+
+export const commitGraphSchema = z.object({
+  commits: z.array(commitSummarySchema),
+  edges: z.array(graphEdgeSchema),
+});
+
+export const branchInfoSchema = z.object({
+  name: z.string(),
+  isRemote: z.boolean(),
+  isCurrent: z.boolean(),
+  isHead: z.boolean(),
+  upstream: z.string().nullable().optional(),
+  ahead: z.number().nullable().optional(),
+  behind: z.number().nullable().optional(),
+  tipHash: z.string().nullable().optional(),
+});
+
+export const stashEntrySchema = z.object({
+  index: z.number(),
+  selector: z.string(),
+  message: z.string(),
+  authoredAt: z.string().nullable().optional(),
+});
+
+export const upstreamStatusSchema = z.object({
+  branch: z.string().nullable().optional(),
+  upstream: z.string().nullable().optional(),
+  ahead: z.number(),
+  behind: z.number(),
+});
+
 export type AppHealth = z.infer<typeof appHealthSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type Repository = z.infer<typeof repositorySchema>;
@@ -79,6 +131,11 @@ export type RepoStatus = z.infer<typeof repoStatusSchema>;
 export type CommitResult = z.infer<typeof commitResultSchema>;
 export type RemoteInfo = z.infer<typeof remoteInfoSchema>;
 export type ProgressEvent = z.infer<typeof progressEventSchema>;
+export type CommitSummary = z.infer<typeof commitSummarySchema>;
+export type CommitGraph = z.infer<typeof commitGraphSchema>;
+export type BranchInfo = z.infer<typeof branchInfoSchema>;
+export type StashEntry = z.infer<typeof stashEntrySchema>;
+export type UpstreamStatus = z.infer<typeof upstreamStatusSchema>;
 
 export type CreateProfileInput = {
   name: string;
@@ -230,4 +287,107 @@ export async function pullRemote(input: SyncInput): Promise<RepoStatus> {
 
 export async function pushRemote(input: SyncInput): Promise<string> {
   return z.string().parse(await invoke("push_remote", { input }));
+}
+
+export async function getCommitGraph(
+  repositoryId: string,
+  limit = 120,
+): Promise<CommitGraph> {
+  return commitGraphSchema.parse(
+    await invoke("get_commit_graph", { repositoryId, limit }),
+  );
+}
+
+export async function searchCommits(
+  repositoryId: string,
+  query: string,
+  limit = 80,
+): Promise<CommitSummary[]> {
+  return z
+    .array(commitSummarySchema)
+    .parse(await invoke("search_commits", { repositoryId, query, limit }));
+}
+
+export async function listBranches(repositoryId: string): Promise<BranchInfo[]> {
+  return z.array(branchInfoSchema).parse(await invoke("list_branches", { repositoryId }));
+}
+
+export async function createBranch(
+  repositoryId: string,
+  name: string,
+  checkout = true,
+): Promise<BranchInfo[]> {
+  return z
+    .array(branchInfoSchema)
+    .parse(await invoke("create_branch", { repositoryId, name, checkout }));
+}
+
+export async function checkoutBranch(
+  repositoryId: string,
+  name: string,
+): Promise<BranchInfo[]> {
+  return z
+    .array(branchInfoSchema)
+    .parse(await invoke("checkout_branch", { repositoryId, name }));
+}
+
+export async function renameBranch(
+  repositoryId: string,
+  oldName: string,
+  newName: string,
+): Promise<BranchInfo[]> {
+  return z
+    .array(branchInfoSchema)
+    .parse(await invoke("rename_branch", { repositoryId, oldName, newName }));
+}
+
+export async function deleteBranch(
+  repositoryId: string,
+  name: string,
+  force = false,
+): Promise<BranchInfo[]> {
+  return z
+    .array(branchInfoSchema)
+    .parse(await invoke("delete_branch", { repositoryId, name, force }));
+}
+
+export async function getUpstreamStatus(repositoryId: string): Promise<UpstreamStatus> {
+  return upstreamStatusSchema.parse(await invoke("get_upstream_status", { repositoryId }));
+}
+
+export async function listStash(repositoryId: string): Promise<StashEntry[]> {
+  return z.array(stashEntrySchema).parse(await invoke("list_stash", { repositoryId }));
+}
+
+export async function createStash(
+  repositoryId: string,
+  message?: string,
+  includeUntracked = true,
+): Promise<StashEntry[]> {
+  return z.array(stashEntrySchema).parse(
+    await invoke("create_stash", {
+      repositoryId,
+      message: message ?? null,
+      includeUntracked,
+    }),
+  );
+}
+
+export async function applyStash(
+  repositoryId: string,
+  selector: string,
+  pop = false,
+): Promise<RepoStatus> {
+  return repoStatusSchema.parse(
+    await invoke("apply_stash", { repositoryId, selector, pop }),
+  );
+}
+
+export async function dropStash(
+  repositoryId: string,
+  selector: string,
+): Promise<StashEntry[]> {
+  return z
+    .array(stashEntrySchema)
+    .parse(await invoke("drop_stash", { repositoryId, selector }));
 }

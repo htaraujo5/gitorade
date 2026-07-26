@@ -77,6 +77,9 @@ pub struct RepoStatus {
     pub branch: Option<String>,
     pub staged: Vec<FileChange>,
     pub unstaged: Vec<FileChange>,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,4 +126,65 @@ pub struct SyncInput {
     pub branch: Option<String>,
     #[serde(default)]
     pub set_upstream: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitSummary {
+    pub hash: String,
+    pub short_hash: String,
+    pub parents: Vec<String>,
+    pub subject: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub authored_at: String,
+    pub refs: Vec<String>,
+    pub lane: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphEdge {
+    pub from_hash: String,
+    pub to_hash: String,
+    pub from_lane: usize,
+    pub to_lane: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitGraph {
+    pub commits: Vec<CommitSummary>,
+    pub edges: Vec<GraphEdge>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchInfo {
+    pub name: String,
+    pub is_remote: bool,
+    pub is_current: bool,
+    pub is_head: bool,
+    pub upstream: Option<String>,
+    pub ahead: Option<u32>,
+    pub behind: Option<u32>,
+    pub tip_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StashEntry {
+    pub index: u32,
+    pub selector: String,
+    pub message: String,
+    pub authored_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpstreamStatus {
+    pub branch: Option<String>,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
 }

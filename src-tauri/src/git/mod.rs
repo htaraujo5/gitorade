@@ -5,6 +5,16 @@ use std::process::Command;
 use crate::domain::{CommitResult, FileChange, GitPrerequisite, RemoteInfo, RepoStatus};
 use crate::error::{AppError, AppResult};
 
+pub mod branches;
+pub mod history;
+pub mod stash;
+
+pub use branches::{
+    checkout_branch, create_branch, delete_branch, list_branches, rename_branch, upstream_status,
+};
+pub use history::{commit_graph, search_commits};
+pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
+
 /// Runs git with explicit args (never through a shell).
 pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
     let mut cmd = Command::new("git");
@@ -139,10 +149,20 @@ pub fn status(path: &Path) -> AppResult<RepoStatus> {
         }
     }
 
+    let upstream = branches::upstream_status(path).unwrap_or(crate::domain::UpstreamStatus {
+        branch: branch.clone(),
+        upstream: None,
+        ahead: 0,
+        behind: 0,
+    });
+
     Ok(RepoStatus {
         branch,
         staged,
         unstaged,
+        upstream: upstream.upstream,
+        ahead: upstream.ahead,
+        behind: upstream.behind,
     })
 }
 

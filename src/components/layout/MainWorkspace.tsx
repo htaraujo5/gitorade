@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useAppStore } from "../../stores/appStore";
+import type { RemoteInfo } from "../../lib/api";
 import { BrandMark } from "../BrandMark";
 
 const tabs = [
@@ -68,13 +70,16 @@ export function MainWorkspace() {
         {!repo ? (
           <EmptyHome health={health} bootLoading={bootLoading} bootError={bootError} />
         ) : workspaceTab === "changes" ? (
-          <DiffPane
-            selectedFile={selectedFile}
-            diffText={diffText}
-            stagedCount={status?.staged.length ?? 0}
-            unstagedCount={status?.unstaged.length ?? 0}
-            lastCommit={lastCommit}
-          />
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <RemotesBar />
+            <DiffPane
+              selectedFile={selectedFile}
+              diffText={diffText}
+              stagedCount={status?.staged.length ?? 0}
+              unstagedCount={status?.unstaged.length ?? 0}
+              lastCommit={lastCommit}
+            />
+          </div>
         ) : (
           <div className="text-sm text-text-muted">Em breve.</div>
         )}
@@ -125,6 +130,87 @@ function EmptyHome({
           </dl>
         )}
       </div>
+    </div>
+  );
+}
+
+function RemotesBar() {
+  const { remotes, addRemote, removeRemote, busy } = useAppStore();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("origin");
+  const [url, setUrl] = useState("");
+
+  return (
+    <div className="rounded-[var(--radius-md)] border border-border bg-bg-secondary">
+      <div className="flex items-center justify-between px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-medium uppercase tracking-wide text-text-muted">Remotes</span>
+          {remotes.length === 0 ? (
+            <span className="text-text-muted">nenhum configurado</span>
+          ) : (
+            remotes.map((remote: RemoteInfo) => (
+              <span
+                key={remote.name}
+                className="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5"
+                title={remote.fetchUrl ?? remote.pushUrl ?? ""}
+              >
+                <span className="text-branch-secondary">{remote.name}</span>
+                <span className="max-w-[220px] truncate text-text-muted">
+                  {remote.fetchUrl ?? remote.pushUrl}
+                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="text-text-muted hover:text-danger"
+                  onClick={() => void removeRemote(remote.name)}
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+        <button
+          type="button"
+          className="text-xs text-primary hover:underline"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? "Fechar" : "Adicionar"}
+        </button>
+      </div>
+      {open && (
+        <form
+          className="flex gap-2 border-t border-border p-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void addRemote(name, url);
+            setUrl("");
+            setOpen(false);
+          }}
+        >
+          <input
+            className="w-28 rounded-[var(--radius-sm)] border border-border bg-bg px-2 py-1.5 text-xs outline-none focus:border-primary"
+            placeholder="nome"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <input
+            className="flex-1 rounded-[var(--radius-sm)] border border-border bg-bg px-2 py-1.5 text-xs outline-none focus:border-primary"
+            placeholder="URL (https/ssh)"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            required
+          />
+          <button
+            type="submit"
+            disabled={busy || !url.trim()}
+            className="brand-gradient rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          >
+            Add
+          </button>
+        </form>
+      )}
     </div>
   );
 }

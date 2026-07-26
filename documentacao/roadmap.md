@@ -48,11 +48,12 @@ Aplicativo desktop Windows local-first para Git, com **múltiplas identidades** 
 
 ### Fase 2 — Remotos
 
-- [ ] Clone/init, remotes
-- [ ] Fetch/pull/push com progresso e cancelamento
-- [ ] Autenticação via SSH Agent / GCM
+- [x] Clone/init, remotes (add/remove/list)
+- [x] Fetch/pull/push com progresso (evento `git://progress`) e cancelamento
+- [x] Autenticação via SSH Agent / GCM (sem prompt interativo, `GIT_TERMINAL_PROMPT=0`)
+- [x] Redaction de tokens em logs/erros de streaming
 
-**Aceite:** uso diário básico com remoto.
+**Aceite:** uso diário básico com remoto. ✅
 
 ### Fase 3 — Histórico e branches
 

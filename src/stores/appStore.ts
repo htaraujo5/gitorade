@@ -3,18 +3,22 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type {
   AppHealth,
+  BranchInfo,
+  CommitGraph,
   CommitResult,
+  CommitSummary,
   CreateProfileInput,
   FileChange,
   Profile,
   RemoteInfo,
   RepoStatus,
   Repository,
+  StashEntry,
 } from "../lib/api";
 import * as api from "../lib/api";
 import { progressEventSchema } from "../lib/api";
 
-type WorkspaceTab = "graph" | "commits" | "changes" | "files";
+type WorkspaceTab = "graph" | "commits" | "changes" | "branches" | "stash" | "files";
 type RightTab = "changes" | "credentials";
 
 type SelectedFile = {
@@ -58,6 +62,13 @@ type AppState = {
   remotes: RemoteInfo[];
   operation: ActiveOperation | null;
 
+  graph: CommitGraph | null;
+  commitQuery: string;
+  filteredCommits: CommitSummary[] | null;
+  branches: BranchInfo[];
+  stash: StashEntry[];
+  branchFilter: string;
+
   bootstrap: () => Promise<void>;
   refreshRepositories: () => Promise<void>;
   refreshProfiles: () => Promise<void>;
@@ -69,6 +80,19 @@ type AppState = {
   removeRepository: (id: string) => Promise<void>;
   refreshStatus: () => Promise<void>;
   refreshRemotes: () => Promise<void>;
+  refreshHistory: () => Promise<void>;
+  refreshBranches: () => Promise<void>;
+  refreshStash: () => Promise<void>;
+  setCommitQuery: (query: string) => void;
+  searchCommits: () => Promise<void>;
+  setBranchFilter: (query: string) => void;
+  createBranch: (name: string, checkout?: boolean) => Promise<void>;
+  checkoutBranch: (name: string) => Promise<void>;
+  renameBranch: (oldName: string, newName: string) => Promise<void>;
+  deleteBranch: (name: string, force?: boolean) => Promise<void>;
+  createStash: (message?: string) => Promise<void>;
+  applyStash: (selector: string, pop?: boolean) => Promise<void>;
+  dropStash: (selector: string) => Promise<void>;
   addRemote: (name: string, url: string) => Promise<void>;
   removeRemote: (name: string) => Promise<void>;
   stage: (paths: string[]) => Promise<void>;
@@ -119,9 +143,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   error: null,
   remotes: [],
   operation: null,
+  graph: null,
+  commitQuery: "",
+  filteredCommits: null,
+  branches: [],
+  stash: [],
+  branchFilter: "",
 
   clearNotice: () => set({ notice: null, error: null }),
   dismissOperation: () => set({ operation: null }),
+  setCommitQuery: (query) => set({ commitQuery: query }),
+  setBranchFilter: (query) => set({ branchFilter: query }),
 
   bootstrap: async () => {
     set({ bootLoading: true, bootError: null });
@@ -200,14 +232,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       commitMessage: "",
       lastCommit: null,
       error: null,
-      workspaceTab: "changes",
+      workspaceTab: "graph",
       remotes: [],
+      graph: null,
+      filteredCommits: null,
+      branches: [],
+      stash: [],
+      commitQuery: "",
+      branchFilter: "",
     });
     const repo = get().repositories.find((r) => r.id === id);
     set({
       commitOverrideProfileId: repo?.defaultProfileId ?? null,
     });
-    await Promise.all([get().refreshStatus(), get().refreshRemotes()]);
+    await Promise.all([
+      get().refreshStatus(),
+      get().refreshRemotes(),
+      get().refreshHistory(),
+      get().refreshBranches(),
+      get().refreshStash(),
+    ]);
   },
 
   initRepositoryDialog: async () => {
@@ -305,6 +349,157 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ remotes });
     } catch {
       set({ remotes: [] });
+    }
+  },
+
+  refreshHistory: async () => {
+    const id = get().activeRepoId;
+    if (!id) {
+      set({ graph: null, filteredCommits: null });
+      return;
+    }
+    try {
+      const graph = await api.getCommitGraph(id, 150);
+      set({ graph, filteredCommits: null });
+    } catch (err) {
+      set({ error: errMsg(err) });
+    }
+  },
+
+  searchCommits: async () => {
+    const id = get().activeRepoId;
+    const query = get().commitQuery.trim();
+    if (!id) return;
+    if (!query) {
+      set({ filteredCommits: null });
+      return;
+    }
+    try {
+      const filteredCommits = await api.searchCommits(id, query, 100);
+      set({ filteredCommits });
+    } catch (err) {
+      set({ error: errMsg(err) });
+    }
+  },
+
+  refreshBranches: async () => {
+    const id = get().activeRepoId;
+    if (!id) {
+      set({ branches: [] });
+      return;
+    }
+    try {
+      const branches = await api.listBranches(id);
+      set({ branches });
+    } catch (err) {
+      set({ error: errMsg(err) });
+    }
+  },
+
+  refreshStash: async () => {
+    const id = get().activeRepoId;
+    if (!id) {
+      set({ stash: [] });
+      return;
+    }
+    try {
+      const stash = await api.listStash(id);
+      set({ stash });
+    } catch {
+      set({ stash: [] });
+    }
+  },
+
+  createBranch: async (name, checkout = true) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const branches = await api.createBranch(id, name, checkout);
+      set({ branches, busy: false, notice: `Branch ${name} criada.` });
+      await Promise.all([get().refreshStatus(), get().refreshHistory()]);
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  checkoutBranch: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const branches = await api.checkoutBranch(id, name);
+      set({ branches, busy: false, notice: `Checkout: ${name}` });
+      await Promise.all([
+        get().refreshStatus(),
+        get().refreshHistory(),
+        get().refreshRepositories(),
+      ]);
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  renameBranch: async (oldName, newName) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const branches = await api.renameBranch(id, oldName, newName);
+      set({ branches, busy: false, notice: `Branch renomeada para ${newName}.` });
+      await get().refreshStatus();
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  deleteBranch: async (name, force = false) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const branches = await api.deleteBranch(id, name, force);
+      set({ branches, busy: false, notice: `Branch ${name} removida.` });
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  createStash: async (message) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const stash = await api.createStash(id, message, true);
+      set({ stash, busy: false, notice: "Stash criado." });
+      await get().refreshStatus();
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  applyStash: async (selector, pop = false) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const status = await api.applyStash(id, selector, pop);
+      set({ status, busy: false, notice: pop ? "Stash aplicado e removido." : "Stash aplicado." });
+      await get().refreshStash();
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  dropStash: async (selector) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const stash = await api.dropStash(id, selector);
+      set({ stash, busy: false, notice: "Stash removido." });
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
     }
   },
 

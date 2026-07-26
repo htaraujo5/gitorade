@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { BrandMark } from "../BrandMark";
 import { useAppStore } from "../../stores/appStore";
 
@@ -8,12 +8,16 @@ export function Sidebar() {
     activeRepoId,
     selectRepository,
     openRepositoryDialog,
+    initRepositoryDialog,
+    cloneRepository,
     toggleFavorite,
     removeRepository,
     setRightTab,
     busy,
   } = useAppStore();
 
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [cloneUrl, setCloneUrl] = useState("");
   const favorites = repositories.filter((r) => r.isFavorite);
 
   return (
@@ -22,7 +26,7 @@ export function Sidebar() {
         <BrandMark />
       </div>
 
-      <div className="border-b border-border px-3 py-3">
+      <div className="space-y-2 border-b border-border px-3 py-3">
         <button
           type="button"
           disabled={busy}
@@ -31,6 +35,50 @@ export function Sidebar() {
         >
           Abrir repositório
         </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setCloneOpen((v) => !v)}
+            className="flex-1 rounded-[var(--radius-sm)] border border-border px-2 py-1.5 text-xs text-text-muted transition hover:bg-surface hover:text-text disabled:opacity-50"
+          >
+            Clonar
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void initRepositoryDialog()}
+            className="flex-1 rounded-[var(--radius-sm)] border border-border px-2 py-1.5 text-xs text-text-muted transition hover:bg-surface hover:text-text disabled:opacity-50"
+          >
+            Init
+          </button>
+        </div>
+        {cloneOpen && (
+          <form
+            className="space-y-2 rounded-[var(--radius-sm)] border border-border p-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void cloneRepository(cloneUrl);
+              setCloneUrl("");
+              setCloneOpen(false);
+            }}
+          >
+            <input
+              className="w-full rounded-[var(--radius-sm)] border border-border bg-bg px-2 py-1.5 text-xs outline-none focus:border-primary"
+              placeholder="URL do repositório (https/ssh)"
+              value={cloneUrl}
+              onChange={(e) => setCloneUrl(e.target.value)}
+              required
+            />
+            <button
+              type="submit"
+              disabled={busy || !cloneUrl.trim()}
+              className="brand-gradient w-full rounded-[var(--radius-sm)] px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            >
+              Escolher destino e clonar
+            </button>
+          </form>
+        )}
       </div>
 
       <nav className="flex-1 overflow-auto px-3 py-4 text-sm">
