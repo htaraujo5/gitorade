@@ -22,8 +22,13 @@ pub fn run() {
         .manage(database)
         .manage(OperationRegistry::default())
         .manage(TerminalRegistry::default())
+        .setup(|app| {
+            git::ssh_env::start_askpass_bridge(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_health,
+            commands::respond_ssh_askpass,
             commands::list_profiles,
             commands::create_profile,
             commands::update_profile,

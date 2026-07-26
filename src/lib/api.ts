@@ -303,6 +303,23 @@ export async function pushRemote(input: SyncInput): Promise<string> {
   return z.string().parse(await invoke("push_remote", { input }));
 }
 
+export type SshAskpassRequest = {
+  requestId: string;
+  prompt: string;
+};
+
+export async function respondSshAskpass(input: {
+  requestId: string;
+  passphrase?: string | null;
+  cancelled?: boolean;
+}): Promise<void> {
+  await invoke("respond_ssh_askpass", {
+    requestId: input.requestId,
+    passphrase: input.cancelled ? null : (input.passphrase ?? null),
+    cancelled: input.cancelled ?? false,
+  });
+}
+
 export async function getCommitGraph(
   repositoryId: string,
   limit = 120,
