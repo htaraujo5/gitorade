@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0b;
+  --color-bg-secondary: #121214;
+  --color-surface: #1c1c21;
+  --color-border: #2a2a32;
+  --color-primary: #7c6cff;
+  --color-primary-hover: #6a58f5;
+  --color-accent: #e14bb8;
+  --color-brand-from: #6b5cff;
+  --color-brand-to: #e040a0;
+  --color-success: #238636;
+  --color-danger: #da3633;
+  --color-warning: #d29922;
+  --color-info: #58a6ff;
+  --color-text: #f2f2f5;
+  --color-text-muted: #9a9aad;
+  --color-branch-current: #7c6cff;
+  --color-branch-secondary: #e14bb8;
+  --color-merge: #238636;
+  --color-rebase: #d29922;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-brand-from), var(--color-brand-to));
+}
+
+.brand-gradient-text {
+  background-image: linear-gradient(135deg, var(--color-brand-from), var(--color-brand-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
