@@ -15,11 +15,12 @@ import { OperationOverlay } from "./components/OperationOverlay";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
 import { OpeningRepoOverlay } from "./components/OpeningRepoOverlay";
-import { AppChrome } from "./components/layout/AppChrome";
+import { TitleBar } from "./components/layout/TitleBar";
 import { IconTerminal } from "./components/Icons";
 import { WelcomeSetup } from "./components/WelcomeSetup";
 import { BootSplash } from "./components/BootSplash";
 import { AlertModal } from "./components/AlertModal";
+import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
 import { FeedbackModal } from "./components/FeedbackModal";
 import {
   applyMainWindow,

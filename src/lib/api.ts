@@ -392,10 +392,11 @@ export async function createBranch(
 export async function checkoutBranch(
   repositoryId: string,
   name: string,
+  force = false,
 ): Promise<BranchInfo[]> {
   return z
     .array(branchInfoSchema)
-    .parse(await invoke("checkout_branch", { repositoryId, name }));
+    .parse(await invoke("checkout_branch", { repositoryId, name, force }));
 }
 
 export async function renameBranch(

@@ -12,7 +12,8 @@ pub mod ssh_env;
 pub mod stash;
 
 pub use branches::{
-    checkout_branch, create_branch, delete_branch, list_branches, rename_branch, upstream_status,
+    checkout_branch, checkout_branch_force, create_branch, delete_branch, list_branches,
+    rename_branch, upstream_status,
 };
 pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
 pub use integrate::{

@@ -180,10 +180,10 @@ function MenuButton({
         role="menuitem"
         aria-haspopup="true"
         aria-expanded={open}
-        className={`rounded px-2.5 py-0.5 text-[11px] ${
+        className={`rounded px-2 py-0.5 text-[11px] leading-none ${
           open
             ? "bg-[#2a2e38] text-[#e8eaed]"
-            : "text-[#a8adb8] hover:bg-[#1c1f26] hover:text-[#e8eaed]"
+            : "text-[#a8adb8] hover:bg-[#252830] hover:text-[#e8eaed]"
         }`}
         onClick={() => (open ? onClose() : onOpen())}
         onMouseEnter={onHoverOpen}

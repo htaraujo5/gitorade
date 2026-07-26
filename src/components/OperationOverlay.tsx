@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "../stores/appStore";
 import { respondSshAskpass, type SshAskpassRequest } from "../lib/api";
+import {
+  extractSshKeyFromPrompt,
+  getCachedPassphrase,
+  rememberPassphrase,
+  shouldSkipAskpass,
+} from "../lib/sshPassphraseMemory";
 
 function friendlyPrompt(raw: string): { title: string; detail: string | null } {
   const lower = raw.toLowerCase();
@@ -28,17 +34,31 @@ export function OperationOverlay() {
 
   const [askpass, setAskpass] = useState<SshAskpassRequest | null>(null);
   const [passphrase, setPassphrase] = useState("");
+  const [dontAskAgain, setDontAskAgain] = useState(false);
   const [askBusy, setAskBusy] = useState(false);
 
   const done = operation?.done ?? false;
   const waitingSsh = Boolean(askpass) && !done;
+  const keyId = askpass ? extractSshKeyFromPrompt(askpass.prompt) : null;
 
   useEffect(() => {
     let alive = true;
     const unlisten = listen<SshAskpassRequest>("ssh://askpass", (event) => {
       if (!alive) return;
-      setAskpass(event.payload);
-      setPassphrase("");
+      const req = event.payload;
+      const id = extractSshKeyFromPrompt(req.prompt);
+      const auto = shouldSkipAskpass(id);
+      if (auto) {
+        void respondSshAskpass({
+          requestId: req.requestId,
+          passphrase: auto,
+          cancelled: false,
+        });
+        return;
+      }
+      setAskpass(req);
+      setPassphrase(getCachedPassphrase(id));
+      setDontAskAgain(false);
       setAskBusy(false);
     });
     return () => {
@@ -64,24 +84,7 @@ export function OperationOverlay() {
       if (e.key !== "Escape") return;
       if (askpass) {
         e.preventDefault();
-        void (async () => {
-          if (askBusy) return;
-          setAskBusy(true);
-          try {
-            await respondSshAskpass({
-              requestId: askpass.requestId,
-              passphrase: null,
-              cancelled: true,
-            });
-          } catch {
-            /* ignore */
-          } finally {
-            setAskpass(null);
-            setPassphrase("");
-            setAskBusy(false);
-            if (operation && !operation.done) void cancelOperation();
-          }
-        })();
+        void submitAskpass(true);
         return;
       }
       if (!operation) return;
@@ -91,19 +94,22 @@ export function OperationOverlay() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [
-    operation,
-    askpass,
-    askBusy,
-    done,
-    cancelOperation,
-    dismissOperation,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submitAskpass reads latest state
+  }, [operation, askpass, askBusy, done, cancelOperation, dismissOperation, passphrase]);
+
+  const onPassphraseChange = (value: string) => {
+    setPassphrase(value);
+    if (keyId) rememberPassphrase(keyId, value, dontAskAgain);
+  };
 
   const submitAskpass = async (cancelled: boolean) => {
     if (!askpass || askBusy) return;
     setAskBusy(true);
+    const id = extractSshKeyFromPrompt(askpass.prompt);
     try {
+      if (!cancelled) {
+        rememberPassphrase(id, passphrase, dontAskAgain);
+      }
       await respondSshAskpass({
         requestId: askpass.requestId,
         passphrase: cancelled ? null : passphrase,
@@ -113,7 +119,7 @@ export function OperationOverlay() {
       // SSH fails / times out
     } finally {
       setAskpass(null);
-      setPassphrase("");
+      if (cancelled) setPassphrase("");
       setAskBusy(false);
       if (cancelled && operation && !operation.done) {
         void cancelOperation();
@@ -222,9 +228,23 @@ export function OperationOverlay() {
                 autoComplete="current-password"
                 value={passphrase}
                 disabled={askBusy}
-                onChange={(e) => setPassphrase(e.target.value)}
+                onChange={(e) => onPassphraseChange(e.target.value)}
                 className="mt-1 h-9 w-full rounded border border-border bg-bg px-3 text-[13px] text-[#f0f1f4] outline-none focus:border-[#a371f7]"
               />
+            </label>
+            <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-[12px] text-[#c8ccd4]">
+              <input
+                type="checkbox"
+                checked={dontAskAgain}
+                disabled={askBusy}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setDontAskAgain(checked);
+                  if (keyId) rememberPassphrase(keyId, passphrase, checked);
+                }}
+                className="h-3.5 w-3.5 accent-[#a371f7]"
+              />
+              Não perguntar novamente nesta sessão
             </label>
             <div className="mt-3 flex justify-end gap-2">
               <button
