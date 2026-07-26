@@ -29,7 +29,7 @@ export async function applySplashWindow(): Promise<void> {
 
 export async function applySetupWindow(): Promise<void> {
   const win = getCurrentWindow();
-  await safe("decorations", () => win.setDecorations(true));
+  await safe("decorations", () => win.setDecorations(false));
   await safe("resizable", () => win.setResizable(false));
   await safe("minimizable", () => win.setMinimizable(true));
   await safe("maximizable", () => win.setMaximizable(false));
@@ -47,8 +47,8 @@ export async function applySetupWindow(): Promise<void> {
 export async function applyMainWindow(): Promise<void> {
   const win = getCurrentWindow();
 
-  // Restore OS title bar (min / max / close) — needs ACL allow-set-decorations
-  await safe("decorations", () => win.setDecorations(true));
+  // Custom AppChrome — OS title bar must stay OFF
+  await safe("decorations", () => win.setDecorations(false));
   await safe("resizable", () => win.setResizable(true));
   await safe("maximizable", () => win.setMaximizable(true));
   await safe("minimizable", () => win.setMinimizable(true));
@@ -67,7 +67,7 @@ export async function applyMainWindow(): Promise<void> {
 
   window.setTimeout(() => {
     void (async () => {
-      await safe("decorations-retry", () => win.setDecorations(true));
+      await safe("decorations-retry", () => win.setDecorations(false));
       await safe("size-retry", () =>
         win.setSize(new LogicalSize(APP_SIZE.width, APP_SIZE.height)),
       );

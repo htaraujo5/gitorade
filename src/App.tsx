@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { RepoToolbar } from "./components/layout/Header";
-import { TabBar } from "./components/layout/TabBar";
 import { MainWorkspace } from "./components/layout/MainWorkspace";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Dashboard } from "./components/dashboard/Dashboard";
@@ -16,11 +15,12 @@ import { OperationOverlay } from "./components/OperationOverlay";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
 import { OpeningRepoOverlay } from "./components/OpeningRepoOverlay";
-import { MenuBar } from "./components/layout/MenuBar";
+import { AppChrome } from "./components/layout/AppChrome";
 import { IconTerminal } from "./components/Icons";
 import { WelcomeSetup } from "./components/WelcomeSetup";
 import { BootSplash } from "./components/BootSplash";
 import { AlertModal } from "./components/AlertModal";
+import { FeedbackModal } from "./components/FeedbackModal";
 import {
   applyMainWindow,
   applySetupWindow,
@@ -58,6 +58,7 @@ function App() {
   );
   const [setupDone, setSetupDone] = useState(false);
   const [splashProgress, setSplashProgress] = useState(0.15);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const unsub = usePrefsStore.persist.onFinishHydration(() => {
@@ -203,9 +204,8 @@ function App() {
   else if (appView === "about") main = <AboutPage />;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#171a20]">
-      <TabBar />
-      <MenuBar />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#171a20]">
+      <AppChrome onFeedback={() => setFeedbackOpen(true)} />
       {inRepo && <RepoToolbar />}
       <div className="flex min-h-0 flex-1 flex-col">
         {inRepo ? (
@@ -258,6 +258,7 @@ function App() {
         )}
       </div>
       <OperationOverlay />
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (
         <AlertModal title="Algo deu errado" onClose={clearNotice}>
