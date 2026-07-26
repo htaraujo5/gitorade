@@ -1,14 +1,15 @@
 use tauri::{AppHandle, State};
 
 use crate::domain::{
-    AppHealth, BranchInfo, CloneInput, CommitGraph, CommitInput, CommitResult, CommitSummary,
-    CreateProfileInput, Profile, RemoteInfo, RepoStatus, Repository, StashEntry, SyncInput,
-    UpdateProfileInput, UpstreamStatus,
+    AppHealth, BranchInfo, CloneInput, CommitFileChange, CommitGraph, CommitInput, CommitResult,
+    CommitSummary, CreateProfileInput, IntegrateResult, IntegrateState, Profile, RemoteInfo,
+    RepoStatus, Repository, StashEntry, SyncInput, UpdateProfileInput, UpstreamStatus,
 };
 use crate::error::{AppError, AppResult};
 use crate::git;
 use crate::ops::OperationRegistry;
 use crate::storage::Database;
+use crate::terminal::TerminalRegistry;
 
 #[tauri::command]
 pub fn get_app_health(db: State<'_, Database>) -> AppResult<AppHealth> {
@@ -184,16 +185,12 @@ pub async fn fetch_remote(
     input: SyncInput,
 ) -> AppResult<RepoStatus> {
     let repo = require_repo(&db, &input.repository_id)?;
-    let path = repo.path.clone();
-    let args = git::fetch_args(input.remote.as_deref());
-    crate::ops::run_streaming(
-        &app,
-        &registry,
-        &input.operation_id,
-        &args,
-        Some(std::path::Path::new(&path)),
-    )?;
-    git::status(std::path::Path::new(&path))
+    let path = std::path::Path::new(&repo.path);
+    ensure_has_remote(path)?;
+    let remote = resolve_remote(path, input.remote.as_deref())?;
+    let args = git::fetch_args(Some(&remote));
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path))?;
+    git::status(path)
 }
 
 #[tauri::command]
@@ -204,16 +201,18 @@ pub async fn pull_remote(
     input: SyncInput,
 ) -> AppResult<RepoStatus> {
     let repo = require_repo(&db, &input.repository_id)?;
-    let path = repo.path.clone();
-    let args = git::pull_args(input.remote.as_deref(), input.branch.as_deref());
-    crate::ops::run_streaming(
-        &app,
-        &registry,
-        &input.operation_id,
-        &args,
-        Some(std::path::Path::new(&path)),
-    )?;
-    git::status(std::path::Path::new(&path))
+    let path = std::path::Path::new(&repo.path);
+    ensure_has_remote(path)?;
+    let remote = resolve_remote(path, input.remote.as_deref())?;
+    // Always pass remote+branch so pull works even without upstream tracking.
+    let branch = input
+        .branch
+        .clone()
+        .or_else(|| git::current_branch(path).ok().flatten())
+        .ok_or_else(|| AppError::Message("Branch atual não encontrada para pull.".into()))?;
+    let args = git::pull_args(Some(&remote), Some(&branch));
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path))?;
+    git::status(path)
 }
 
 #[tauri::command]
@@ -224,19 +223,42 @@ pub async fn push_remote(
     input: SyncInput,
 ) -> AppResult<String> {
     let repo = require_repo(&db, &input.repository_id)?;
-    let path = repo.path.clone();
-    let args = git::push_args(
-        input.remote.as_deref(),
-        input.branch.as_deref(),
-        input.set_upstream,
-    );
-    crate::ops::run_streaming(
-        &app,
-        &registry,
-        &input.operation_id,
-        &args,
-        Some(std::path::Path::new(&path)),
-    )
+    let path = std::path::Path::new(&repo.path);
+    ensure_has_remote(path)?;
+    let remote = resolve_remote(path, input.remote.as_deref())?;
+    let branch = input
+        .branch
+        .clone()
+        .or_else(|| git::current_branch(path).ok().flatten())
+        .ok_or_else(|| AppError::Message("Branch atual não encontrada para push.".into()))?;
+    let args = git::push_args(Some(&remote), Some(&branch), true);
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path))
+}
+
+fn ensure_has_remote(path: &std::path::Path) -> AppResult<()> {
+    let remotes = git::list_remotes(path)?;
+    if remotes.is_empty() {
+        return Err(AppError::Message(
+            "Nenhum remote configurado. Adicione um remote (ex.: origin) na aba Changes antes de Pull/Push/Fetch.".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn resolve_remote(path: &std::path::Path, preferred: Option<&str>) -> AppResult<String> {
+    let remotes = git::list_remotes(path)?;
+    if let Some(name) = preferred {
+        if remotes.iter().any(|r| r.name == name) {
+            return Ok(name.to_string());
+        }
+    }
+    if let Some(origin) = remotes.iter().find(|r| r.name == "origin") {
+        return Ok(origin.name.clone());
+    }
+    remotes
+        .first()
+        .map(|r| r.name.clone())
+        .ok_or_else(|| AppError::Message("Nenhum remote disponível.".into()))
 }
 
 #[tauri::command]
@@ -262,6 +284,38 @@ pub fn search_commits(
         &query,
         limit.unwrap_or(80),
     )
+}
+
+#[tauri::command]
+pub fn get_commit_files(
+    db: State<'_, Database>,
+    repository_id: String,
+    hash: String,
+) -> AppResult<Vec<CommitFileChange>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::commit_files(std::path::Path::new(&repo.path), &hash)
+}
+
+#[tauri::command]
+pub fn get_commit_file_diff(
+    db: State<'_, Database>,
+    repository_id: String,
+    hash: String,
+    path: String,
+) -> AppResult<String> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::commit_file_diff(std::path::Path::new(&repo.path), &hash, &path)
+}
+
+#[tauri::command]
+pub fn get_file_at_commit(
+    db: State<'_, Database>,
+    repository_id: String,
+    hash: String,
+    path: String,
+) -> AppResult<String> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::file_at_commit(std::path::Path::new(&repo.path), &hash, &path)
 }
 
 #[tauri::command]
@@ -372,6 +426,144 @@ pub fn drop_stash(
     let path = std::path::Path::new(&repo.path);
     git::drop_stash(path, &selector)?;
     git::list_stash(path)
+}
+
+#[tauri::command]
+pub fn merge_branch(
+    db: State<'_, Database>,
+    repository_id: String,
+    branch: String,
+) -> AppResult<IntegrateResult> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::merge_branch(std::path::Path::new(&repo.path), &branch)
+}
+
+#[tauri::command]
+pub fn cherry_pick_commit(
+    db: State<'_, Database>,
+    repository_id: String,
+    commit: String,
+) -> AppResult<IntegrateResult> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::cherry_pick(std::path::Path::new(&repo.path), &commit)
+}
+
+#[tauri::command]
+pub fn rebase_onto(
+    db: State<'_, Database>,
+    repository_id: String,
+    upstream: String,
+) -> AppResult<IntegrateResult> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::rebase_onto(std::path::Path::new(&repo.path), &upstream)
+}
+
+#[tauri::command]
+pub fn abort_integrate(
+    db: State<'_, Database>,
+    repository_id: String,
+) -> AppResult<IntegrateState> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::abort_integrate(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn continue_integrate(
+    db: State<'_, Database>,
+    repository_id: String,
+) -> AppResult<IntegrateResult> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::continue_integrate(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn resolve_conflict(
+    db: State<'_, Database>,
+    repository_id: String,
+    path: String,
+    strategy: String,
+    content: Option<String>,
+) -> AppResult<IntegrateState> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::resolve_conflict(
+        std::path::Path::new(&repo.path),
+        &path,
+        &strategy,
+        content.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn read_conflict_file(
+    db: State<'_, Database>,
+    repository_id: String,
+    path: String,
+) -> AppResult<String> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::read_worktree_file(std::path::Path::new(&repo.path), &path)
+}
+
+#[tauri::command]
+pub fn list_repo_files(
+    db: State<'_, Database>,
+    repository_id: String,
+) -> AppResult<Vec<String>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let raw = git::run_git(
+        &["ls-files", "-z"],
+        Some(std::path::Path::new(&repo.path)),
+    )?;
+    Ok(raw
+        .split('\0')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+#[tauri::command]
+pub fn terminal_create(
+    app: AppHandle,
+    terminals: State<'_, TerminalRegistry>,
+    db: State<'_, Database>,
+    repository_id: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> AppResult<String> {
+    let cwd = if let Some(id) = repository_id {
+        let repo = require_repo(&db, &id)?;
+        Some(std::path::PathBuf::from(repo.path))
+    } else {
+        None
+    };
+    terminals.create(app, cwd.as_deref(), cols, rows)
+}
+
+#[tauri::command]
+pub fn terminal_write(
+    terminals: State<'_, TerminalRegistry>,
+    session_id: String,
+    data: String,
+) -> AppResult<()> {
+    terminals.write(&session_id, &data)
+}
+
+#[tauri::command]
+pub fn terminal_resize(
+    terminals: State<'_, TerminalRegistry>,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> AppResult<()> {
+    terminals.resize(&session_id, cols, rows)
+}
+
+#[tauri::command]
+pub fn terminal_kill(
+    terminals: State<'_, TerminalRegistry>,
+    session_id: String,
+) -> AppResult<()> {
+    terminals.kill(&session_id)
 }
 
 fn require_repo(db: &Database, id: &str) -> AppResult<Repository> {

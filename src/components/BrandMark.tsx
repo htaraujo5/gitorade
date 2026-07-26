@@ -10,28 +10,36 @@ type BrandMarkProps = {
 export function BrandMark({ compact = false, lockup = false }: BrandMarkProps) {
   if (lockup) {
     return (
-      <img
-        src={brand}
-        alt="gitorade"
-        className="h-10 w-auto object-contain"
-      />
+      <img src={brand} alt="gitorade" className="h-12 w-auto object-contain" />
     );
   }
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-3">
       <img
         src={logo}
         alt=""
-        className={compact ? "h-7 w-7 object-contain" : "h-8 w-8 object-contain"}
+        className={
+          compact
+            ? "h-11 w-11 object-contain"
+            : "h-14 w-14 object-contain"
+        }
         aria-hidden
       />
-      {!compact && (
-        <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight">gitorade</div>
-          <div className="text-[11px] text-text-muted">Seu Git. Seu fluxo. Seu jeito.</div>
+      <div className="leading-tight">
+        <div
+          className={
+            compact
+              ? "text-[16px] font-semibold tracking-tight text-[#f0f1f4]"
+              : "text-lg font-semibold tracking-tight text-[#f0f1f4]"
+          }
+        >
+          gitorade
         </div>
-      )}
+        {!compact && (
+          <div className="text-[11px] text-[#6b7280]">Seu Git. Seu fluxo. Seu jeito.</div>
+        )}
+      </div>
     </div>
   );
 }

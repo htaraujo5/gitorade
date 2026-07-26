@@ -80,6 +80,26 @@ pub struct RepoStatus {
     pub upstream: Option<String>,
     pub ahead: u32,
     pub behind: u32,
+    /// Active integrate op: "merge" | "rebase" | "cherry-pick"
+    #[serde(default)]
+    pub in_progress: Option<String>,
+    #[serde(default)]
+    pub conflicts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrateState {
+    pub kind: Option<String>,
+    pub conflicts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrateResult {
+    pub success: bool,
+    pub message: String,
+    pub state: IntegrateState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,6 +146,13 @@ pub struct SyncInput {
     pub branch: Option<String>,
     #[serde(default)]
     pub set_upstream: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitFileChange {
+    pub path: String,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

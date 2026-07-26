@@ -57,19 +57,46 @@ Aplicativo desktop Windows local-first para Git, com **múltiplas identidades** 
 
 ### Fase 3 — Histórico e branches
 
-- [ ] Histórico paginado + graph inicial
-- [ ] Branches (criar/trocar/renomear/excluir)
-- [ ] Stash + ahead/behind
+- [x] Histórico paginado + graph inicial (lanes + busca)
+- [x] Branches (criar/trocar/renomear/excluir local)
+- [x] Stash (push/apply/pop/drop)
+- [x] Ahead/behind no status e no header
 
-**Aceite:** MVP funcional completo.
+**Aceite:** MVP funcional completo. ✅
 
 ### Fase 4 — Hardening MVP
 
-- [ ] Testes de integração, a11y, performance
-- [ ] Instalador MSI/NSIS, release versionada
+- [x] Testes de integração Rust contra repositórios git temporários (`src-tauri/tests/git_integration.rs`)
+- [x] Correção de edge case: unstage em branch sem commit (HEAD não resolvível)
+- [x] Acessibilidade: foco de teclado (`:focus-visible`), `aria-label`/landmarks, `role` de dialog/progressbar/toolbar, `prefers-reduced-motion`, atalho Ctrl/Cmd+Enter para commit
+- [x] Performance: brand assets reduzidos de ~2 MB para ~6–16 KB (bundle ~4,5 MB → ~350 KB)
+- [x] Instalador MSI/NSIS + metadados de produto (`tauri.conf.json` bundle)
+- [x] Workflow de release versionada (`.github/workflows/release.yml`, disparo por tag `v*`)
+- [x] ADR de hardening (`adr/0008-hardening-mvp.md`)
 
-**Aceite:** MVP distribuível confiável.
+**Aceite:** MVP distribuível confiável. ✅
 
-### V1 / V2
+### V1 — Diff avançado e integração
 
-Ver plano detalhado em `../.cursor/plans` / documentação de escopo. Graph avançado, conflitos, rebase, hooks e plugins ficam pós-MVP.
+- [x] Diff lado a lado (parse unificado → split) com toggle unificado/split
+- [x] Merge de branch na atual (`merge_branch`)
+- [x] Rebase onto (não-interativo)
+- [x] Cherry-pick a partir do graph
+- [x] Detecção de conflitos no status (`inProgress` + `conflicts`)
+- [x] UI de resolução: ours / theirs / edição manual + continuar / abortar
+- [x] Testes de integração de merge/conflito/cherry-pick/rebase
+
+**Aceite:** fluxos diários de integração sem sair do app. ✅
+
+### Redesign de shell (layout mockups)
+
+- [x] Fonte de verdade: `documentacao/layout/` (ADR 0005 atualizado)
+- [x] Sidebar de app (Dashboard / Repos / Favoritos / Histórico + Config)
+- [x] Dashboard home (busca, favoritos, recentes, Ctrl+P)
+- [x] Header com dropdowns projeto/branch
+- [x] Changes em 3 colunas; Credenciais full-page
+- [x] Graph com painel de detalhes do commit (`get_commit_files`)
+
+### V2
+
+Automação (hooks/scripts), performance tuning e plugins — ver `escopo.md`.

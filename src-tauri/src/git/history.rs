@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use crate::domain::{CommitGraph, CommitSummary, GraphEdge};
+use crate::domain::{CommitFileChange, CommitGraph, CommitSummary, GraphEdge};
 use crate::error::AppResult;
 use crate::git::run_git;
 
@@ -169,6 +169,76 @@ pub fn search_commits(path: &Path, query: &str, limit: usize) -> AppResult<Vec<C
         .collect())
 }
 
+/// List files changed in a commit (`git show --name-status --format=`).
+pub fn commit_files(path: &Path, hash: &str) -> AppResult<Vec<CommitFileChange>> {
+    let hash = hash.trim();
+    if hash.is_empty() {
+        return Ok(Vec::new());
+    }
+    let raw = run_git(
+        &["show", "--name-status", "--format=", "--no-color", hash],
+        Some(path),
+    )?;
+    let mut files = Vec::new();
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.split('\t');
+        let status = parts.next().unwrap_or("M").to_string();
+        // Renames: R100\told\tnew — keep the new path
+        let path = parts.next_back().unwrap_or("").to_string();
+        if path.is_empty() {
+            continue;
+        }
+        files.push(CommitFileChange { path, status });
+    }
+    Ok(files)
+}
+
+fn validate_repo_rel_path(file_path: &str) -> AppResult<&str> {
+    let file_path = file_path.trim();
+    if file_path.is_empty() {
+        return Err(crate::error::AppError::Message("Caminho vazio.".into()));
+    }
+    if file_path.contains('\0')
+        || file_path.starts_with('/')
+        || file_path.starts_with('\\')
+        || file_path.contains("..")
+    {
+        return Err(crate::error::AppError::Message(
+            "Caminho de arquivo inválido.".into(),
+        ));
+    }
+    Ok(file_path)
+}
+
+/// Unified diff for a single file in a commit (`git show hash -- path`).
+pub fn commit_file_diff(path: &Path, hash: &str, file_path: &str) -> AppResult<String> {
+    let hash = hash.trim();
+    let file_path = validate_repo_rel_path(file_path)?;
+    if hash.is_empty() {
+        return Ok(String::new());
+    }
+    run_git(
+        &["show", "--no-color", "--format=", hash, "--", file_path],
+        Some(path),
+    )
+}
+
+/// File contents as of a commit (`git show hash:path`).
+pub fn file_at_commit(path: &Path, hash: &str, file_path: &str) -> AppResult<String> {
+    let hash = hash.trim();
+    let file_path = validate_repo_rel_path(file_path)?;
+    if hash.is_empty() {
+        return Ok(String::new());
+    }
+    // `hash:path` — colon form; path must not start with /
+    let spec = format!("{hash}:{file_path}");
+    run_git(&["show", "--no-color", "--textconv", &spec], Some(path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,5 +273,11 @@ mod tests {
         assert_eq!(out[0].lane, 0);
         assert_eq!(out[1].lane, 0);
         assert_eq!(edges.len(), 1);
+    }
+
+    #[test]
+    fn rejects_path_traversal() {
+        assert!(validate_repo_rel_path("../secret").is_err());
+        assert!(validate_repo_rel_path("ok/file.ts").is_ok());
     }
 }

@@ -1,22 +1,26 @@
-# ADR 0005 — UI shell baseado no template
+# ADR 0005 — UI shell baseado nos mockups de layout
 
 ## Status
 
-Accepted
+Accepted (supersedes template-only approach)
 
 ## Context
 
-Foi adicionado `documentacao/template.png` como mockup da aplicação: sidebar, toolbar, graph, painel de changes/credentials, diff, branches e stash.
+O shell inicial foi alinhado a `documentacao/template.png`. Em seguida foram
+adicionados mockups detalhados em `documentacao/layout/` (Dashboard, Histórico,
+Changes em 3 colunas, Credenciais full-page) que definem outra navegação de
+produto — app-level sidebar em vez de lista de repos na barra lateral.
 
 ## Decision
 
-Usar o template como **fonte de verdade do layout e hierarquia**.
-
-- Tokens de cor/tipografia continuam em `styleguide.md`.
-- Estrutura de telas documentada em `ui-layout.md`.
-- Em conflito óbvio entre styleguide genérico e template, prevalece o template.
+- Fonte de verdade do layout: **`documentacao/layout/`**
+- Documentação estrutural: `ui-layout.md`
+- `template.png` permanece como referência histórica / moodboard
+- Em conflito óbvio entre styleguide e layout mockups, prevalece o layout
 
 ## Consequences
 
-- Fase 0 entrega o shell (sidebar/header/tabs/painel direito) mesmo com dados mock.
-- Features reais (Fase 1+) preenchem os painéis sem redesenhar a navegação.
+- Shell React roteia por `appView` (dashboard, history, credentials, …)
+- Painel direito fixo Changes/Credentials foi removido; Changes vive em 3 colunas
+  no workspace; Credenciais é tela dedicada
+- Preferências / SSH / Plugins ficam como placeholders até V2

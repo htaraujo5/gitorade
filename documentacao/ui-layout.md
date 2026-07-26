@@ -1,73 +1,57 @@
 # UI Layout — Gitorade
 
-Fonte visual: [`template.png`](./template.png)  
-Tokens de cor/tipografia: [`styleguide.md`](./styleguide.md)
+Fonte visual: [`layout/`](./layout/) (mockups Dashboard, Histórico, Changes)  
+Histórico: [`template.png`](./template.png) (referência antiga)  
+Tokens: [`styleguide.md`](./styleguide.md)
 
 ## Branding
 
-- Logo ícone: [`logo.png`](./logo.png) — “G” + raio, gradiente violeta → magenta
-- Brand lockup: [`brand.png`](./brand.png) — logo + wordmark `gitorade`
+- Logo: [`logo.png`](./logo.png) / lockup [`brand.png`](./brand.png)
 - Slogan: "Seu Git. Seu fluxo. Seu jeito."
-- Tom: dark-first, denso, técnico, produto Windows
-- Acentos de UI seguem o gradiente da brand (CTAs / Active), superfícies do styleguide
+- Assets em `src/assets/brand/`
 
-Assets consumidos em `src/assets/brand/` (copiados da documentação).
-
-## Shell principal (workspace)
+## Shell (app-level)
 
 ```
-+------------------+----------------------------------------+------------------+
-| Sidebar          | Header (repo + branch + toolbar)       |                  |
-|                  +----------------------------------------+                  |
-| Repositórios     | Tabs: Graph | Commits | Changes | Files| Painel direito  |
-| Favoritos        |                                        | Changes /        |
-| Configurações    | Conteúdo principal (graph/lista)       | Credentials      |
-|                  |                                        | Commit box       |
-+------------------+----------------------------------------+------------------+
++------------------+-----------------------------------------------+
+| App Sidebar      | Main (muda com appView)                        |
+| Dashboard        | Dashboard | Repo list | Credentials | …       |
+| Repositórios     |                                               |
+| Favoritos        | — ou, se Histórico + repo ativo: —            |
+| Histórico        | Header (projeto + branch + toolbar)           |
+| Configurações    | Tabs Graph | Commits | Changes | Branches…  |
+| (perfil + ver)   | Conteúdo do workspace                         |
++------------------+-----------------------------------------------+
 ```
 
-### Sidebar
+### Sidebar de app
 
-- **Repositórios** — lista de projetos abertos/recentes
-- **Favoritos** — atalho
-- **Configurações** — Credenciais, SSH Keys, Preferências, Plugins, About
+- **Dashboard / Repositórios / Favoritos / Histórico** — navegação de produto
+- **Configurações** — Credenciais (tela), SSH Keys / Preferências / Plugins / Sobre (placeholders)
+- Rodapé: avatar inicial + perfil ativo + versão
 
-### Header
+### Dashboard
 
-- Nome do repositório ativo + branch atual
-- Toolbar: Commit · Pull · Push · Fetch · Branch · Merge · Stash
+- Saudação, busca, Abrir / Clonar / Novo
+- Cards de favoritos + lista de recentes
+- Atalho Ctrl+P → abrir repositório
 
-### Main
+### Workspace (Histórico)
 
-- Abas: **Graph**, **Commits**, **Changes**, **Files**
-- Graph: linhas coloridas por branch + lista de commits (badge de branch, mensagem, autor, hash, tempo relativo)
+- Header: dropdowns de projeto e branch + toolbar Commit/Pull/Push/Fetch/Branch/Merge/Stash
+- Abas: Graph · Commits · Changes · Branches · Stash
 
-### Painel direito
+### Changes (3 colunas)
 
-- **Changes:** Staged / Unstaged com checkboxes; mensagem de commit; botão Commit (+ opções)
-- **Credentials:** perfis (nome, provider), badge Active, gerenciar perfis globais
-- Identidade ativa sempre visível (diferencial do produto)
+| Esquerda | Centro | Direita |
+|----------|--------|---------|
+| Staged / Unstaged | Diff (lado a lado / unificado) | Identidade + mensagem + Commit |
 
-## Módulos detalhados (pós-MVP / V1)
+### Graph
 
-| Módulo | Papel |
-|--------|--------|
-| Diff viewer | Lado a lado; remoções vermelho / adições verde |
-| Branches | Local/Remote, search, ahead/behind, Checkout/Merge |
-| Stash | Lista com descrição e timestamp |
-| About / splash | Branding + versão |
+- Lista + lanes à esquerda
+- Painel direito: detalhes do commit (hash, autor, arquivos, “Ver alterações”)
 
-## Mapeamento por fase
+## Nota
 
-| Elemento UI | Fase |
-|-------------|------|
-| Shell (sidebar + header + tabs) | 0–1 |
-| Changes + commit + credentials panel | 1 |
-| Toolbar Pull/Push/Fetch + Clone/Init + Remotes + overlay de progresso | 2 |
-| Graph/Commits básico | 3 |
-| Diff lado a lado, Branches, Stash ricos | 3–V1 |
-| Plugins na sidebar | V2 |
-
-## Nota de design
-
-O layout e hierarquia do `template.png` prevalecem sobre descrições genéricas. Cores/espaçamento seguem o styleguide; onde houver conflito visual óbvio com o template, alinhar ao template e ajustar tokens.
+Os mockups em `documentacao/layout/` prevalecem sobre `template.png`. Cores/espaçamento seguem o styleguide.

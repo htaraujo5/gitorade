@@ -10,6 +10,8 @@ export function BranchesView() {
     checkoutBranch,
     renameBranch,
     deleteBranch,
+    mergeBranch,
+    rebaseOnto,
     status,
     busy,
   } = useAppStore();
@@ -134,6 +136,42 @@ export function BranchesView() {
                   onClick={() => void checkoutBranch(selectedBranch.name)}
                 >
                   Checkout
+                </button>
+              )}
+              {!selectedBranch.isCurrent && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-[var(--radius-sm)] border border-merge/40 px-3 py-2 text-xs text-merge hover:bg-merge/10 disabled:opacity-40"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Mesclar ${selectedBranch.name} na branch atual?`,
+                      )
+                    ) {
+                      void mergeBranch(selectedBranch.name);
+                    }
+                  }}
+                >
+                  Merge into current
+                </button>
+              )}
+              {!selectedBranch.isCurrent && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-[var(--radius-sm)] border border-rebase/40 px-3 py-2 text-xs text-rebase hover:bg-rebase/10 disabled:opacity-40"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Rebase da branch atual sobre ${selectedBranch.name}?`,
+                      )
+                    ) {
+                      void rebaseOnto(selectedBranch.name);
+                    }
+                  }}
+                >
+                  Rebase onto
                 </button>
               )}
               {!selectedBranch.isRemote && !selectedBranch.isCurrent && (

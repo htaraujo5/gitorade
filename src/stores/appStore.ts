@@ -17,9 +17,51 @@ import type {
 } from "../lib/api";
 import * as api from "../lib/api";
 import { progressEventSchema } from "../lib/api";
+import { usePrefsStore } from "./prefsStore";
 
 type WorkspaceTab = "graph" | "commits" | "changes" | "branches" | "stash" | "files";
-type RightTab = "changes" | "credentials";
+type AppView =
+  | "dashboard"
+  | "repositories"
+  | "favorites"
+  | "history"
+  | "credentials"
+  | "ssh"
+  | "settings"
+  | "plugins"
+  | "about";
+
+/** GitKraken-style shell tabs (repos + Start + settings pages). */
+export type ShellTabKind =
+  | "start"
+  | "repo"
+  | "settings"
+  | "credentials"
+  | "about"
+  | "ssh"
+  | "plugins";
+
+export type ShellTab = {
+  id: string;
+  kind: ShellTabKind;
+  repoId?: string;
+  title: string;
+};
+
+export type { WorkspaceTab, AppView };
+
+const START_TAB: ShellTab = { id: "tab-start", kind: "start", title: "Start" };
+
+function tabIdFor(kind: ShellTabKind, repoId?: string): string {
+  if (kind === "repo" && repoId) return `tab-repo-${repoId}`;
+  return `tab-${kind}`;
+}
+
+function appViewForTab(tab: ShellTab): AppView {
+  if (tab.kind === "repo") return "history";
+  if (tab.kind === "start") return "dashboard";
+  return tab.kind;
+}
 
 type SelectedFile = {
   path: string;
@@ -54,8 +96,16 @@ type AppState = {
   lastCommit: CommitResult | null;
 
   workspaceTab: WorkspaceTab;
-  rightTab: RightTab;
+  appView: AppView;
+  shellTabs: ShellTab[];
+  activeShellTabId: string | null;
+  selectedCommitHash: string | null;
+  selectedCommitFile: string | null;
+  commitFileContent: string;
+  commitFileViewMode: "diff" | "file";
+  commitFiles: { status: string; path: string }[];
   busy: boolean;
+  openingRepoName: string | null;
   notice: string | null;
   error: string | null;
 
@@ -64,10 +114,12 @@ type AppState = {
 
   graph: CommitGraph | null;
   commitQuery: string;
+  commitSearchOpen: boolean;
   filteredCommits: CommitSummary[] | null;
   branches: BranchInfo[];
   stash: StashEntry[];
   branchFilter: string;
+  selectedBranchName: string | null;
 
   bootstrap: () => Promise<void>;
   refreshRepositories: () => Promise<void>;
@@ -84,12 +136,31 @@ type AppState = {
   refreshBranches: () => Promise<void>;
   refreshStash: () => Promise<void>;
   setCommitQuery: (query: string) => void;
+  setCommitSearchOpen: (open: boolean) => void;
   searchCommits: () => Promise<void>;
+  clearCommitSearch: () => Promise<void>;
   setBranchFilter: (query: string) => void;
+  setSelectedBranchName: (name: string | null) => void;
   createBranch: (name: string, checkout?: boolean) => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
+  mergeBranch: (name: string) => Promise<void>;
+  rebaseOnto: (upstream: string) => Promise<void>;
+  cherryPick: (commit: string) => Promise<void>;
+  abortIntegrate: () => Promise<void>;
+  continueIntegrate: () => Promise<void>;
+  resolveConflict: (
+    path: string,
+    strategy: "ours" | "theirs" | "content",
+    content?: string,
+  ) => Promise<void>;
+  loadConflictFile: (path: string) => Promise<string>;
+  conflictDraft: string;
+  conflictPath: string | null;
+  setConflictDraft: (value: string) => void;
+  terminalOpen: boolean;
+  setTerminalOpen: (open: boolean) => void;
   createStash: (message?: string) => Promise<void>;
   applyStash: (selector: string, pop?: boolean) => Promise<void>;
   dropStash: (selector: string) => Promise<void>;
@@ -97,12 +168,25 @@ type AppState = {
   removeRemote: (name: string) => Promise<void>;
   stage: (paths: string[]) => Promise<void>;
   unstage: (paths: string[]) => Promise<void>;
-  selectFile: (file: FileChange) => Promise<void>;
+  selectFile: (file: FileChange | null) => Promise<void>;
   setCommitMessage: (message: string) => void;
   setCommitOverrideProfileId: (id: string | null) => void;
   setWorkspaceTab: (tab: WorkspaceTab) => void;
-  setRightTab: (tab: RightTab) => void;
-  createProfile: (input: CreateProfileInput) => Promise<void>;
+  setAppView: (view: AppView) => void;
+  openStartTab: () => void;
+  openSettingsTab: () => void;
+  openCredentialsTab: () => void;
+  openAboutTab: () => void;
+  openSshTab: () => void;
+  openPluginsTab: () => void;
+  activateShellTab: (id: string) => Promise<void>;
+  closeShellTab: (id: string) => void;
+  selectCommit: (hash: string | null) => Promise<void>;
+  selectCommitFile: (path: string | null) => Promise<void>;
+  setCommitFileViewMode: (mode: "diff" | "file") => void;
+  navigateCommitFile: (dir: -1 | 1) => Promise<void>;
+  openCommitFileInWorkingDir: () => Promise<void>;
+  createProfile: (input: CreateProfileInput, opts?: { stay?: boolean }) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
   associateProfile: (profileId: string | null) => Promise<void>;
   commit: () => Promise<void>;
@@ -136,24 +220,41 @@ export const useAppStore = create<AppState>((set, get) => ({
   commitMessage: "",
   commitOverrideProfileId: null,
   lastCommit: null,
-  workspaceTab: "changes",
-  rightTab: "changes",
+  workspaceTab: "graph",
+  appView: "dashboard",
+  shellTabs: [START_TAB],
+  activeShellTabId: START_TAB.id,
+  selectedCommitHash: null,
+  selectedCommitFile: null,
+  commitFileContent: "",
+  commitFileViewMode: "diff",
+  commitFiles: [],
   busy: false,
+  openingRepoName: null,
   notice: null,
   error: null,
   remotes: [],
   operation: null,
   graph: null,
   commitQuery: "",
+  commitSearchOpen: false,
   filteredCommits: null,
   branches: [],
   stash: [],
   branchFilter: "",
+  selectedBranchName: null,
+  conflictDraft: "",
+  conflictPath: null,
+  terminalOpen: false,
 
   clearNotice: () => set({ notice: null, error: null }),
   dismissOperation: () => set({ operation: null }),
   setCommitQuery: (query) => set({ commitQuery: query }),
+  setCommitSearchOpen: (open) => set({ commitSearchOpen: open }),
   setBranchFilter: (query) => set({ branchFilter: query }),
+  setSelectedBranchName: (name) => set({ selectedBranchName: name }),
+  setConflictDraft: (value) => set({ conflictDraft: value }),
+  setTerminalOpen: (open) => set({ terminalOpen: open }),
 
   bootstrap: async () => {
     set({ bootLoading: true, bootError: null });
@@ -183,11 +284,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const health = await api.getAppHealth();
       set({ health });
       await Promise.all([get().refreshRepositories(), get().refreshProfiles()]);
-      const repos = get().repositories;
-      if (repos[0]) {
-        await get().selectRepository(repos[0].id);
-      }
-      set({ bootLoading: false });
+      set({ bootLoading: false, appView: "dashboard", shellTabs: [START_TAB], activeShellTabId: START_TAB.id });
     } catch (err) {
       set({ bootLoading: false, bootError: errMsg(err) });
     }
@@ -206,10 +303,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   openRepositoryDialog: async () => {
     set({ busy: true, error: null });
     try {
+      const defaultPath = usePrefsStore.getState().projectsPath || undefined;
       const selected = await open({
         directory: true,
         multiple: false,
         title: "Abrir repositório Git",
+        defaultPath,
       });
       if (!selected || Array.isArray(selected)) {
         set({ busy: false });
@@ -225,8 +324,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectRepository: async (id) => {
+    const repo = get().repositories.find((r) => r.id === id);
+    const title = repo?.name ?? "Repository";
+    const tabId = tabIdFor("repo", id);
+    const tabs = [...get().shellTabs];
+    const idx = tabs.findIndex((t) => t.id === tabId);
+    if (idx >= 0) {
+      tabs[idx] = { ...tabs[idx], title, repoId: id };
+    } else {
+      tabs.push({ id: tabId, kind: "repo", repoId: id, title });
+    }
+
     set({
+      openingRepoName: title,
       activeRepoId: id,
+      appView: "history",
+      shellTabs: tabs,
+      activeShellTabId: tabId,
       selectedFile: null,
       diffText: "",
       commitMessage: "",
@@ -240,27 +354,44 @@ export const useAppStore = create<AppState>((set, get) => ({
       stash: [],
       commitQuery: "",
       branchFilter: "",
-    });
-    const repo = get().repositories.find((r) => r.id === id);
-    set({
+      selectedBranchName: null,
+      selectedCommitHash: null,
+      commitFiles: [],
+      selectedCommitFile: null,
+      commitFileContent: "",
       commitOverrideProfileId: repo?.defaultProfileId ?? null,
     });
-    await Promise.all([
-      get().refreshStatus(),
-      get().refreshRemotes(),
-      get().refreshHistory(),
-      get().refreshBranches(),
-      get().refreshStash(),
-    ]);
+    try {
+      await Promise.all([
+        get().refreshStatus(),
+        get().refreshRemotes(),
+        get().refreshHistory(),
+        get().refreshBranches(),
+        get().refreshStash(),
+      ]);
+      // Start on WIP (working tree), like GitKraken — not auto-selecting HEAD.
+      set({
+        selectedCommitHash: null,
+        commitFiles: [],
+        terminalOpen: usePrefsStore.getState().terminalOpenByDefault
+          ? true
+          : get().terminalOpen,
+        openingRepoName: null,
+      });
+    } catch (err) {
+      set({ openingRepoName: null, error: errMsg(err) });
+    }
   },
 
   initRepositoryDialog: async () => {
     set({ busy: true, error: null });
     try {
+      const defaultPath = usePrefsStore.getState().projectsPath || undefined;
       const selected = await open({
         directory: true,
         multiple: false,
         title: "Escolher pasta para inicializar repositório",
+        defaultPath,
       });
       if (!selected || Array.isArray(selected)) {
         set({ busy: false });
@@ -280,10 +411,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!trimmed) return;
     set({ busy: true, error: null });
     try {
+      const defaultPath = usePrefsStore.getState().projectsPath || undefined;
       const selected = await open({
         directory: true,
         multiple: false,
         title: "Escolher pasta de destino do clone",
+        defaultPath,
       });
       if (!selected || Array.isArray(selected)) {
         set({ busy: false });
@@ -347,8 +480,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const remotes = await api.listRemotes(id);
       set({ remotes });
-    } catch {
-      set({ remotes: [] });
+    } catch (err) {
+      set({ remotes: [], error: `Não foi possível ler remotes: ${errMsg(err)}` });
     }
   },
 
@@ -359,7 +492,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     try {
-      const graph = await api.getCommitGraph(id, 150);
+      const limit = usePrefsStore.getState().graphCommitLimit;
+      const graph = await api.getCommitGraph(id, limit);
       set({ graph, filteredCommits: null });
     } catch (err) {
       set({ error: errMsg(err) });
@@ -376,10 +510,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const filteredCommits = await api.searchCommits(id, query, 100);
-      set({ filteredCommits });
+      set({ filteredCommits, commitSearchOpen: true });
+      if (filteredCommits[0]) {
+        await get().selectCommit(filteredCommits[0].hash);
+      }
     } catch (err) {
       set({ error: errMsg(err) });
     }
+  },
+
+  clearCommitSearch: async () => {
+    set({ commitQuery: "", filteredCommits: null, commitSearchOpen: false });
+    await get().refreshHistory();
   },
 
   refreshBranches: async () => {
@@ -429,7 +571,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const branches = await api.checkoutBranch(id, name);
-      set({ branches, busy: false, notice: `Checkout: ${name}` });
+      const current = branches.find((b) => b.isCurrent)?.name ?? name;
+      set({
+        branches,
+        busy: false,
+        selectedBranchName: current,
+        notice: `Checkout: ${current}`,
+      });
       await Promise.all([
         get().refreshStatus(),
         get().refreshHistory(),
@@ -462,6 +610,152 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ branches, busy: false, notice: `Branch ${name} removida.` });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  mergeBranch: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const result = await api.mergeBranch(id, name);
+      set({
+        busy: false,
+        notice: result.message,
+        error: result.success ? null : null,
+      });
+      await get().refreshStatus();
+      await get().refreshHistory();
+      await get().refreshBranches();
+      if (!result.success) {
+        set({
+          workspaceTab: "graph",
+          selectedCommitHash: null,
+          error: result.message || "Merge com conflitos — resolva no painel WIP.",
+        });
+      }
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  rebaseOnto: async (upstream) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const result = await api.rebaseOnto(id, upstream);
+      set({ busy: false, notice: result.message });
+      await get().refreshStatus();
+      await get().refreshHistory();
+      await get().refreshBranches();
+      if (!result.success) {
+        set({
+          workspaceTab: "graph",
+          selectedCommitHash: null,
+          error: result.message || "Merge com conflitos — resolva no painel WIP.",
+        });
+      }
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  cherryPick: async (commit) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const result = await api.cherryPickCommit(id, commit);
+      set({ busy: false, notice: result.message });
+      await get().refreshStatus();
+      await get().refreshHistory();
+      if (!result.success) {
+        set({
+          workspaceTab: "graph",
+          selectedCommitHash: null,
+          error: result.message || "Merge com conflitos — resolva no painel WIP.",
+        });
+      }
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  abortIntegrate: async () => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      await api.abortIntegrate(id);
+      set({
+        busy: false,
+        notice: "Operação abortada.",
+        conflictDraft: "",
+        conflictPath: null,
+      });
+      await get().refreshStatus();
+      await get().refreshHistory();
+      await get().refreshBranches();
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  continueIntegrate: async () => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const result = await api.continueIntegrate(id);
+      set({
+        busy: false,
+        notice: result.message,
+        conflictDraft: "",
+        conflictPath: null,
+      });
+      await get().refreshStatus();
+      await get().refreshHistory();
+      await get().refreshBranches();
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  resolveConflict: async (path, strategy, content) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const state = await api.resolveConflict(id, path, strategy, content);
+      set({
+        busy: false,
+        notice:
+          state.conflicts.length === 0
+            ? "Conflito resolvido. Você pode continuar a operação."
+            : `Resolvido ${path}. Ainda restam ${state.conflicts.length} conflito(s).`,
+        conflictPath: state.conflicts[0] ?? null,
+        conflictDraft: "",
+      });
+      await get().refreshStatus();
+      if (state.conflicts[0]) {
+        await get().loadConflictFile(state.conflicts[0]);
+      }
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  loadConflictFile: async (path) => {
+    const id = get().activeRepoId;
+    if (!id) return "";
+    try {
+      const content = await api.readConflictFile(id, path);
+      set({ conflictPath: path, conflictDraft: content });
+      return content;
+    } catch (err) {
+      set({ error: errMsg(err) });
+      return "";
     }
   },
 
@@ -567,10 +861,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectFile: async (file) => {
+    if (!file) {
+      set({ selectedFile: null, diffText: "", workspaceTab: "graph" });
+      return;
+    }
     const id = get().activeRepoId;
     if (!id) return;
     set({
       selectedFile: { path: file.path, staged: file.staged },
+      selectedCommitFile: null,
+      commitFileContent: "",
       workspaceTab: "changes",
       busy: true,
       error: null,
@@ -590,16 +890,241 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCommitMessage: (message) => set({ commitMessage: message }),
   setCommitOverrideProfileId: (id) => set({ commitOverrideProfileId: id }),
   setWorkspaceTab: (tab) => set({ workspaceTab: tab }),
-  setRightTab: (tab) => set({ rightTab: tab }),
 
-  createProfile: async (input) => {
+  openStartTab: () => {
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === START_TAB.id)) tabs.unshift({ ...START_TAB });
+    set({
+      shellTabs: tabs,
+      activeShellTabId: START_TAB.id,
+      appView: "dashboard",
+    });
+  },
+
+  openSettingsTab: () => {
+    const id = tabIdFor("settings");
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === id)) {
+      tabs.push({ id, kind: "settings", title: "Preferences" });
+    }
+    set({ shellTabs: tabs, activeShellTabId: id, appView: "settings" });
+  },
+
+  openCredentialsTab: () => {
+    const id = tabIdFor("credentials");
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === id)) {
+      tabs.push({ id, kind: "credentials", title: "Credentials" });
+    }
+    set({ shellTabs: tabs, activeShellTabId: id, appView: "credentials" });
+  },
+
+  openAboutTab: () => {
+    const id = tabIdFor("about");
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === id)) {
+      tabs.push({ id, kind: "about", title: "About" });
+    }
+    set({ shellTabs: tabs, activeShellTabId: id, appView: "about" });
+  },
+
+  openSshTab: () => {
+    const id = tabIdFor("ssh");
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === id)) {
+      tabs.push({ id, kind: "ssh", title: "SSH Keys" });
+    }
+    set({ shellTabs: tabs, activeShellTabId: id, appView: "ssh" });
+  },
+
+  openPluginsTab: () => {
+    const id = tabIdFor("plugins");
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === id)) {
+      tabs.push({ id, kind: "plugins", title: "Plugins" });
+    }
+    set({ shellTabs: tabs, activeShellTabId: id, appView: "plugins" });
+  },
+
+  activateShellTab: async (id) => {
+    const tab = get().shellTabs.find((t) => t.id === id);
+    if (!tab) return;
+    set({ activeShellTabId: id, appView: appViewForTab(tab) });
+    if (tab.kind === "repo" && tab.repoId) {
+      if (tab.repoId !== get().activeRepoId) {
+        await get().selectRepository(tab.repoId);
+      } else {
+        set({ appView: "history", activeShellTabId: id });
+      }
+    }
+  },
+
+  closeShellTab: (id) => {
+    const tabs = get().shellTabs;
+    const idx = tabs.findIndex((t) => t.id === id);
+    if (idx < 0) return;
+    // Always keep at least Start
+    let next = tabs.filter((t) => t.id !== id);
+    if (next.length === 0) next = [{ ...START_TAB }];
+    if (!next.some((t) => t.kind === "start") && !next.some((t) => t.kind === "repo")) {
+      next = [{ ...START_TAB }, ...next];
+    }
+    const wasActive = get().activeShellTabId === id;
+    set({ shellTabs: next });
+    if (wasActive) {
+      const focus = next[Math.min(idx, next.length - 1)] ?? next[0];
+      void get().activateShellTab(focus.id);
+    }
+  },
+
+  setAppView: (view) => {
+    if (view === "dashboard") {
+      get().openStartTab();
+      return;
+    }
+    if (view === "settings") {
+      get().openSettingsTab();
+      return;
+    }
+    if (view === "credentials") {
+      get().openCredentialsTab();
+      return;
+    }
+    if (view === "about") {
+      get().openAboutTab();
+      return;
+    }
+    if (view === "ssh") {
+      get().openSshTab();
+      return;
+    }
+    if (view === "plugins") {
+      get().openPluginsTab();
+      return;
+    }
+    if (view === "history") {
+      if (get().activeRepoId) {
+        void get().selectRepository(get().activeRepoId!);
+        return;
+      }
+      const first = get().repositories[0];
+      if (first) {
+        void get().selectRepository(first.id);
+        return;
+      }
+      get().openStartTab();
+      set({ notice: "Abra um repositório para ver o histórico." });
+      return;
+    }
+    // repositories / favorites / ssh / plugins — open Start and set view
+    const tabs = [...get().shellTabs];
+    if (!tabs.some((t) => t.id === START_TAB.id)) tabs.unshift({ ...START_TAB });
+    set({ shellTabs: tabs, activeShellTabId: START_TAB.id, appView: view });
+  },
+
+  selectCommit: async (hash) => {
+    const id = get().activeRepoId;
+    if (!hash || !id) {
+      set({
+        selectedCommitHash: null,
+        commitFiles: [],
+        selectedCommitFile: null,
+        commitFileContent: "",
+        diffText: "",
+      });
+      return;
+    }
+    set({
+      selectedCommitHash: hash,
+      selectedCommitFile: null,
+      commitFileContent: "",
+      selectedFile: null,
+      diffText: "",
+      commitFileViewMode: "diff",
+    });
+    try {
+      const commitFiles = await api.getCommitFiles(id, hash);
+      set({ commitFiles });
+    } catch (err) {
+      set({ commitFiles: [], error: errMsg(err) });
+    }
+  },
+
+  setCommitFileViewMode: (mode) => set({ commitFileViewMode: mode }),
+
+  selectCommitFile: async (path) => {
+    if (!path) {
+      set({
+        selectedCommitFile: null,
+        commitFileContent: "",
+        diffText: "",
+        commitFileViewMode: "diff",
+      });
+      return;
+    }
+    const id = get().activeRepoId;
+    const hash = get().selectedCommitHash;
+    if (!id || !hash) return;
+    set({
+      selectedCommitFile: path,
+      selectedFile: null,
+      busy: true,
+      error: null,
+      commitFileViewMode: "diff",
+    });
+    try {
+      const [diffText, content] = await Promise.all([
+        api.getCommitFileDiff(id, hash, path),
+        api.getFileAtCommit(id, hash, path).catch(() => ""),
+      ]);
+      set({ diffText, commitFileContent: content, busy: false });
+    } catch (err) {
+      set({
+        diffText: "",
+        commitFileContent: "",
+        busy: false,
+        error: errMsg(err),
+      });
+    }
+  },
+
+  navigateCommitFile: async (dir) => {
+    const files = get().commitFiles;
+    const current = get().selectedCommitFile;
+    if (files.length === 0) return;
+    const idx = current ? files.findIndex((f) => f.path === current) : -1;
+    const next = Math.min(files.length - 1, Math.max(0, (idx < 0 ? 0 : idx) + dir));
+    const target = files[next];
+    if (target && target.path !== current) {
+      await get().selectCommitFile(target.path);
+    }
+  },
+
+  openCommitFileInWorkingDir: async () => {
+    const path = get().selectedCommitFile;
+    const repoId = get().activeRepoId;
+    const repo = get().repositories.find((r) => r.id === repoId);
+    if (!path || !repo) return;
+    try {
+      const { openPath } = await import("@tauri-apps/plugin-opener");
+      const sep = repo.path.includes("\\") ? "\\" : "/";
+      const full = `${repo.path.replace(/[\\/]$/, "")}${sep}${path.replace(/\//g, sep)}`;
+      await openPath(full);
+    } catch (err) {
+      set({ error: errMsg(err) });
+    }
+  },
+
+  createProfile: async (input, opts) => {
     set({ busy: true, error: null });
     try {
       await api.createProfile(input);
       await get().refreshProfiles();
-      set({ busy: false, notice: "Perfil criado.", rightTab: "credentials" });
+      set({ busy: false, notice: "Perfil criado." });
+      if (!opts?.stay) get().openCredentialsTab();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
+      throw err;
     }
   },
 
@@ -659,12 +1184,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetch: async () => {
     const id = get().activeRepoId;
     if (!id) return;
+    await get().refreshRemotes();
+    if (get().remotes.length === 0) {
+      set({
+        error:
+          "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.",
+        workspaceTab: "graph",
+        selectedCommitHash: null,
+      });
+      return;
+    }
+    const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
     const operationId = newOperationId();
     set({
       operation: {
         id: operationId,
         kind: "fetch",
-        label: "Fetch",
+        label: `Fetch (${remote})`,
         percent: null,
         lines: [],
         done: false,
@@ -673,9 +1209,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       error: null,
     });
     try {
-      const status = await api.fetchRemote({ repositoryId: id, operationId });
+      const status = await api.fetchRemote({ repositoryId: id, operationId, remote });
       set({ status, notice: "Fetch concluído." });
-      await get().refreshRepositories();
+      await Promise.all([get().refreshRepositories(), get().refreshBranches()]);
     } catch (err) {
       set({ error: errMsg(err) });
     }
@@ -684,12 +1220,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   pull: async () => {
     const id = get().activeRepoId;
     if (!id) return;
+    await get().refreshRemotes();
+    if (get().remotes.length === 0) {
+      set({
+        error:
+          "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.",
+        workspaceTab: "graph",
+        selectedCommitHash: null,
+      });
+      return;
+    }
+    const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
+    const branch = get().status?.branch ?? null;
     const operationId = newOperationId();
     set({
       operation: {
         id: operationId,
         kind: "pull",
-        label: "Pull",
+        label: `Pull (${remote}${branch ? `/${branch}` : ""})`,
         percent: null,
         lines: [],
         done: false,
@@ -698,9 +1246,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       error: null,
     });
     try {
-      const status = await api.pullRemote({ repositoryId: id, operationId });
+      const status = await api.pullRemote({
+        repositoryId: id,
+        operationId,
+        remote,
+        branch,
+      });
       set({ status, notice: "Pull concluído." });
-      await get().refreshStatus();
+      await Promise.all([
+        get().refreshStatus(),
+        get().refreshHistory(),
+        get().refreshBranches(),
+      ]);
     } catch (err) {
       set({ error: errMsg(err) });
     }
@@ -709,14 +1266,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   push: async () => {
     const id = get().activeRepoId;
     if (!id) return;
+    await get().refreshRemotes();
+    if (get().remotes.length === 0) {
+      set({
+        error:
+          "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.",
+        workspaceTab: "graph",
+        selectedCommitHash: null,
+      });
+      return;
+    }
     const repo = get().repositories.find((r) => r.id === id);
     const branch = get().status?.branch ?? repo?.branch ?? null;
+    const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
     const operationId = newOperationId();
     set({
       operation: {
         id: operationId,
         kind: "push",
-        label: "Push",
+        label: `Push (${remote}${branch ? `/${branch}` : ""})`,
         percent: null,
         lines: [],
         done: false,
@@ -728,12 +1296,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       await api.pushRemote({
         repositoryId: id,
         operationId,
-        remote: "origin",
+        remote,
         branch,
         setUpstream: true,
       });
       set({ notice: "Push concluído." });
-      await get().refreshRepositories();
+      await Promise.all([
+        get().refreshRepositories(),
+        get().refreshBranches(),
+        get().refreshStatus(),
+      ]);
     } catch (err) {
       set({ error: errMsg(err) });
     }

@@ -50,6 +50,19 @@ export const repoStatusSchema = z.object({
   upstream: z.string().nullable().optional(),
   ahead: z.number().optional().default(0),
   behind: z.number().optional().default(0),
+  inProgress: z.string().nullable().optional(),
+  conflicts: z.array(z.string()).optional().default([]),
+});
+
+export const integrateStateSchema = z.object({
+  kind: z.string().nullable().optional(),
+  conflicts: z.array(z.string()),
+});
+
+export const integrateResultSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  state: integrateStateSchema,
 });
 
 export const commitResultSchema = z.object({
@@ -308,6 +321,42 @@ export async function searchCommits(
     .parse(await invoke("search_commits", { repositoryId, query, limit }));
 }
 
+export const commitFileChangeSchema = z.object({
+  path: z.string(),
+  status: z.string(),
+});
+
+export type CommitFileChange = z.infer<typeof commitFileChangeSchema>;
+
+export async function getCommitFiles(
+  repositoryId: string,
+  hash: string,
+): Promise<CommitFileChange[]> {
+  return z
+    .array(commitFileChangeSchema)
+    .parse(await invoke("get_commit_files", { repositoryId, hash }));
+}
+
+export async function getCommitFileDiff(
+  repositoryId: string,
+  hash: string,
+  path: string,
+): Promise<string> {
+  return z
+    .string()
+    .parse(await invoke("get_commit_file_diff", { repositoryId, hash, path }));
+}
+
+export async function getFileAtCommit(
+  repositoryId: string,
+  hash: string,
+  path: string,
+): Promise<string> {
+  return z
+    .string()
+    .parse(await invoke("get_file_at_commit", { repositoryId, hash, path }));
+}
+
 export async function listBranches(repositoryId: string): Promise<BranchInfo[]> {
   return z.array(branchInfoSchema).parse(await invoke("list_branches", { repositoryId }));
 }
@@ -390,4 +439,99 @@ export async function dropStash(
   return z
     .array(stashEntrySchema)
     .parse(await invoke("drop_stash", { repositoryId, selector }));
+}
+
+export type IntegrateState = z.infer<typeof integrateStateSchema>;
+export type IntegrateResult = z.infer<typeof integrateResultSchema>;
+
+export async function mergeBranch(
+  repositoryId: string,
+  branch: string,
+): Promise<IntegrateResult> {
+  return integrateResultSchema.parse(
+    await invoke("merge_branch", { repositoryId, branch }),
+  );
+}
+
+export async function cherryPickCommit(
+  repositoryId: string,
+  commit: string,
+): Promise<IntegrateResult> {
+  return integrateResultSchema.parse(
+    await invoke("cherry_pick_commit", { repositoryId, commit }),
+  );
+}
+
+export async function rebaseOnto(
+  repositoryId: string,
+  upstream: string,
+): Promise<IntegrateResult> {
+  return integrateResultSchema.parse(
+    await invoke("rebase_onto", { repositoryId, upstream }),
+  );
+}
+
+export async function abortIntegrate(repositoryId: string): Promise<IntegrateState> {
+  return integrateStateSchema.parse(await invoke("abort_integrate", { repositoryId }));
+}
+
+export async function continueIntegrate(repositoryId: string): Promise<IntegrateResult> {
+  return integrateResultSchema.parse(await invoke("continue_integrate", { repositoryId }));
+}
+
+export async function resolveConflict(
+  repositoryId: string,
+  path: string,
+  strategy: "ours" | "theirs" | "content",
+  content?: string,
+): Promise<IntegrateState> {
+  return integrateStateSchema.parse(
+    await invoke("resolve_conflict", {
+      repositoryId,
+      path,
+      strategy,
+      content: content ?? null,
+    }),
+  );
+}
+
+export async function readConflictFile(
+  repositoryId: string,
+  path: string,
+): Promise<string> {
+  return z.string().parse(await invoke("read_conflict_file", { repositoryId, path }));
+}
+
+export async function listRepoFiles(repositoryId: string): Promise<string[]> {
+  return z.array(z.string()).parse(await invoke("list_repo_files", { repositoryId }));
+}
+
+export async function terminalCreate(
+  repositoryId: string | null,
+  cols: number,
+  rows: number,
+): Promise<string> {
+  return z.string().parse(
+    await invoke("terminal_create", {
+      repositoryId,
+      cols,
+      rows,
+    }),
+  );
+}
+
+export async function terminalWrite(sessionId: string, data: string): Promise<void> {
+  await invoke("terminal_write", { sessionId, data });
+}
+
+export async function terminalResize(
+  sessionId: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
+  await invoke("terminal_resize", { sessionId, cols, rows });
+}
+
+export async function terminalKill(sessionId: string): Promise<void> {
+  await invoke("terminal_kill", { sessionId });
 }

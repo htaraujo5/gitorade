@@ -1,14 +1,16 @@
 mod commands;
 mod credentials;
-mod domain;
-mod error;
-mod git;
+pub mod domain;
+pub mod error;
+pub mod git;
 mod ops;
 mod storage;
+mod terminal;
 mod watcher;
 
 use ops::OperationRegistry;
 use storage::Database;
+use terminal::TerminalRegistry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +21,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(database)
         .manage(OperationRegistry::default())
+        .manage(TerminalRegistry::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_health,
             commands::list_profiles,
@@ -46,6 +49,9 @@ pub fn run() {
             commands::push_remote,
             commands::get_commit_graph,
             commands::search_commits,
+            commands::get_commit_files,
+            commands::get_commit_file_diff,
+            commands::get_file_at_commit,
             commands::list_branches,
             commands::create_branch,
             commands::checkout_branch,
@@ -56,6 +62,18 @@ pub fn run() {
             commands::create_stash,
             commands::apply_stash,
             commands::drop_stash,
+            commands::merge_branch,
+            commands::cherry_pick_commit,
+            commands::rebase_onto,
+            commands::abort_integrate,
+            commands::continue_integrate,
+            commands::resolve_conflict,
+            commands::read_conflict_file,
+            commands::list_repo_files,
+            commands::terminal_create,
+            commands::terminal_write,
+            commands::terminal_resize,
+            commands::terminal_kill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

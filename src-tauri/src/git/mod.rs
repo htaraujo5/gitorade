@@ -7,12 +7,17 @@ use crate::error::{AppError, AppResult};
 
 pub mod branches;
 pub mod history;
+pub mod integrate;
 pub mod stash;
 
 pub use branches::{
     checkout_branch, create_branch, delete_branch, list_branches, rename_branch, upstream_status,
 };
-pub use history::{commit_graph, search_commits};
+pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
+pub use integrate::{
+    abort_integrate, cherry_pick, continue_integrate, detect_state as detect_integrate_state,
+    list_conflicts, merge_branch, read_file as read_worktree_file, rebase_onto, resolve_conflict,
+};
 pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
 
 /// Runs git with explicit args (never through a shell).
@@ -156,6 +161,11 @@ pub fn status(path: &Path) -> AppResult<RepoStatus> {
         behind: 0,
     });
 
+    let integrate = integrate::detect_state(path).unwrap_or(crate::domain::IntegrateState {
+        kind: None,
+        conflicts: Vec::new(),
+    });
+
     Ok(RepoStatus {
         branch,
         staged,
@@ -163,6 +173,8 @@ pub fn status(path: &Path) -> AppResult<RepoStatus> {
         upstream: upstream.upstream,
         ahead: upstream.ahead,
         behind: upstream.behind,
+        in_progress: integrate.kind,
+        conflicts: integrate.conflicts,
     })
 }
 
@@ -181,11 +193,24 @@ pub fn unstage(path: &Path, paths: &[String]) -> AppResult<()> {
     if paths.is_empty() {
         return Err(AppError::Message("Nenhum arquivo para unstage.".into()));
     }
-    let mut args = vec!["restore", "--staged", "--"];
     let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
+
+    // `git restore --staged` needs a resolvable HEAD. Before the first commit
+    // (unborn branch) every staged entry is new, so removing it from the index
+    // with `git rm --cached` is the correct way to unstage.
+    let mut args: Vec<&str> = if has_head(path) {
+        vec!["restore", "--staged", "--"]
+    } else {
+        vec!["rm", "--cached", "--quiet", "--"]
+    };
     args.extend(refs);
     run_git(&args, Some(path))?;
     Ok(())
+}
+
+/// Returns true when the repository has at least one commit (resolvable HEAD).
+fn has_head(path: &Path) -> bool {
+    run_git(&["rev-parse", "--verify", "--quiet", "HEAD"], Some(path)).is_ok()
 }
 
 pub fn diff(path: &Path, file_path: &str, staged: bool) -> AppResult<String> {
