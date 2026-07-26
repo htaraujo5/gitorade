@@ -1,8 +1,20 @@
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
-const SETUP_SIZE = { width: 760, height: 440 };
+const SPLASH_SIZE = { width: 520, height: 220 };
+const SETUP_SIZE = { width: 720, height: 460 };
 const APP_SIZE = { width: 1440, height: 900 };
 const APP_MIN = { width: 1100, height: 700 };
+
+export async function applySplashWindow(): Promise<void> {
+  const win = getCurrentWindow();
+  await win.setResizable(false);
+  await win.setMaximizable(false);
+  await win.setMinimizable(true);
+  await win.setMinSize(new LogicalSize(SPLASH_SIZE.width, SPLASH_SIZE.height));
+  await win.setSize(new LogicalSize(SPLASH_SIZE.width, SPLASH_SIZE.height));
+  await win.setTitle("Gitorade");
+  await win.center();
+}
 
 export async function applySetupWindow(): Promise<void> {
   const win = getCurrentWindow();

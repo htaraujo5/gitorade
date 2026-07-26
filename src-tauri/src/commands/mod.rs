@@ -593,6 +593,6 @@ fn resolve_identity(
     }
 
     Err(AppError::Message(
-        "Nenhum perfil associado. Crie/associe uma identidade antes do commit.".into(),
+        "Selecione um perfil (nome/email) antes de commitar.".into(),
     ))
 }

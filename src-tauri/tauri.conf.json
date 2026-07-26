@@ -14,12 +14,12 @@
       {
         "label": "main",
         "title": "Gitorade",
-        "width": 760,
-        "height": 440,
-        "minWidth": 760,
-        "minHeight": 440,
+        "width": 520,
+        "height": 220,
+        "minWidth": 520,
+        "minHeight": 220,
         "center": true,
-        "resizable": true
+        "resizable": false
       }
     ],
     "security": {
@@ -47,6 +47,8 @@
         "languages": ["PortugueseBR", "English"],
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/nsis/header.bmp",
+        "sidebarImage": "icons/nsis/sidebar.bmp",
         "startMenuFolder": "Gitorade"
       }
     }

@@ -36,10 +36,12 @@ npm run dist
 
 Arquivos típicos:
 
-- `bundle/nsis/Gitorade_0.1.0_x64-setup.exe` — instalador estilo GitKraken
+- `bundle/nsis/Gitorade_0.1.0_x64-setup.exe` — instalador com banners do logo
 - `bundle/msi/Gitorade_0.1.0_x64_en-US.msi`
 
-Na primeira execução, o app abre uma janela compacta (nome, email, pasta de projetos) e depois expande para o dashboard.
+Na primeira execução: splash estilo Fork → setup (nome/email/pasta) → dashboard.
+
+O instalador NSIS usa `icons/nsis/sidebar.bmp` + `header.bmp` (gere com `npm run icons` antes do `npm run dist`).
 
 Release automatizado: tag `v*` dispara `.github/workflows/release.yml`.
 
@@ -48,6 +50,7 @@ Release automatizado: tag `v*` dispara `.github/workflows/release.yml`.
 | Comando | Descrição |
 |---------|-----------|
 | `npm run tauri dev` | App desktop em modo dev |
+| `npm run icons` | Regenera logos, ícones Windows e banners NSIS |
 | `npm run dist` | Build release + instaladores MSI/NSIS |
 | `npm run build` | Build do frontend |
 | `npm test` | Testes Vitest |

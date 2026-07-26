@@ -5,9 +5,11 @@ import type { CommitSummary } from "../../lib/api";
 import { IconClose, IconSearch } from "../Icons";
 
 const LANE_COLORS = ["#3dd68c", "#3d8bfd", "#e3b341", "#a371f7", "#f778ba", "#f85149", "#56d4dd"];
-const ROW_H = 34;
-const LANE_W = 26;
-const NODE_R = 9;
+const ROW_H = 32;
+const LANE_W = 16;
+const NODE_R = 7;
+const GRAPH_PAD = 8;
+const REF_COL_W = 120;
 
 function relativeTime(iso: string): string {
   const t = Date.parse(iso);
@@ -77,7 +79,7 @@ function GraphColumn({
   maxLane: number;
   showAvatars: boolean;
 }) {
-  const width = Math.max((maxLane + 1) * LANE_W + 12, 36);
+  const width = Math.max((maxLane + 1) * LANE_W + GRAPH_PAD * 2, 28);
   const height = commits.length * ROW_H;
   const hashIndex = useMemo(() => {
     const m = new Map<string, number>();
@@ -89,7 +91,7 @@ function GraphColumn({
     <div className="relative shrink-0" style={{ width, height }}>
       <svg width={width} height={height} className="absolute inset-0 block">
         {commits.map((commit, row) => {
-          const cx = 12 + commit.lane * LANE_W;
+          const cx = GRAPH_PAD + commit.lane * LANE_W;
           const cy = row * ROW_H + ROW_H / 2;
           const parentRows = commit.parents
             .map((p) => hashIndex.get(p))
@@ -99,7 +101,7 @@ function GraphColumn({
             <g key={`edge-${commit.hash}`}>
               {parentRows.map((pRow, idx) => {
                 const parent = commits[pRow];
-                const px = 12 + parent.lane * LANE_W;
+                const px = GRAPH_PAD + parent.lane * LANE_W;
                 const py = pRow * ROW_H + ROW_H / 2;
                 const stroke =
                   LANE_COLORS[
@@ -112,7 +114,7 @@ function GraphColumn({
                     d={`M ${cx} ${cy + NODE_R} C ${cx} ${midY}, ${px} ${midY}, ${px} ${py - NODE_R}`}
                     fill="none"
                     stroke={stroke}
-                    strokeWidth={2.75}
+                    strokeWidth={2}
                     strokeLinecap="round"
                   />
                 );
@@ -124,7 +126,7 @@ function GraphColumn({
 
       {commits.map((commit, row) => {
         const color = LANE_COLORS[commit.lane % LANE_COLORS.length];
-        const cx = 12 + commit.lane * LANE_W;
+        const cx = GRAPH_PAD + commit.lane * LANE_W;
         const size = NODE_R * 2;
         const top = row * ROW_H + ROW_H / 2 - NODE_R;
         return (
@@ -137,14 +139,14 @@ function GraphColumn({
               width: size,
               height: size,
               background: color,
-              padding: showAvatars ? 2 : 0,
+              padding: showAvatars ? 1.5 : 0,
             }}
           >
             {showAvatars ? (
               <AuthorAvatar
                 name={commit.authorName}
                 email={commit.authorEmail}
-                size={size - 4}
+                size={size - 3}
               />
             ) : (
               <span
@@ -199,15 +201,18 @@ export function GraphView() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [resultIndex, setResultIndex] = useState(0);
 
-  const commits = useMemo(
-    () => filteredCommits ?? graph?.commits ?? [],
-    [filteredCommits, graph],
-  );
+  const commits = useMemo(() => {
+    const raw = filteredCommits ?? graph?.commits ?? [];
+    // Dense remap so sparse/high lane indices never stretch the column.
+    const used = [...new Set(raw.map((c) => c.lane))].sort((a, b) => a - b);
+    const remap = new Map(used.map((lane, i) => [lane, i]));
+    return raw.map((c) => ({ ...c, lane: remap.get(c.lane) ?? 0 }));
+  }, [filteredCommits, graph]);
   const maxLane = useMemo(
     () => commits.reduce((m, c) => Math.max(m, c.lane), 0),
     [commits],
   );
-  const graphW = Math.max((maxLane + 1) * LANE_W + 12, 36);
+  const graphW = Math.max((maxLane + 1) * LANE_W + GRAPH_PAD * 2, 28);
   const changeCount =
     (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
   const added =
@@ -244,15 +249,17 @@ export function GraphView() {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-[#171a20]">
       <div className="flex items-center gap-2 border-b border-[#2d3139] bg-[#1c1f26] px-2 py-1">
-        <div className="flex min-w-0 flex-1 items-center gap-3 text-[8px] font-normal uppercase tracking-[0.1em] text-[#5c6370]">
-          <div className="w-[138px] shrink-0">Branch / Tag</div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-[8px] font-normal uppercase tracking-[0.1em] text-[#5c6370]">
+          <div className="shrink-0" style={{ width: REF_COL_W }}>
+            Branch / Tag
+          </div>
           <div className="shrink-0" style={{ width: graphW }}>
             Graph
           </div>
-          <div className="min-w-0 flex-1">Commit message</div>
-          <div className="hidden w-36 shrink-0 lg:block">Author</div>
-          <div className="w-14 shrink-0">SHA</div>
-          <div className="w-12 shrink-0 text-right">When</div>
+          <div className="min-w-0 flex-1">Message</div>
+          <div className="hidden w-40 shrink-0 xl:block">Author</div>
+          <div className="w-16 shrink-0">When</div>
+          <div className="w-16 shrink-0">Commit</div>
         </div>
       </div>
 
@@ -327,11 +334,11 @@ export function GraphView() {
           }`}
           style={{ height: ROW_H }}
         >
-          <div className="flex w-[138px] shrink-0 items-center">
+          <div className="flex shrink-0 items-center" style={{ width: REF_COL_W }}>
             <span className="font-mono text-[11px] font-normal text-[#e3b341]">// WIP</span>
           </div>
           <div className="flex shrink-0 items-center justify-center" style={{ width: graphW }}>
-            <span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-dashed border-[#e3b341]" />
+            <span className="inline-block h-[12px] w-[12px] rounded-full border-2 border-dashed border-[#e3b341]" />
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2 pl-2">
             {changeCount === 0 ? (
@@ -344,13 +351,13 @@ export function GraphView() {
               </>
             )}
           </div>
-          <div className="hidden w-36 shrink-0 lg:block" />
-          <div className="w-14 shrink-0" />
-          <div className="w-12 shrink-0" />
+          <div className="hidden w-40 shrink-0 xl:block" />
+          <div className="w-16 shrink-0" />
+          <div className="w-16 shrink-0" />
         </button>
 
-        <div className="relative flex">
-          <div className="w-[138px] shrink-0">
+        <div className="relative flex min-w-0">
+          <div className="shrink-0" style={{ width: REF_COL_W }}>
             {commits.map((commit) => (
               <div
                 key={`ref-${commit.hash}`}
@@ -364,7 +371,7 @@ export function GraphView() {
                   return (
                     <span
                       key={refName}
-                      className={`inline-flex max-w-[128px] items-center gap-1 truncate rounded px-1.5 py-px text-[9px] font-normal ${
+                      className={`inline-flex max-w-[110px] items-center gap-1 truncate rounded px-1.5 py-px text-[9px] font-normal ${
                         isLocalHead
                           ? "bg-[#238636] text-white"
                           : refName.includes("remotes/")
@@ -399,7 +406,7 @@ export function GraphView() {
                     <div className="min-w-0 flex-1 truncate text-[12px] font-normal text-[#d0d4dc]">
                       {commit.subject}
                     </div>
-                    <div className="hidden w-36 shrink-0 items-center gap-1.5 lg:flex">
+                    <div className="hidden w-40 shrink-0 items-center gap-1.5 xl:flex">
                       {showAvatars && (
                         <AuthorAvatar
                           name={commit.authorName}
@@ -411,13 +418,13 @@ export function GraphView() {
                         {commit.authorName}
                       </span>
                     </div>
-                    <div className="w-14 shrink-0 font-mono text-[10px] font-normal text-[#5c6370]">
-                      {commit.shortHash}
-                    </div>
-                    <div className="w-12 shrink-0 text-right text-[10px] font-normal text-[#5c6370]">
+                    <div className="w-16 shrink-0 text-right text-[10px] font-normal text-[#5c6370]">
                       {relativeDates
                         ? relativeTime(commit.authoredAt)
                         : new Date(commit.authoredAt).toLocaleDateString("pt-BR")}
+                    </div>
+                    <div className="w-16 shrink-0 font-mono text-[10px] font-normal text-[#5c6370]">
+                      {commit.shortHash}
                     </div>
                   </button>
                 </li>

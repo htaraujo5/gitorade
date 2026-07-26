@@ -20,8 +20,12 @@ import { MenuBar } from "./components/layout/MenuBar";
 import { IconTerminal } from "./components/Icons";
 import { ToastBanner } from "./components/layout/ContextMenu";
 import { WelcomeSetup } from "./components/WelcomeSetup";
-import { applyMainWindow, applySetupWindow } from "./lib/windowLayout";
-import { BrandMark } from "./components/BrandMark";
+import { BootSplash } from "./components/BootSplash";
+import {
+  applyMainWindow,
+  applySetupWindow,
+  applySplashWindow,
+} from "./lib/windowLayout";
 
 function App() {
   const bootstrap = useAppStore((s) => s.bootstrap);
@@ -53,6 +57,7 @@ function App() {
     usePrefsStore.persist.hasHydrated(),
   );
   const [setupDone, setSetupDone] = useState(false);
+  const [splashProgress, setSplashProgress] = useState(0.15);
 
   useEffect(() => {
     const unsub = usePrefsStore.persist.onFinishHydration(() => {
@@ -63,17 +68,33 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void applySplashWindow();
+  }, []);
+
+  useEffect(() => {
     if (!prefsReady) return;
     void bootstrap();
   }, [prefsReady, bootstrap]);
 
-  // Existing installs: skip wizard if profiles already exist
   useEffect(() => {
     if (!prefsReady || bootLoading) return;
     if (!onboardingComplete && profiles.length > 0) {
       setPref("onboardingComplete", true);
     }
   }, [prefsReady, bootLoading, onboardingComplete, profiles.length, setPref]);
+
+  const booting = !prefsReady || bootLoading;
+
+  useEffect(() => {
+    if (!booting) return;
+    setSplashProgress(0.2);
+    const t1 = window.setTimeout(() => setSplashProgress(0.55), 280);
+    const t2 = window.setTimeout(() => setSplashProgress(0.82), 700);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [booting]);
 
   const needsOnboarding =
     prefsReady &&
@@ -84,25 +105,28 @@ function App() {
     !setupDone;
 
   useEffect(() => {
-    if (!prefsReady || bootLoading) return;
+    if (booting) {
+      void applySplashWindow();
+      return;
+    }
     if (needsOnboarding) {
       void applySetupWindow();
     } else if (!bootError) {
       void applyMainWindow();
     }
-  }, [prefsReady, bootLoading, needsOnboarding, bootError]);
+  }, [booting, needsOnboarding, bootError]);
 
   useEffect(() => {
-    if (!activeRepoId || needsOnboarding) return;
+    if (!activeRepoId || needsOnboarding || booting) return;
     const ms = Math.max(2, statusPollSeconds) * 1000;
     const timer = window.setInterval(() => {
       void refreshStatus();
     }, ms);
     return () => window.clearInterval(timer);
-  }, [activeRepoId, refreshStatus, statusPollSeconds, needsOnboarding]);
+  }, [activeRepoId, refreshStatus, statusPollSeconds, needsOnboarding, booting]);
 
   useEffect(() => {
-    if (needsOnboarding) return;
+    if (needsOnboarding || booting) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
         e.preventDefault();
@@ -127,21 +151,21 @@ function App() {
     setTerminalOpen,
     terminalOpen,
     needsOnboarding,
+    booting,
   ]);
 
-  if (!prefsReady || bootLoading) {
+  if (booting) {
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-[#12141a]">
-        <BrandMark compact />
-        <p className="text-[12px] text-[#6b7280]">Carregando Gitorade…</p>
-      </div>
+      <BootSplash
+        message={prefsReady ? "Carregando…" : "Iniciando…"}
+        progress={splashProgress}
+      />
     );
   }
 
   if (bootError) {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-[#12141a] px-8 text-center">
-        <BrandMark compact />
         <p className="text-[14px] text-[#f0f1f4]">Não foi possível iniciar</p>
         <p className="max-w-md text-[12px] text-[#f85149]">{bootError}</p>
       </div>

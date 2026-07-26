@@ -73,7 +73,8 @@ export function ProfileMenu() {
                     }`}
                     onClick={() => {
                       setCommitOverrideProfileId(p.id);
-                      void associateProfile(p.id);
+                      // Persist as repo default when a repo is open (optional convenience)
+                      if (activeRepoId) void associateProfile(p.id);
                       setOpen(false);
                     }}
                   >

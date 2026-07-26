@@ -2,16 +2,25 @@ import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { IconBranch } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import {
+  buildBranchTree,
+  type BranchTreeNode,
+} from "../../lib/branchTree";
 
-type MenuState = { x: number; y: number; branch: string; isRemote: boolean; isCurrent: boolean };
+type MenuState = {
+  x: number;
+  y: number;
+  branch: string;
+  isRemote: boolean;
+  isCurrent: boolean;
+};
 
 /**
- * LOCAL / REMOTE sidebar:
+ * LOCAL / REMOTE sidebar with folder grouping (fix/, feat/, …):
  * - 1 click = select
  * - 2 clicks = checkout
  * - right-click = actions
  * - drag branch onto another = merge
- * - REMOTE shows configured remotes (URL) + tracking branches
  */
 export function BranchSidebar() {
   const {
@@ -39,6 +48,8 @@ export function BranchSidebar() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  /** Collapsed folder keys: "local:fix", "remote:origin/feat", … */
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
   const current = status?.branch ?? branches.find((b) => b.isCurrent)?.name ?? null;
 
@@ -50,6 +61,16 @@ export function BranchSidebar() {
 
   const local = filtered.filter((b) => !b.isRemote);
   const remoteBranches = filtered.filter((b) => b.isRemote);
+  const localTree = useMemo(() => buildBranchTree(local), [local]);
+
+  const toggleFolder = (key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const openCreate = (from?: string) => {
     const base = from ? `${from.replace(/^.*\//, "")}-` : "";
@@ -136,6 +157,109 @@ export function BranchSidebar() {
     return items;
   };
 
+  const renderBranch = (
+    fullName: string,
+    label: string,
+    isRemote: boolean,
+    depth: number,
+  ) => {
+    const b = branches.find((x) => x.name === fullName);
+    const isCurrent = Boolean(b?.isCurrent);
+    return (
+      <BranchRow
+        key={fullName}
+        name={fullName}
+        label={label}
+        depth={depth}
+        isCurrent={isCurrent}
+        isSelected={selectedBranchName === fullName}
+        isRemote={isRemote}
+        busy={busy}
+        dragOver={dragOver === fullName}
+        dragging={dragging === fullName}
+        onSelect={() => selectBranch(fullName)}
+        onCheckout={() => {
+          if (!isCurrent) void checkoutBranch(fullName);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectBranch(fullName);
+          setMenu({
+            x: e.clientX,
+            y: e.clientY,
+            branch: fullName,
+            isRemote,
+            isCurrent,
+          });
+        }}
+        onDragStart={
+          isRemote
+            ? undefined
+            : () => setDragging(fullName)
+        }
+        onDragEnd={
+          isRemote
+            ? undefined
+            : () => {
+                setDragging(null);
+                setDragOver(null);
+              }
+        }
+        onDragOver={isRemote ? undefined : () => setDragOver(fullName)}
+        onDragLeave={
+          isRemote
+            ? undefined
+            : () => setDragOver((cur) => (cur === fullName ? null : cur))
+        }
+        onDrop={
+          isRemote
+            ? undefined
+            : (source) => {
+                setDragOver(null);
+                setDragging(null);
+                void doMerge(source, fullName);
+              }
+        }
+      />
+    );
+  };
+
+  const renderTree = (
+    nodes: BranchTreeNode[],
+    scope: string,
+    isRemote: boolean,
+    depth: number,
+  ): ReactNode =>
+    nodes.map((node) => {
+      if (node.kind === "branch") {
+        return renderBranch(node.fullName, node.label, isRemote, depth);
+      }
+      const key = `${scope}/${node.name}`;
+      const open = !collapsed.has(key);
+      return (
+        <div key={key}>
+          <button
+            type="button"
+            onClick={() => toggleFolder(key)}
+            className="flex h-6 w-full items-center gap-1 text-left text-[11px] text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
+            style={{ paddingLeft: 10 + depth * 12 }}
+            title={`${node.name}/ (${node.count})`}
+          >
+            <span className="w-2 shrink-0 text-[8px] opacity-70">
+              {open ? "▾" : "▸"}
+            </span>
+            <IconFolder className="h-3 w-3 shrink-0 opacity-55" />
+            <span className="min-w-0 flex-1 truncate font-medium">{node.name}</span>
+            <span className="pr-2 tabular-nums text-[9px] text-[#5c6370]">
+              {node.count}
+            </span>
+          </button>
+          {open && renderTree(node.children, key, isRemote, depth + 1)}
+        </div>
+      );
+    });
+
   return (
     <aside
       className="flex w-[220px] shrink-0 flex-col border-r border-[#2d3139] bg-[#171a20]"
@@ -172,7 +296,7 @@ export function BranchSidebar() {
           <input
             autoFocus
             className="min-w-0 flex-1 rounded border border-[#2d3139] bg-[#1c1f26] px-1.5 py-0.5 text-[11px] outline-none focus:border-[#3d8bfd]"
-            placeholder="branch name"
+            placeholder="feat/minha-branch"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onBlur={() => {
@@ -200,46 +324,7 @@ export function BranchSidebar() {
           open={localOpen}
           onToggle={() => setLocalOpen((v) => !v)}
         >
-          {local.map((b) => (
-            <BranchRow
-              key={b.name}
-              name={b.name}
-              isCurrent={b.isCurrent}
-              isSelected={selectedBranchName === b.name}
-              isRemote={false}
-              busy={busy}
-              dragOver={dragOver === b.name}
-              dragging={dragging === b.name}
-              onSelect={() => selectBranch(b.name)}
-              onCheckout={() => {
-                if (!b.isCurrent) void checkoutBranch(b.name);
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                selectBranch(b.name);
-                setMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  branch: b.name,
-                  isRemote: false,
-                  isCurrent: b.isCurrent,
-                });
-              }}
-              onDragStart={() => setDragging(b.name)}
-              onDragEnd={() => {
-                setDragging(null);
-                setDragOver(null);
-              }}
-              onDragOver={() => setDragOver(b.name)}
-              onDragLeave={() => setDragOver((cur) => (cur === b.name ? null : cur))}
-              onDrop={(source) => {
-                setDragOver(null);
-                setDragging(null);
-                void doMerge(source, b.name);
-              }}
-            />
-          ))}
+          {renderTree(localTree, "local", false, 0)}
         </Group>
 
         <Group
@@ -259,6 +344,9 @@ export function BranchSidebar() {
               const kids = remoteBranches.filter(
                 (b) => b.name === r.name || b.name.startsWith(`${r.name}/`),
               );
+              const tracking = kids.filter((b) => b.name !== r.name);
+              const tree = buildBranchTree(tracking, `${r.name}/`);
+              const bare = kids.filter((b) => b.name === r.name);
               return (
                 <div key={r.name} className="mb-1">
                   <div className="px-2.5 py-1" title={url}>
@@ -274,32 +362,12 @@ export function BranchSidebar() {
                       Sem branches remotas — faça Fetch.
                     </p>
                   ) : (
-                    kids.map((b) => (
-                      <BranchRow
-                        key={b.name}
-                        name={b.name}
-                        isCurrent={false}
-                        isSelected={selectedBranchName === b.name}
-                        isRemote
-                        busy={busy}
-                        dragOver={false}
-                        dragging={false}
-                        onSelect={() => selectBranch(b.name)}
-                        onCheckout={() => void checkoutBranch(b.name)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          selectBranch(b.name);
-                          setMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            branch: b.name,
-                            isRemote: true,
-                            isCurrent: false,
-                          });
-                        }}
-                      />
-                    ))
+                    <>
+                      {bare.map((b) =>
+                        renderBranch(b.name, b.name, true, 0),
+                      )}
+                      {renderTree(tree, `remote:${r.name}`, true, 0)}
+                    </>
                   )}
                 </div>
               );
@@ -324,8 +392,28 @@ export function BranchSidebar() {
   );
 }
 
+function IconFolder({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+      <path d="M3 7V5a1 1 0 0 1 1-1h5l2 2" />
+    </svg>
+  );
+}
+
 function BranchRow({
   name,
+  label,
+  depth,
   isCurrent,
   isSelected,
   isRemote,
@@ -342,6 +430,8 @@ function BranchRow({
   onDrop,
 }: {
   name: string;
+  label: string;
+  depth: number;
   isCurrent: boolean;
   isSelected: boolean;
   isRemote: boolean;
@@ -357,8 +447,6 @@ function BranchRow({
   onDragLeave?: () => void;
   onDrop?: (source: string) => void;
 }) {
-  const label = name.replace(/^refs\/(heads|remotes)\//, "");
-
   return (
     <button
       type="button"
@@ -390,12 +478,8 @@ function BranchRow({
         const source = e.dataTransfer.getData("text/gitorade-branch");
         if (source && source !== name) onDrop?.(source);
       }}
-      title={
-        isRemote
-          ? "1 clique seleciona · 2 cliques checkout · botão direito"
-          : "1 clique seleciona · 2 cliques checkout · arraste p/ merge"
-      }
-          className={`flex h-6 w-full items-center gap-1.5 px-2.5 text-left text-[11px] font-normal ${
+      title={name}
+      className={`flex h-6 w-full items-center gap-1.5 text-left text-[11px] font-normal ${
         dragOver
           ? "bg-[#1e3a5f] text-[#d8dbe2] ring-1 ring-inset ring-[#3d8bfd]"
           : isCurrent
@@ -406,6 +490,7 @@ function BranchRow({
                 ? "opacity-40"
                 : "text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
       }`}
+      style={{ paddingLeft: 10 + depth * 12, paddingRight: 10 }}
     >
       {isCurrent ? (
         <span className="w-3 text-center text-[9px]">✓</span>

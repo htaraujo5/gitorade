@@ -1,14 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { homeDir, join } from "@tauri-apps/api/path";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import logo from "../assets/brand/logo.png";
 import { useAppStore } from "../stores/appStore";
 import { usePrefsStore } from "../stores/prefsStore";
 import { applyMainWindow } from "../lib/windowLayout";
 
 /**
- * First-run setup (Fork/GitKraken-style): compact window,
- * logo + form (name, email, projects folder) → main dashboard.
+ * First-run setup inspired by Fork:
+ * left branding + step list · right user information form · Finish / Cancel.
  */
 export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
   const createProfile = useAppStore((s) => s.createProfile);
@@ -54,6 +55,14 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
     }
   };
 
+  const cancel = async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      /* ignore */
+    }
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -84,76 +93,74 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 bg-[#12141a]">
-      <div
-        className="relative flex w-[42%] shrink-0 flex-col items-center justify-center overflow-hidden px-8"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 70% at 50% 40%, rgba(107,92,255,0.35), transparent 60%), #171a20",
-        }}
-      >
-        <img
-          src={logo}
-          alt=""
-          className="h-28 w-28 object-contain drop-shadow-[0_12px_40px_rgba(160,80,220,0.45)]"
-          aria-hidden
-        />
-        <div className="mt-5 text-center">
-          <div className="text-[22px] font-semibold tracking-tight text-[#f0f1f4]">
-            gitorade
-          </div>
-          <p className="mt-1.5 max-w-[200px] text-[12px] leading-relaxed text-[#8b909a]">
-            Seu Git. Seu fluxo. Seu jeito.
-          </p>
+    <div className="flex h-full min-h-0 bg-[#1a1c22]">
+      {/* Left — branding + steps (Fork-style) */}
+      <aside className="flex w-[240px] shrink-0 flex-col bg-[#14161b] px-5 pb-5 pt-8">
+        <div className="flex flex-col items-center text-center">
+          <img
+            src={logo}
+            alt=""
+            className="h-[72px] w-[72px] object-contain"
+            aria-hidden
+          />
+          <h1 className="mt-4 text-[18px] font-semibold tracking-tight text-[#f0f1f4]">
+            Bem-vindo ao Gitorade
+          </h1>
         </div>
-      </div>
 
+        <nav className="mt-auto space-y-0.5 pt-8" aria-label="Etapas">
+          <div className="rounded bg-[#2a2e36] px-3 py-2 text-[12px] text-[#e8eaed]">
+            Informações do usuário
+          </div>
+          <div className="px-3 py-2 text-[12px] text-[#5c6370]">Preferências</div>
+          <div className="px-3 py-2 text-[12px] text-[#5c6370]">Concluído</div>
+        </nav>
+      </aside>
+
+      {/* Right — form */}
       <form
-        className="flex min-w-0 flex-1 flex-col justify-center px-8 py-7"
+        className="flex min-w-0 flex-1 flex-col px-8 pb-5 pt-7"
         onSubmit={(e) => void submit(e)}
       >
-        <h1 className="text-[18px] font-medium text-[#f0f1f4]">
-          Configure sua identidade
-        </h1>
-        <p className="mt-1 text-[12px] text-[#6b7280]">
-          Usada nos commits. Você pode criar outras depois em Credenciais.
+        <h2 className="text-[20px] font-semibold tracking-tight text-[#f0f1f4]">
+          Informações do usuário
+        </h2>
+        <p className="mt-2 max-w-md text-[12px] leading-relaxed text-[#8b909a]">
+          Defina seu nome e email. Essas informações serão associadas aos seus
+          commits no Git.
         </p>
 
-        <label className="mt-5 block">
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">
-            Nome
-          </span>
+        <label className="mt-6 block">
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Nome:</span>
           <input
-            className="h-9 w-full rounded border border-[#2d3139] bg-[#1c1f26] px-3 text-[13px] text-[#e8eaed] outline-none focus:border-[#3d8bfd]"
+            className="h-9 w-full rounded border border-[#2d3139] bg-[#12141a] px-3 text-[13px] text-[#e8eaed] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/40"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Seu nome"
+            placeholder="Nome completo (opcional)"
             autoFocus
             required
           />
         </label>
 
-        <label className="mt-3 block">
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">
-            Email
-          </span>
+        <label className="mt-4 block">
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Email:</span>
           <input
             type="email"
-            className="h-9 w-full rounded border border-[#2d3139] bg-[#1c1f26] px-3 text-[13px] text-[#e8eaed] outline-none focus:border-[#3d8bfd]"
+            className="h-9 w-full rounded border border-[#2d3139] bg-[#12141a] px-3 text-[13px] text-[#e8eaed] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/40"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="voce@empresa.com"
+            placeholder="email@dominio.com (opcional)"
             required
           />
         </label>
 
-        <label className="mt-3 block">
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">
-            Pasta de projetos
+        <label className="mt-4 block">
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">
+            Pasta padrão de projetos:
           </span>
           <div className="flex gap-2">
             <input
-              className="h-9 min-w-0 flex-1 rounded border border-[#2d3139] bg-[#1c1f26] px-3 font-mono text-[12px] text-[#e8eaed] outline-none focus:border-[#3d8bfd]"
+              className="h-9 min-w-0 flex-1 rounded border border-[#2d3139] bg-[#12141a] px-3 font-mono text-[12px] text-[#e8eaed] outline-none focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/40"
               value={projectsPath}
               onChange={(e) => setProjectsPath(e.target.value)}
               placeholder="C:\Users\...\Projects"
@@ -161,10 +168,11 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
             />
             <button
               type="button"
-              className="h-9 shrink-0 rounded border border-[#2d3139] px-3 text-[12px] text-[#c8ccd4] hover:bg-[#252830]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[#2d3139] text-[#c8ccd4] hover:bg-[#252830]"
+              title="Escolher pasta"
               onClick={() => void pickFolder()}
             >
-              …
+              <FolderGlyph />
             </button>
           </div>
         </label>
@@ -175,14 +183,38 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy || submitting}
-          className="mt-6 h-10 w-full rounded bg-gradient-to-r from-[#6b5cff] to-[#e040a0] text-[13px] font-medium text-white disabled:opacity-40"
-        >
-          {submitting ? "Configurando…" : "Começar"}
-        </button>
+        <div className="mt-auto flex justify-end gap-2 pt-6">
+          <button
+            type="button"
+            className="h-8 min-w-[88px] rounded border border-[#3a3f4a] px-4 text-[12px] text-[#e8eaed] hover:bg-[#252830]"
+            onClick={() => void cancel()}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={busy || submitting}
+            className="h-8 min-w-[88px] rounded border border-[#a371f7] bg-transparent px-4 text-[12px] font-medium text-[#e8eaed] hover:bg-[#a371f7]/15 disabled:opacity-40"
+          >
+            {submitting ? "Salvando…" : "Concluir"}
+          </button>
+        </div>
       </form>
     </div>
+  );
+}
+
+function FolderGlyph() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+    </svg>
   );
 }

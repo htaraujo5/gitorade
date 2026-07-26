@@ -186,7 +186,8 @@ type AppState = {
   setCommitFileViewMode: (mode: "diff" | "file") => void;
   navigateCommitFile: (dir: -1 | 1) => Promise<void>;
   openCommitFileInWorkingDir: () => Promise<void>;
-  createProfile: (input: CreateProfileInput, opts?: { stay?: boolean }) => Promise<void>;
+  createProfile: (input: CreateProfileInput, opts?: { stay?: boolean }) => Promise<Profile>;
+  updateProfile: (input: CreateProfileInput & { id: string }) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
   associateProfile: (profileId: string | null) => Promise<void>;
   commit: () => Promise<void>;
@@ -297,7 +298,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   refreshProfiles: async () => {
     const profiles = await api.listProfiles();
-    set({ profiles });
+    const current = get().commitOverrideProfileId;
+    const stillValid = current && profiles.some((p) => p.id === current);
+    set({
+      profiles,
+      commitOverrideProfileId: stillValid
+        ? current
+        : (profiles[0]?.id ?? null),
+    });
   },
 
   openRepositoryDialog: async () => {
@@ -359,7 +367,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       commitFiles: [],
       selectedCommitFile: null,
       commitFileContent: "",
-      commitOverrideProfileId: repo?.defaultProfileId ?? null,
+      commitOverrideProfileId:
+        repo?.defaultProfileId ??
+        get().commitOverrideProfileId ??
+        get().profiles[0]?.id ??
+        null,
     });
     try {
       await Promise.all([
@@ -1118,10 +1130,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   createProfile: async (input, opts) => {
     set({ busy: true, error: null });
     try {
-      await api.createProfile(input);
+      const profile = await api.createProfile(input);
       await get().refreshProfiles();
       set({ busy: false, notice: "Perfil criado." });
       if (!opts?.stay) get().openCredentialsTab();
+      return profile;
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+      throw err;
+    }
+  },
+
+  updateProfile: async (input) => {
+    set({ busy: true, error: null });
+    try {
+      await api.updateProfile(input);
+      await get().refreshProfiles();
+      set({ busy: false, notice: "Perfil atualizado." });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
       throw err;
@@ -1161,12 +1186,40 @@ export const useAppStore = create<AppState>((set, get) => ({
     const repoId = get().activeRepoId;
     const message = get().commitMessage;
     if (!repoId) return;
+
+    const profiles = get().profiles;
+    const overrideId = get().commitOverrideProfileId;
+    const repo = get().repositories.find((r) => r.id === repoId);
+    const profile =
+      profiles.find((p) => p.id === overrideId) ??
+      (repo?.defaultProfileId
+        ? profiles.find((p) => p.id === repo.defaultProfileId)
+        : undefined) ??
+      repo?.activeProfile ??
+      profiles[0] ??
+      null;
+
+    if (!profile) {
+      set({
+        error:
+          "Selecione um perfil no menu do canto superior direito antes do commit.",
+      });
+      return;
+    }
+
+    // Keep UI selection in sync with what we commit
+    if (get().commitOverrideProfileId !== profile.id) {
+      set({ commitOverrideProfileId: profile.id });
+    }
+
     set({ busy: true, error: null });
     try {
       const result = await api.commitChanges({
         repositoryId: repoId,
         message,
-        profileId: get().commitOverrideProfileId,
+        profileId: profile.id,
+        authorName: profile.name,
+        authorEmail: profile.email,
       });
       set({
         busy: false,

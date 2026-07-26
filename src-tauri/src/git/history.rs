@@ -67,66 +67,64 @@ pub fn commit_graph(path: &Path, limit: usize) -> AppResult<CommitGraph> {
 }
 
 fn assign_lanes(mut commits: Vec<CommitSummary>) -> (Vec<CommitSummary>, Vec<GraphEdge>) {
-    let mut hash_to_lane: HashMap<String, usize> = HashMap::new();
-    let mut free_lanes: Vec<usize> = Vec::new();
-    let mut next_lane = 0usize;
+    // Active lane → hash expected next on that lane (tip → root walk).
+    let mut lanes: Vec<Option<String>> = Vec::new();
     let mut edges = Vec::new();
 
-    // Process in topo order (parents after children in git log --topo-order? Actually
-    // git log --topo-order lists children before parents. We walk from tip to root.
     for commit in &mut commits {
-        let lane = if let Some(&existing) = hash_to_lane.get(&commit.hash) {
-            existing
-        } else if let Some(lane) = free_lanes.pop() {
-            hash_to_lane.insert(commit.hash.clone(), lane);
-            lane
+        // Prefer an existing reservation for this hash; else leftmost free / push.
+        let lane = if let Some(idx) = lanes.iter().position(|h| h.as_deref() == Some(commit.hash.as_str()))
+        {
+            idx
+        } else if let Some(idx) = lanes.iter().position(|h| h.is_none()) {
+            idx
         } else {
-            let lane = next_lane;
-            next_lane += 1;
-            hash_to_lane.insert(commit.hash.clone(), lane);
-            lane
+            lanes.push(None);
+            lanes.len() - 1
         };
+
         commit.lane = lane;
+        // Occupied by this commit until we place parents.
+        if lane < lanes.len() {
+            lanes[lane] = None;
+        } else {
+            lanes.resize(lane + 1, None);
+        }
 
         for (idx, parent) in commit.parents.iter().enumerate() {
-            let parent_lane = if idx == 0 {
-                // First parent continues same lane
-                hash_to_lane
-                    .entry(parent.clone())
-                    .or_insert(lane);
-                *hash_to_lane.get(parent).unwrap_or(&lane)
+            let parent_lane = if let Some(existing) = lanes
+                .iter()
+                .position(|h| h.as_deref() == Some(parent.as_str()))
+            {
+                // Parent already reserved on another lane (merge into existing).
+                existing
+            } else if idx == 0 {
+                // First parent continues on this lane.
+                lanes[lane] = Some(parent.clone());
+                lane
+            } else if let Some(free) = lanes.iter().position(|h| h.is_none()) {
+                lanes[free] = Some(parent.clone());
+                free
             } else {
-                // Merge parents get new/free lanes
-                if let Some(&pl) = hash_to_lane.get(parent) {
-                    pl
-                } else if let Some(pl) = free_lanes.pop() {
-                    hash_to_lane.insert(parent.clone(), pl);
-                    pl
-                } else {
-                    let pl = next_lane;
-                    next_lane += 1;
-                    hash_to_lane.insert(parent.clone(), pl);
-                    pl
-                }
+                lanes.push(Some(parent.clone()));
+                lanes.len() - 1
             };
 
             edges.push(GraphEdge {
                 from_hash: commit.hash.clone(),
                 to_hash: parent.clone(),
                 from_lane: lane,
-                to_lane: if idx == 0 { lane } else { parent_lane },
+                to_lane: parent_lane,
             });
         }
-
-        // If this commit has no first-parent continuation (leaf of a side branch ending),
-        // free the lane when no other refs point into it. Simple heuristic: free lane if
-        // commit has zero parents (root) — parent lanes stay allocated until used.
-        if commit.parents.is_empty() {
-            free_lanes.push(lane);
-        }
+        // No parents: lane already cleared — available for reuse.
     }
 
-    // Re-normalize lanes to dense indices for UI
+    // Drop trailing empty lanes, then dense-remap used indices.
+    while lanes.last().is_some_and(|h| h.is_none()) {
+        lanes.pop();
+    }
+
     let used: HashSet<usize> = commits.iter().map(|c| c.lane).collect();
     let mut sorted: Vec<usize> = used.into_iter().collect();
     sorted.sort_unstable();
@@ -273,6 +271,61 @@ mod tests {
         assert_eq!(out[0].lane, 0);
         assert_eq!(out[1].lane, 0);
         assert_eq!(edges.len(), 1);
+    }
+
+    #[test]
+    fn assign_lanes_reuses_after_merge() {
+        // tip merge → two parents → then parents meet again should stay dense
+        let commits = vec![
+            CommitSummary {
+                hash: "m".into(),
+                short_hash: "m".into(),
+                parents: vec!["a".into(), "b".into()],
+                subject: "merge".into(),
+                author_name: "a".into(),
+                author_email: "a@b.c".into(),
+                authored_at: "2026-01-03T00:00:00Z".into(),
+                refs: vec![],
+                lane: 0,
+            },
+            CommitSummary {
+                hash: "a".into(),
+                short_hash: "a".into(),
+                parents: vec!["base".into()],
+                subject: "a".into(),
+                author_name: "a".into(),
+                author_email: "a@b.c".into(),
+                authored_at: "2026-01-02T00:00:00Z".into(),
+                refs: vec![],
+                lane: 0,
+            },
+            CommitSummary {
+                hash: "b".into(),
+                short_hash: "b".into(),
+                parents: vec!["base".into()],
+                subject: "b".into(),
+                author_name: "a".into(),
+                author_email: "a@b.c".into(),
+                authored_at: "2026-01-02T00:00:00Z".into(),
+                refs: vec![],
+                lane: 0,
+            },
+            CommitSummary {
+                hash: "base".into(),
+                short_hash: "base".into(),
+                parents: vec![],
+                subject: "base".into(),
+                author_name: "a".into(),
+                author_email: "a@b.c".into(),
+                authored_at: "2026-01-01T00:00:00Z".into(),
+                refs: vec![],
+                lane: 0,
+            },
+        ];
+        let (out, _) = assign_lanes(commits);
+        let max = out.iter().map(|c| c.lane).max().unwrap_or(0);
+        assert!(max <= 1, "expected at most 2 lanes, got max={max}");
+        assert_eq!(out[0].lane, 0);
     }
 
     #[test]

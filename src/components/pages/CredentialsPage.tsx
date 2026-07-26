@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useAppStore } from "../../stores/appStore";
 import type { Profile } from "../../lib/api";
+import { IconCredentials, IconKey, IconPlus } from "../Icons";
 
-/** Profile / credentials manager — denser GitKraken-like layout. */
+type Mode = "view" | "create" | "edit";
+
+/**
+ * Credentials — GitKraken/Fork style:
+ * left list only · create/edit form lives in the main panel (never jammed in the sidebar).
+ */
 export function CredentialsPage() {
   const {
     profiles,
     repositories,
     activeRepoId,
     createProfile,
+    updateProfile,
     deleteProfile,
     associateProfile,
     busy,
@@ -20,39 +27,116 @@ export function CredentialsPage() {
     profiles[0]?.id ?? null,
   );
   const selected = profiles.find((p) => p.id === selectedId) ?? null;
+  const [mode, setMode] = useState<Mode>(profiles.length === 0 ? "create" : "view");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [provider, setProvider] = useState("GitHub");
-  const [creating, setCreating] = useState(profiles.length === 0);
+  const [provider, setProvider] = useState("Local");
 
   useEffect(() => {
-    if (!selectedId && profiles[0]) setSelectedId(profiles[0].id);
-  }, [profiles, selectedId]);
+    if (profiles.length === 0) {
+      setMode("create");
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !profiles.some((p) => p.id === selectedId)) {
+      setSelectedId(profiles[0].id);
+      if (mode !== "create") setMode("view");
+    }
+  }, [profiles, selectedId, mode]);
+
+  const startCreate = () => {
+    setName("");
+    setEmail("");
+    setProvider("Local");
+    setFormError(null);
+    setMode("create");
+  };
+
+  const startEdit = (p: Profile) => {
+    setSelectedId(p.id);
+    setName(p.name);
+    setEmail(p.email);
+    setProvider(p.provider ?? "Local");
+    setFormError(null);
+    setMode("edit");
+  };
+
+  const cancelForm = () => {
+    setFormError(null);
+    if (profiles.length === 0) {
+      setMode("create");
+      return;
+    }
+    setMode("view");
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!name.trim() || !email.trim()) {
+      setFormError("Informe nome e email.");
+      return;
+    }
+    try {
+      if (mode === "edit" && selectedId) {
+        await updateProfile({
+          id: selectedId,
+          name: name.trim(),
+          email: email.trim(),
+          provider,
+          sshKeyPath: selected?.sshKeyPath ?? null,
+        });
+        setMode("view");
+      } else {
+        const created = await createProfile(
+          {
+            name: name.trim(),
+            email: email.trim(),
+            provider,
+          },
+          { stay: true },
+        );
+        setSelectedId(created.id);
+        setName("");
+        setEmail("");
+        setMode("view");
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const showForm = mode === "create" || mode === "edit";
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden bg-[#171a20]">
-      <aside className="flex w-[280px] shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]">
-        <div className="flex items-center justify-between border-b border-[#2d3139] px-3 py-2.5">
-          <div>
-            <div className="text-[12px] font-medium text-[#e8eaed]">Perfis</div>
+      <aside className="flex w-[260px] shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]">
+        <div className="flex items-center justify-between gap-2 border-b border-[#2d3139] px-3 py-2.5">
+          <div className="min-w-0">
+            <div className="text-[12px] font-medium text-[#e8eaed]">Identidades</div>
             <div className="text-[10px] text-[#6b7280]">
-              {profiles.length} identidade{profiles.length === 1 ? "" : "s"}
+              {profiles.length === 0
+                ? "Nenhuma ainda"
+                : `${profiles.length} perfil${profiles.length === 1 ? "" : "es"}`}
             </div>
           </div>
           <button
             type="button"
-            className="rounded border border-[#2d3139] px-2 py-1 text-[10px] text-[#c8ccd4] hover:bg-[#252830]"
-            onClick={() => setCreating((v) => !v)}
+            title="Nova identidade"
+            className="inline-flex h-7 items-center gap-1 rounded border border-[#2d3139] px-2 text-[11px] text-[#c8ccd4] hover:bg-[#252830] hover:text-[#e8eaed]"
+            onClick={startCreate}
           >
-            {creating ? "Cancelar" : "+ Novo"}
+            <IconPlus className="h-3 w-3" />
+            Novo
           </button>
         </div>
 
-        <ul className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
+        <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto p-2">
           {profiles.length === 0 ? (
-            <li className="px-2 py-6 text-center text-[11px] text-[#6b7280]">
-              Nenhum perfil ainda.
+            <li className="px-2 py-8 text-center text-[11px] leading-relaxed text-[#5c6370]">
+              Crie sua primeira identidade no painel ao lado.
             </li>
           ) : (
             profiles.map((p) => (
@@ -60,174 +144,308 @@ export function CredentialsPage() {
                 <ProfileRow
                   profile={p}
                   active={p.id === (repo?.defaultProfileId ?? null)}
-                  selected={p.id === selectedId}
+                  selected={p.id === selectedId && mode === "view"}
                   onSelect={() => {
                     setSelectedId(p.id);
-                    setCreating(false);
+                    setMode("view");
+                    setFormError(null);
                   }}
                 />
               </li>
             ))
           )}
         </ul>
-
-        {creating && (
-          <form
-            className="space-y-2 border-t border-[#2d3139] p-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void (async () => {
-                try {
-                  await createProfile({ name, email, provider });
-                  setName("");
-                  setEmail("");
-                  setCreating(false);
-                } catch {
-                  /* erro já no store */
-                }
-              })();
-            }}
-          >
-            <div className="text-[9px] font-medium uppercase tracking-[0.08em] text-[#6b7280]">
-              Novo perfil
-            </div>
-            <input
-              className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2.5 py-1.5 text-[12px] outline-none focus:border-[#3d8bfd]"
-              placeholder="Nome"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoFocus
-            />
-            <input
-              className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2.5 py-1.5 text-[12px] outline-none focus:border-[#3d8bfd]"
-              placeholder="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <select
-              className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2.5 py-1.5 text-[12px] outline-none focus:border-[#3d8bfd]"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-            >
-              <option>GitHub</option>
-              <option>GitLab</option>
-              <option>Bitbucket</option>
-              <option>Outro</option>
-            </select>
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded bg-gradient-to-r from-[#6b5cff] to-[#e040a0] py-2 text-[12px] font-medium text-white disabled:opacity-40"
-            >
-              Criar perfil
-            </button>
-          </form>
-        )}
       </aside>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto p-6">
-        {!selected ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="text-[13px] text-[#c8ccd4]">Nenhum perfil selecionado</p>
-            <p className="mt-1 text-[12px] text-[#6b7280]">
-              Crie uma identidade para assinar commits por repositório.
-            </p>
-            <button
-              type="button"
-              className="mt-4 rounded bg-gradient-to-r from-[#6b5cff] to-[#e040a0] px-4 py-2 text-[12px] text-white"
-              onClick={() => setCreating(true)}
-            >
-              Criar primeiro perfil
-            </button>
-          </div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        {showForm ? (
+          <ProfileForm
+            title={mode === "edit" ? "Editar identidade" : "Nova identidade"}
+            subtitle={
+              mode === "edit"
+                ? "Atualize nome, email e provedor usados nos commits."
+                : "Essa identidade assina commits. Você pode criar várias (trabalho, pessoal…)."
+            }
+            name={name}
+            email={email}
+            provider={provider}
+            error={formError}
+            busy={busy}
+            submitLabel={mode === "edit" ? "Salvar" : "Criar identidade"}
+            showCancel={profiles.length > 0 || mode === "edit"}
+            onName={setName}
+            onEmail={setEmail}
+            onProvider={setProvider}
+            onCancel={cancelForm}
+            onSubmit={(e) => void submit(e)}
+          />
+        ) : selected ? (
+          <ProfileDetail
+            profile={selected}
+            repoName={repo?.name ?? null}
+            isRepoDefault={selected.id === repo?.defaultProfileId}
+            canAssociate={Boolean(repo)}
+            busy={busy}
+            onEdit={() => startEdit(selected)}
+            onAssociate={() => void associateProfile(selected.id)}
+            onSsh={() => openSshTab()}
+            onDelete={() => {
+              if (!window.confirm(`Remover identidade “${selected.name}”?`)) return;
+              void deleteProfile(selected.id).then(() => {
+                setSelectedId(null);
+              });
+            }}
+          />
         ) : (
-          <div className="mx-auto max-w-xl">
-            <div className="mb-5 flex items-start gap-4">
-              <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-xl font-semibold text-white">
-                {selected.name.trim().slice(0, 1).toUpperCase() || "?"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-[20px] font-medium tracking-tight text-[#f0f1f4]">
-                  {selected.name}
-                </h1>
-                <p className="mt-0.5 truncate text-[13px] text-[#8b909a]">{selected.email}</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {selected.provider && (
-                    <span className="rounded bg-[#252830] px-2 py-0.5 text-[10px] text-[#a8adb8]">
-                      {selected.provider}
-                    </span>
-                  )}
-                  {selected.id === repo?.defaultProfileId && (
-                    <span className="rounded bg-[#238636]/20 px-2 py-0.5 text-[10px] text-[#3dd68c]">
-                      Ativo no repo
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2 rounded border border-[#2d3139] bg-[#1c1f26] p-4">
-              <Detail label="Email" value={selected.email} />
-              <Detail label="Provider" value={selected.provider ?? "—"} />
-              <Detail
-                label="Chave SSH"
-                value={
-                  selected.sshKeyPath ??
-                  "Não configurada — use o agente SSH do sistema"
-                }
-              />
-              {repo && (
-                <Detail
-                  label="Repo atual"
-                  value={`${repo.name}${
-                    selected.id === repo.defaultProfileId ? " · associado" : ""
-                  }`}
-                />
-              )}
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!repo || busy || selected.id === repo?.defaultProfileId}
-                className="rounded bg-gradient-to-r from-[#6b5cff] to-[#e040a0] px-3.5 py-2 text-[12px] font-medium text-white disabled:opacity-40"
-                onClick={() => void associateProfile(selected.id)}
-              >
-                Usar no repo ativo
-              </button>
-              <button
-                type="button"
-                className="rounded border border-[#2d3139] px-3.5 py-2 text-[12px] text-[#c8ccd4] hover:bg-[#252830]"
-                onClick={() => openSshTab()}
-              >
-                Configurar SSH
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded border border-[#f85149]/35 px-3.5 py-2 text-[12px] text-[#f85149] hover:bg-[#f85149]/10 disabled:opacity-40"
-                onClick={() => {
-                  if (window.confirm(`Remover perfil ${selected.name}?`)) {
-                    void deleteProfile(selected.id);
-                    setSelectedId(null);
-                  }
-                }}
-              >
-                Remover
-              </button>
-            </div>
-
-            <p className="mt-6 text-[11px] leading-relaxed text-[#5c6370]">
-              Cada repositório pode usar um perfil diferente (nome/email/SSH). O
-              seletor no canto superior direito define a assinatura do próximo
-              commit.
-            </p>
-          </div>
+          <EmptyHint onCreate={startCreate} />
         )}
       </div>
+    </div>
+  );
+}
+
+function ProfileForm({
+  title,
+  subtitle,
+  name,
+  email,
+  provider,
+  error,
+  busy,
+  submitLabel,
+  showCancel,
+  onName,
+  onEmail,
+  onProvider,
+  onCancel,
+  onSubmit,
+}: {
+  title: string;
+  subtitle: string;
+  name: string;
+  email: string;
+  provider: string;
+  error: string | null;
+  busy: boolean;
+  submitLabel: string;
+  showCancel: boolean;
+  onName: (v: string) => void;
+  onEmail: (v: string) => void;
+  onProvider: (v: string) => void;
+  onCancel: () => void;
+  onSubmit: (e: FormEvent) => void;
+}) {
+  return (
+    <div className="flex min-h-full items-start justify-center px-8 py-10">
+      <form
+        className="w-full max-w-md"
+        onSubmit={onSubmit}
+      >
+        <div className="mb-6 flex items-start gap-3">
+          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-white">
+            <IconCredentials className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-[18px] font-semibold tracking-tight text-[#f0f1f4]">
+              {title}
+            </h1>
+            <p className="mt-1 text-[12px] leading-relaxed text-[#8b909a]">{subtitle}</p>
+          </div>
+        </div>
+
+        <label className="block">
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Nome</span>
+          <input
+            className="h-10 w-full rounded border border-[#2d3139] bg-[#12141a] px-3 text-[13px] text-[#e8eaed] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/35"
+            value={name}
+            onChange={(e) => onName(e.target.value)}
+            placeholder="Seu nome completo"
+            autoFocus
+            required
+          />
+        </label>
+
+        <label className="mt-4 block">
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Email</span>
+          <input
+            type="email"
+            className="h-10 w-full rounded border border-[#2d3139] bg-[#12141a] px-3 text-[13px] text-[#e8eaed] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/35"
+            value={email}
+            onChange={(e) => onEmail(e.target.value)}
+            placeholder="voce@empresa.com"
+            required
+          />
+        </label>
+
+        <label className="mt-4 block">
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Provedor</span>
+          <select
+            className="h-10 w-full rounded border border-[#2d3139] bg-[#12141a] px-3 text-[13px] text-[#e8eaed] outline-none focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/35"
+            value={provider}
+            onChange={(e) => onProvider(e.target.value)}
+          >
+            <option value="Local">Local</option>
+            <option value="GitHub">GitHub</option>
+            <option value="GitLab">GitLab</option>
+            <option value="Bitbucket">Bitbucket</option>
+            <option value="Azure DevOps">Azure DevOps</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </label>
+
+        {error && (
+          <p className="mt-3 text-[12px] text-[#f85149]" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-7 flex items-center justify-end gap-2">
+          {showCancel && (
+            <button
+              type="button"
+              className="h-9 min-w-[96px] rounded border border-[#3a3f4a] px-4 text-[12px] text-[#e8eaed] hover:bg-[#252830]"
+              onClick={onCancel}
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="h-9 min-w-[128px] rounded border border-[#a371f7] bg-[#a371f7]/15 px-4 text-[12px] font-medium text-[#e8eaed] hover:bg-[#a371f7]/25 disabled:opacity-40"
+          >
+            {busy ? "Salvando…" : submitLabel}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ProfileDetail({
+  profile,
+  repoName,
+  isRepoDefault,
+  canAssociate,
+  busy,
+  onEdit,
+  onAssociate,
+  onSsh,
+  onDelete,
+}: {
+  profile: Profile;
+  repoName: string | null;
+  isRepoDefault: boolean;
+  canAssociate: boolean;
+  busy: boolean;
+  onEdit: () => void;
+  onAssociate: () => void;
+  onSsh: () => void;
+  onDelete: () => void;
+}) {
+  const letter = profile.name.trim().slice(0, 1).toUpperCase() || "?";
+
+  return (
+    <div className="mx-auto max-w-xl px-8 py-8">
+      <div className="flex items-start gap-4">
+        <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-xl font-semibold text-white">
+          {letter}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[20px] font-semibold tracking-tight text-[#f0f1f4]">
+            {profile.name}
+          </h1>
+          <p className="mt-0.5 truncate text-[13px] text-[#8b909a]">{profile.email}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {profile.provider && (
+              <span className="rounded bg-[#252830] px-2 py-0.5 text-[10px] text-[#a8adb8]">
+                {profile.provider}
+              </span>
+            )}
+            {isRepoDefault && (
+              <span className="rounded bg-[#238636]/20 px-2 py-0.5 text-[10px] text-[#3dd68c]">
+                Ativo no repo
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="shrink-0 rounded border border-[#2d3139] px-3 py-1.5 text-[11px] text-[#c8ccd4] hover:bg-[#252830]"
+          onClick={onEdit}
+        >
+          Editar
+        </button>
+      </div>
+
+      <dl className="mt-6 space-y-0 rounded-lg border border-[#2d3139] bg-[#1c1f26] px-4">
+        <Detail label="Nome" value={profile.name} />
+        <Detail label="Email" value={profile.email} />
+        <Detail label="Provedor" value={profile.provider ?? "Local"} />
+        <Detail
+          label="Chave SSH"
+          value={
+            profile.sshKeyPath ?? "Não configurada — usa o agente SSH do sistema"
+          }
+        />
+        {repoName && (
+          <Detail
+            label="Repo atual"
+            value={`${repoName}${isRepoDefault ? " · associado" : ""}`}
+          />
+        )}
+      </dl>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!canAssociate || busy || isRepoDefault}
+          className="rounded border border-[#a371f7] bg-[#a371f7]/15 px-3.5 py-2 text-[12px] font-medium text-[#e8eaed] hover:bg-[#a371f7]/25 disabled:opacity-40"
+          onClick={onAssociate}
+        >
+          Usar no repo ativo
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded border border-[#2d3139] px-3.5 py-2 text-[12px] text-[#c8ccd4] hover:bg-[#252830]"
+          onClick={onSsh}
+        >
+          <IconKey className="h-3.5 w-3.5" />
+          Configurar SSH
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded border border-[#f85149]/35 px-3.5 py-2 text-[12px] text-[#f85149] hover:bg-[#f85149]/10 disabled:opacity-40"
+          onClick={onDelete}
+        >
+          Remover
+        </button>
+      </div>
+
+      <p className="mt-8 text-[11px] leading-relaxed text-[#5c6370]">
+        Cada repositório pode usar um perfil diferente. O seletor no canto
+        superior direito define a assinatura do próximo commit.
+      </p>
+    </div>
+  );
+}
+
+function EmptyHint({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <IconCredentials className="mb-3 h-10 w-10 text-[#5c6370]" />
+      <p className="text-[14px] text-[#c8ccd4]">Nenhuma identidade selecionada</p>
+      <p className="mt-1 max-w-sm text-[12px] text-[#6b7280]">
+        Crie um perfil para assinar commits por repositório.
+      </p>
+      <button
+        type="button"
+        className="mt-5 rounded border border-[#a371f7] bg-[#a371f7]/15 px-4 py-2 text-[12px] text-[#e8eaed] hover:bg-[#a371f7]/25"
+        onClick={onCreate}
+      >
+        Nova identidade
+      </button>
     </div>
   );
 }
@@ -266,7 +484,9 @@ function ProfileRow({
             </span>
           )}
         </span>
-        <span className="block truncate text-[10px] text-[#6b7280]">{profile.email}</span>
+        <span className="block truncate text-[10px] text-[#6b7280]">
+          {profile.email}
+        </span>
       </span>
     </button>
   );
@@ -274,11 +494,13 @@ function ProfileRow({
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-[#2d3139]/70 py-2 last:border-0">
+    <div className="flex items-start justify-between gap-4 border-b border-[#2d3139]/70 py-3 last:border-0">
       <dt className="shrink-0 text-[10px] uppercase tracking-wide text-[#6b7280]">
         {label}
       </dt>
-      <dd className="min-w-0 text-right text-[12px] text-[#d8dbe2] break-all">{value}</dd>
+      <dd className="min-w-0 break-all text-right text-[12px] text-[#d8dbe2]">
+        {value}
+      </dd>
     </div>
   );
 }
