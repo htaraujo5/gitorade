@@ -166,6 +166,18 @@ pub fn cancel_operation(registry: State<'_, OperationRegistry>, operation_id: St
 }
 
 #[tauri::command]
+pub fn respond_ssh_askpass(
+    request_id: String,
+    passphrase: Option<String>,
+    cancelled: Option<bool>,
+) -> AppResult<()> {
+    if cancelled.unwrap_or(false) || passphrase.is_none() {
+        return git::ssh_env::respond_askpass(&request_id, None);
+    }
+    git::ssh_env::respond_askpass(&request_id, passphrase.as_deref())
+}
+
+#[tauri::command]
 pub async fn clone_repository(
     app: AppHandle,
     registry: State<'_, OperationRegistry>,
