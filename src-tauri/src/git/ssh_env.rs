@@ -1,13 +1,16 @@
-//! Ensure Git/SSH spawned from the GUI finds the user's `~/.ssh` keys.
+//! Ensure Git/SSH spawned from the GUI finds the user's `~/.ssh` keys
+//! and can ask for the key passphrase (like the terminal / other Git GUIs).
 //!
-//! On Windows, GUI processes often have empty `HOME`. Git-for-Windows then
-//! launches its MSYS `ssh.exe`, which fails to locate `C:\Users\…\.ssh`.
-//! We force `HOME`/`USERPROFILE` and prefer Windows OpenSSH + an identity file.
+//! On Windows, GUI processes often have empty `HOME`, and OpenSSH has no TTY —
+//! without AskPass + without BatchMode the passphrase prompt never appears.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Once, OnceLock};
 
 /// Apply env vars so remote Git (fetch/pull/push/clone) can authenticate via SSH.
+/// Call only for remote operations — never from local `git log` / `status` / etc.
 pub fn apply_git_remote_env(cmd: &mut Command, identity_file: Option<&Path>) {
     if let Some(home) = dirs::home_dir() {
         cmd.env("HOME", &home);
@@ -22,14 +25,15 @@ pub fn apply_git_remote_env(cmd: &mut Command, identity_file: Option<&Path>) {
         }
     }
 
+    // Prefer Windows OpenSSH; do NOT use BatchMode — key passphrase must be allowed.
+    let ssh = resolve_ssh_binary();
+    let mut ssh_cmd = format!("\"{ssh}\"");
+    ssh_cmd.push_str(" -o StrictHostKeyChecking=accept-new");
+
     let key = identity_file
         .filter(|p| p.is_file())
         .map(Path::to_path_buf)
         .or_else(discover_default_ssh_key);
-
-    let ssh = resolve_ssh_binary();
-    let mut ssh_cmd = format!("\"{ssh}\"");
-    ssh_cmd.push_str(" -o BatchMode=yes -o StrictHostKeyChecking=accept-new");
 
     if let Some(key) = key {
         let key_s = key.to_string_lossy();
@@ -37,6 +41,23 @@ pub fn apply_git_remote_env(cmd: &mut Command, identity_file: Option<&Path>) {
     }
 
     cmd.env("GIT_SSH_COMMAND", ssh_cmd);
+
+    // GUI has no TTY — force AskPass so Windows can show a passphrase dialog.
+    if let Some(askpass) = ensure_askpass_helper_cached() {
+        cmd.env("SSH_ASKPASS", askpass);
+        cmd.env("SSH_ASKPASS_REQUIRE", "force");
+        // Some OpenSSH builds still check DISPLAY before using askpass.
+        cmd.env("DISPLAY", "localhost:0");
+    }
+
+    try_start_windows_ssh_agent_once();
+}
+
+fn ensure_askpass_helper_cached() -> Option<&'static PathBuf> {
+    static ASKPASS: OnceLock<Option<PathBuf>> = OnceLock::new();
+    ASKPASS
+        .get_or_init(ensure_askpass_helper)
+        .as_ref()
 }
 
 pub fn discover_default_ssh_key() -> Option<PathBuf> {
@@ -61,6 +82,89 @@ fn resolve_ssh_binary() -> String {
     "ssh".to_string()
 }
 
+/// Writes a small AskPass helper that shows a Windows password dialog.
+fn ensure_askpass_helper() -> Option<PathBuf> {
+    let dir = dirs::data_local_dir()?.join("gitorade");
+    fs::create_dir_all(&dir).ok()?;
+
+    let ps1 = dir.join("ssh-askpass.ps1");
+    let cmd = dir.join("ssh-askpass.cmd");
+
+    let ps1_body = r#"param([Parameter(ValueFromRemainingArguments=$true)][string[]]$PromptParts)
+$Prompt = if ($PromptParts) { $PromptParts -join ' ' } else { 'Enter passphrase for SSH key' }
+Add-Type -AssemblyName System.Windows.Forms | Out-Null
+Add-Type -AssemblyName System.Drawing | Out-Null
+$form = New-Object System.Windows.Forms.Form
+$form.Text = 'Gitorade — SSH'
+$form.Size = New-Object System.Drawing.Size(420, 160)
+$form.StartPosition = 'CenterScreen'
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox = $false
+$form.MinimizeBox = $false
+$form.TopMost = $true
+$label = New-Object System.Windows.Forms.Label
+$label.Left = 12
+$label.Top = 12
+$label.Width = 380
+$label.Height = 36
+$label.Text = $Prompt
+$form.Controls.Add($label)
+$box = New-Object System.Windows.Forms.TextBox
+$box.Left = 12
+$box.Top = 52
+$box.Width = 380
+$box.UseSystemPasswordChar = $true
+$form.Controls.Add($box)
+$ok = New-Object System.Windows.Forms.Button
+$ok.Text = 'OK'
+$ok.Left = 216
+$ok.Top = 86
+$ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+$form.AcceptButton = $ok
+$form.Controls.Add($ok)
+$cancel = New-Object System.Windows.Forms.Button
+$cancel.Text = 'Cancelar'
+$cancel.Left = 312
+$cancel.Top = 86
+$cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+$form.CancelButton = $cancel
+$form.Controls.Add($cancel)
+$result = $form.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  [Console]::Out.Write($box.Text)
+}
+"#;
+
+    let cmd_body = format!(
+        "@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0ssh-askpass.ps1\" %*\r\n"
+    );
+
+    fs::write(&ps1, ps1_body).ok()?;
+    fs::write(&cmd, cmd_body).ok()?;
+    Some(cmd)
+}
+
+fn try_start_windows_ssh_agent_once() {
+    static START: Once = Once::new();
+    START.call_once(|| {
+        #[cfg(windows)]
+        {
+            // Best-effort once per process: if the service can start, later ssh-add / agent use works.
+            let _ = Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    "try { $s = Get-Service ssh-agent -ErrorAction Stop; if ($s.StartType -eq 'Disabled') { Set-Service ssh-agent -StartupType Manual -ErrorAction SilentlyContinue }; if ($s.Status -ne 'Running') { Start-Service ssh-agent -ErrorAction SilentlyContinue } } catch {}",
+                ])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        }
+    });
+}
+
 /// Friendlier message when SSH auth fails.
 pub fn enhance_ssh_error(raw: &str) -> String {
     let lower = raw.to_lowercase();
@@ -81,24 +185,14 @@ pub fn enhance_ssh_error(raw: &str) -> String {
             "Chave encontrada: {}\n",
             key.to_string_lossy()
         ));
-        msg.push_str(
-            "Confirme que a chave pública correspondente está em GitHub/GitLab (SSH keys).\n",
-        );
-    } else if let Some(home) = dirs::home_dir() {
-        msg.push_str(&format!(
-            "Nenhuma chave em {}\\.ssh (id_ed25519 / id_rsa).\n",
-            home.to_string_lossy()
-        ));
-        msg.push_str("Gere uma com: ssh-keygen -t ed25519 -C \"seu@email\"\n");
     }
 
     msg.push_str(
-        "Se a chave tem senha, inicie o ssh-agent e carregue a chave:\n\
-         Get-Service ssh-agent | Set-Service -StartupType Manual; Start-Service ssh-agent\n\
+        "A chave SSH parece protegida por senha. No push, o Gitorade deve abrir \
+         um diálogo pedindo a passphrase — se não apareceu, carregue a chave no agent:\n\n\
+         Get-Service ssh-agent | Set-Service -StartupType Manual\n\
+         Start-Service ssh-agent\n\
          ssh-add $env:USERPROFILE\\.ssh\\id_rsa\n",
-    );
-    msg.push_str(
-        "Ou associe o caminho da chave privada ao perfil em Credenciais → SSH Keys.",
     );
     msg
 }
@@ -110,6 +204,13 @@ mod tests {
     #[test]
     fn enhance_detects_pubkey_errors() {
         let out = enhance_ssh_error("Permission denied (publickey).\nfatal: Could not read");
-        assert!(out.contains("ssh-add") || out.contains("Chave") || out.contains("Nenhuma chave"));
+        assert!(out.contains("passphrase") || out.contains("ssh-add") || out.contains("Chave"));
+    }
+
+    #[test]
+    fn askpass_helper_writes() {
+        let path = ensure_askpass_helper();
+        assert!(path.is_some());
+        assert!(path.unwrap().is_file());
     }
 }

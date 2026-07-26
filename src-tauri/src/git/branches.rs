@@ -152,6 +152,13 @@ pub fn delete_branch(path: &Path, name: &str, force: bool) -> AppResult<()> {
 
 pub fn upstream_status(path: &Path) -> AppResult<UpstreamStatus> {
     let branch = crate::git::current_branch(path)?;
+    upstream_status_for_branch(path, branch)
+}
+
+pub fn upstream_status_for_branch(
+    path: &Path,
+    branch: Option<String>,
+) -> AppResult<UpstreamStatus> {
     let upstream = run_git(
         &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
         Some(path),
@@ -160,7 +167,10 @@ pub fn upstream_status(path: &Path) -> AppResult<UpstreamStatus> {
     .filter(|s| !s.is_empty());
 
     let (ahead, behind) = if upstream.is_some() {
-        match run_git(&["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], Some(path)) {
+        match run_git(
+            &["rev-list", "--left-right", "--count", "@{upstream}...HEAD"],
+            Some(path),
+        ) {
             Ok(raw) => {
                 let mut parts = raw.split_whitespace();
                 let behind = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);

@@ -247,10 +247,10 @@ function App() {
             </footer>
           </>
         ) : (
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
             {showSidebar && <Sidebar />}
-            <div className="flex min-w-0 flex-1 flex-col">
-              <main aria-label="Área de trabalho" className="flex min-h-0 min-w-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <main aria-label="Área de trabalho" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                 {main}
               </main>
             </div>

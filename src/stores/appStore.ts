@@ -374,14 +374,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         null,
     });
     try {
+      // Critical path for first paint — remotes/stash can fill in after overlay closes.
       await Promise.all([
         get().refreshStatus(),
-        get().refreshRemotes(),
         get().refreshHistory(),
         get().refreshBranches(),
-        get().refreshStash(),
       ]);
-      // Start on WIP (working tree), like GitKraken — not auto-selecting HEAD.
       set({
         selectedCommitHash: null,
         commitFiles: [],
@@ -390,6 +388,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           : get().terminalOpen,
         openingRepoName: null,
       });
+      void get().refreshRemotes();
+      void get().refreshStash();
     } catch (err) {
       set({ openingRepoName: null, error: errMsg(err) });
     }
@@ -838,7 +838,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const status = await api.getRepoStatus(id);
       set({ status });
-      await get().refreshRepositories();
     } catch (err) {
       set({ error: errMsg(err) });
     }

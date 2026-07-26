@@ -19,7 +19,8 @@
         "minWidth": 520,
         "minHeight": 220,
         "center": true,
-        "resizable": false
+        "resizable": false,
+        "decorations": false
       }
     ],
     "security": {

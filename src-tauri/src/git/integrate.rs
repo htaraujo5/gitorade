@@ -22,7 +22,12 @@ pub fn detect_state(path: &Path) -> AppResult<IntegrateState> {
         None
     };
 
-    let conflicts = list_conflicts(path)?;
+    // Skip conflict scan when idle — avoids an extra git process on every status.
+    let conflicts = if kind.is_some() {
+        list_conflicts(path)?
+    } else {
+        Vec::new()
+    };
     Ok(IntegrateState { kind, conflicts })
 }
 

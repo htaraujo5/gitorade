@@ -34,7 +34,7 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Navegação principal"
-      className="flex w-[220px] shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]"
+      className="flex h-full min-h-0 w-[220px] shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]"
     >
       <div className="border-b border-[#2d3139] px-3 py-3.5">
         <BrandMark compact />

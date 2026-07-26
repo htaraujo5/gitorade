@@ -23,9 +23,10 @@ pub use ssh_env::{apply_git_remote_env, discover_default_ssh_key, enhance_ssh_er
 pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
 
 /// Runs git with explicit args (never through a shell).
+/// Local-only: do not attach SSH/askpass/agent env (that is only for remote ops via `ops::run_streaming`).
 pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
     let mut cmd = Command::new("git");
-    apply_git_remote_env(&mut cmd, None);
+    apply_local_git_env(&mut cmd);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -55,7 +56,7 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
 
 fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
     let mut cmd = Command::new("git");
-    apply_git_remote_env(&mut cmd, None);
+    apply_local_git_env(&mut cmd);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -81,6 +82,22 @@ fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
     }
 
     Ok(output.stdout)
+}
+
+/// Cheap env for local git (config/identity). No SSH agent / AskPass.
+fn apply_local_git_env(cmd: &mut Command) {
+    if let Some(home) = dirs::home_dir() {
+        cmd.env("HOME", &home);
+        cmd.env("USERPROFILE", &home);
+        #[cfg(windows)]
+        {
+            let s = home.to_string_lossy();
+            if s.len() >= 2 && s.as_bytes().get(1) == Some(&b':') {
+                cmd.env("HOMEDRIVE", &s[..2]);
+                cmd.env("HOMEPATH", &s[2..]);
+            }
+        }
+    }
 }
 
 pub fn detect_git() -> GitPrerequisite {
@@ -135,7 +152,8 @@ pub fn repo_name_from_path(path: &Path) -> String {
 
 pub fn status(path: &Path) -> AppResult<RepoStatus> {
     let branch = current_branch(path)?;
-    let raw = run_git_raw(&["status", "--porcelain=v2", "-z", "--untracked-files=all"], Some(path))?;
+    // Default untracked (not `all`) — avoids walking huge untracked trees on open.
+    let raw = run_git_raw(&["status", "--porcelain=v2", "-z"], Some(path))?;
     let entries = parse_status_porcelain_v2(&raw);
 
     let mut staged = Vec::new();
@@ -158,12 +176,14 @@ pub fn status(path: &Path) -> AppResult<RepoStatus> {
         }
     }
 
-    let upstream = branches::upstream_status(path).unwrap_or(crate::domain::UpstreamStatus {
-        branch: branch.clone(),
-        upstream: None,
-        ahead: 0,
-        behind: 0,
-    });
+    let upstream = branches::upstream_status_for_branch(path, branch.clone()).unwrap_or(
+        crate::domain::UpstreamStatus {
+            branch: branch.clone(),
+            upstream: None,
+            ahead: 0,
+            behind: 0,
+        },
+    );
 
     let integrate = integrate::detect_state(path).unwrap_or(crate::domain::IntegrateState {
         kind: None,
