@@ -31,6 +31,13 @@ type AppView =
   | "plugins"
   | "about";
 
+export type CheckoutDirtyMode = "keep" | "stash" | "discard";
+
+export type CheckoutPrompt = {
+  target: string;
+  changeCount: number;
+};
+
 /** GitKraken-style shell tabs (repos + Start + settings pages). */
 export type ShellTabKind =
   | "start"
@@ -120,6 +127,7 @@ type AppState = {
   stash: StashEntry[];
   branchFilter: string;
   selectedBranchName: string | null;
+  checkoutPrompt: CheckoutPrompt | null;
 
   bootstrap: () => Promise<void>;
   refreshRepositories: () => Promise<void>;
@@ -143,6 +151,8 @@ type AppState = {
   setSelectedBranchName: (name: string | null) => void;
   createBranch: (name: string, checkout?: boolean) => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
+  confirmCheckout: (mode: CheckoutDirtyMode) => Promise<void>;
+  cancelCheckoutPrompt: () => void;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
   mergeBranch: (name: string) => Promise<void>;
@@ -208,6 +218,50 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+async function performCheckout(
+  get: () => AppState,
+  set: (
+    partial:
+      | Partial<AppState>
+      | ((state: AppState) => Partial<AppState>),
+  ) => void,
+  target: string,
+  mode: CheckoutDirtyMode,
+): Promise<void> {
+  const id = get().activeRepoId;
+  if (!id) return;
+  set({ busy: true, error: null, checkoutPrompt: null });
+  try {
+    if (mode === "stash") {
+      await api.createStash(id, `gitorade: checkout → ${target}`, true);
+    }
+    const branches = await api.checkoutBranch(id, target, mode === "discard");
+    const current = branches.find((b) => b.isCurrent)?.name ?? target;
+    set({
+      branches,
+      busy: false,
+      selectedBranchName: current,
+    });
+    if (mode === "stash") {
+      try {
+        await api.applyStash(id, "stash@{0}", true);
+      } catch (err) {
+        set({
+          error: `Checkout ok, mas falhou ao reaplicar stash: ${errMsg(err)}`,
+        });
+      }
+    }
+    await Promise.all([
+      get().refreshStatus(),
+      get().refreshHistory(),
+      get().refreshBranches(),
+      get().refreshStash(),
+    ]);
+  } catch (err) {
+    set({ busy: false, error: errMsg(err) });
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   health: null,
   bootLoading: true,
@@ -244,6 +298,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   stash: [],
   branchFilter: "",
   selectedBranchName: null,
+  checkoutPrompt: null,
   conflictDraft: "",
   conflictPath: null,
   terminalOpen: false,
@@ -580,23 +635,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   checkoutBranch: async (name) => {
     const id = get().activeRepoId;
     if (!id) return;
-    set({ busy: true, error: null });
-    try {
-      const branches = await api.checkoutBranch(id, name);
-      const current = branches.find((b) => b.isCurrent)?.name ?? name;
-      set({
-        branches,
-        busy: false,
-        selectedBranchName: current,
-      });
-      await Promise.all([
-        get().refreshStatus(),
-        get().refreshHistory(),
-        get().refreshRepositories(),
-      ]);
-    } catch (err) {
-      set({ busy: false, error: errMsg(err) });
+    const target = name.trim();
+    if (!target) return;
+
+    const current =
+      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
+    if (current === target) {
+      set({ selectedBranchName: target });
+      return;
     }
+
+    await get().refreshStatus();
+    const status = get().status;
+    const changeCount =
+      (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+    if (changeCount > 0) {
+      set({ checkoutPrompt: { target, changeCount }, error: null });
+      return;
+    }
+
+    await performCheckout(get, set, target, "keep");
+  },
+
+  cancelCheckoutPrompt: () => set({ checkoutPrompt: null }),
+
+  confirmCheckout: async (mode) => {
+    const prompt = get().checkoutPrompt;
+    if (!prompt) return;
+    const target = prompt.target;
+    set({ checkoutPrompt: null });
+    await performCheckout(get, set, target, mode);
   },
 
   renameBranch: async (oldName, newName) => {

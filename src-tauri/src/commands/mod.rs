@@ -378,10 +378,15 @@ pub fn checkout_branch(
     db: State<'_, Database>,
     repository_id: String,
     name: String,
+    force: Option<bool>,
 ) -> AppResult<Vec<BranchInfo>> {
     let repo = require_repo(&db, &repository_id)?;
     let path = std::path::Path::new(&repo.path);
-    git::checkout_branch(path, &name)?;
+    if force.unwrap_or(false) {
+        git::checkout_branch_force(path, &name)?;
+    } else {
+        git::checkout_branch(path, &name)?;
+    }
     git::list_branches(path)
 }
 

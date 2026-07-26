@@ -16,11 +16,13 @@ import { OperationOverlay } from "./components/OperationOverlay";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
 import { OpeningRepoOverlay } from "./components/OpeningRepoOverlay";
-import { MenuBar } from "./components/layout/MenuBar";
+import { TitleBar } from "./components/layout/TitleBar";
 import { IconTerminal } from "./components/Icons";
 import { WelcomeSetup } from "./components/WelcomeSetup";
 import { BootSplash } from "./components/BootSplash";
 import { AlertModal } from "./components/AlertModal";
+import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
+import { FeedbackModal } from "./components/FeedbackModal";
 import {
   applyMainWindow,
   applySetupWindow,
@@ -58,6 +60,7 @@ function App() {
   );
   const [setupDone, setSetupDone] = useState(false);
   const [splashProgress, setSplashProgress] = useState(0.15);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const unsub = usePrefsStore.persist.onFinishHydration(() => {
@@ -204,8 +207,8 @@ function App() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#171a20]">
+      <TitleBar onFeedback={() => setFeedbackOpen(true)} />
       <TabBar />
-      <MenuBar />
       {inRepo && <RepoToolbar />}
       <div className="flex min-h-0 flex-1 flex-col">
         {inRepo ? (
@@ -258,6 +261,8 @@ function App() {
         )}
       </div>
       <OperationOverlay />
+      <CheckoutBranchModal />
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (
         <AlertModal title="Algo deu errado" onClose={clearNotice}>

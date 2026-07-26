@@ -8,7 +8,7 @@ type MenuDef = {
 };
 
 /** Native-app style menu bar (Arquivo / Editar / Exibir / Ajuda). */
-export function MenuBar() {
+export function MenuBar({ embedded = false }: { embedded?: boolean }) {
   const {
     openRepositoryDialog,
     initRepositoryDialog,
@@ -134,7 +134,11 @@ export function MenuBar() {
   return (
     <div
       ref={rootRef}
-      className="relative z-[45] flex h-6 shrink-0 items-center border-b border-[#2d3139] bg-[#14161c] px-1"
+      className={
+        embedded
+          ? "relative z-[45] flex h-full items-center gap-0.5 px-0.5"
+          : "relative z-[45] flex h-6 shrink-0 items-center border-b border-[#2d3139] bg-[#14161c] px-1"
+      }
       role="menubar"
     >
       {menus.map((menu) => (
@@ -176,10 +180,10 @@ function MenuButton({
         role="menuitem"
         aria-haspopup="true"
         aria-expanded={open}
-        className={`rounded px-2.5 py-0.5 text-[11px] ${
+        className={`rounded px-2 py-0.5 text-[11px] leading-none ${
           open
             ? "bg-[#2a2e38] text-[#e8eaed]"
-            : "text-[#a8adb8] hover:bg-[#1c1f26] hover:text-[#e8eaed]"
+            : "text-[#a8adb8] hover:bg-[#252830] hover:text-[#e8eaed]"
         }`}
         onClick={() => (open ? onClose() : onOpen())}
         onMouseEnter={onHoverOpen}

@@ -1,9 +1,18 @@
 import type { ReactNode } from "react";
 import { useAppStore, type ShellTab } from "../../stores/appStore";
-import { IconBranch, IconClose, IconDashboard, IconKey, IconPlus, IconRepos, IconPlugins, IconSettings } from "../Icons";
+import {
+  IconBranch,
+  IconClose,
+  IconDashboard,
+  IconKey,
+  IconPlus,
+  IconRepos,
+  IconPlugins,
+  IconSettings,
+} from "../Icons";
 import { ProfileMenu } from "./ProfileMenu";
 
-/** Top chrome: open tabs + global actions (GitKraken-style). */
+/** Tab strip under the title bar — clean, no extra icon clutter on the left. */
 export function TabBar() {
   const {
     shellTabs,
@@ -16,17 +25,8 @@ export function TabBar() {
   } = useAppStore();
 
   return (
-    <div className="relative z-50 flex h-9 shrink-0 items-stretch border-b border-[#2d3139] bg-[#14161c]">
-      <div className="flex shrink-0 items-center gap-0.5 px-1.5">
-        <IconBtn title="Abrir repositório" onClick={() => void openRepositoryDialog()}>
-          <IconRepos className="h-3.5 w-3.5" />
-        </IconBtn>
-        <IconBtn title="Start" onClick={() => openStartTab()}>
-          <IconDashboard className="h-3.5 w-3.5" />
-        </IconBtn>
-      </div>
-
-      <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto px-0.5">
+    <div className="flex h-8 shrink-0 items-stretch border-b border-[#2d3139] bg-[#14161c]">
+      <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto pl-1">
         {shellTabs.map((tab) => (
           <ShellTabChip
             key={tab.id}
@@ -38,7 +38,7 @@ export function TabBar() {
         ))}
         <button
           type="button"
-          title="Nova aba"
+          title="Nova aba / Start"
           className="flex w-7 shrink-0 items-center justify-center text-[#6b7280] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
           onClick={() => openStartTab()}
         >
@@ -46,7 +46,13 @@ export function TabBar() {
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-0.5 border-l border-[#2d3139] px-1.5">
+      <div className="flex shrink-0 items-center gap-0.5 border-l border-[#2d3139] px-1">
+        <IconBtn
+          title="Abrir repositório"
+          onClick={() => void openRepositoryDialog()}
+        >
+          <IconRepos className="h-3.5 w-3.5" />
+        </IconBtn>
         <IconBtn title="Preferências" onClick={() => openSettingsTab()}>
           <IconSettings className="h-3.5 w-3.5" />
         </IconBtn>
@@ -71,8 +77,8 @@ function ShellTabChip({
     <div
       className={`group flex max-w-[180px] items-stretch ${
         active
-          ? "bg-[#1c1f26] text-[#e8eaed]"
-          : "text-[#8b909a] hover:bg-[#1a1d24] hover:text-[#c5c9d2]"
+          ? "border-b-2 border-[#3d8bfd] bg-[#1c1f26] text-[#e8eaed]"
+          : "border-b-2 border-transparent text-[#8b909a] hover:bg-[#1a1d24] hover:text-[#c5c9d2]"
       }`}
     >
       <button

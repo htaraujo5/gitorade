@@ -100,17 +100,53 @@ pub fn create_branch(path: &Path, name: &str, checkout: bool) -> AppResult<()> {
 }
 
 pub fn checkout_branch(path: &Path, name: &str) -> AppResult<()> {
+    checkout_branch_with_opts(path, name, false)
+}
+
+pub fn checkout_branch_force(path: &Path, name: &str) -> AppResult<()> {
+    checkout_branch_with_opts(path, name, true)
+}
+
+fn checkout_branch_with_opts(path: &Path, name: &str, force: bool) -> AppResult<()> {
     let name = name.trim();
     if name.is_empty() {
         return Err(AppError::Message("Nome da branch é obrigatório.".into()));
     }
 
-    // Remote-tracking ref like origin/feature
+    let do_checkout = |branch: &str| -> AppResult<()> {
+        if force {
+            run_git(&["checkout", "-f", branch], Some(path))?;
+        } else {
+            run_git(&["checkout", branch], Some(path))?;
+        }
+        Ok(())
+    };
+
+    // Exact local branch first (feat/melhorias must NOT be treated as remote/feat).
+    let local_full = format!("refs/heads/{name}");
+    if run_git(
+        &["show-ref", "--verify", "--quiet", &local_full],
+        Some(path),
+    )
+    .is_ok()
+    {
+        do_checkout(name)?;
+        return Ok(());
+    }
+
+    // Remote-tracking only when the first segment is a configured remote (origin/…).
     if let Some((remote, short)) = name.split_once('/') {
-        if remote != "refs" {
-            let local_ref = format!("refs/heads/{short}");
-            if run_git(&["show-ref", "--verify", "--quiet", &local_ref], Some(path)).is_ok() {
-                run_git(&["checkout", short], Some(path))?;
+        if remote != "refs" && is_configured_remote(path, remote) {
+            let local_short = format!("refs/heads/{short}");
+            if run_git(
+                &["show-ref", "--verify", "--quiet", &local_short],
+                Some(path),
+            )
+            .is_ok()
+            {
+                do_checkout(short)?;
+            } else if force {
+                run_git(&["checkout", "-f", "-B", short, name], Some(path))?;
             } else {
                 run_git(&["checkout", "--track", name], Some(path)).or_else(|_| {
                     run_git(&["checkout", "-b", short, name], Some(path))
@@ -120,8 +156,14 @@ pub fn checkout_branch(path: &Path, name: &str) -> AppResult<()> {
         }
     }
 
-    run_git(&["checkout", name], Some(path))?;
+    do_checkout(name)?;
     Ok(())
+}
+
+fn is_configured_remote(path: &Path, name: &str) -> bool {
+    crate::git::list_remotes(path)
+        .map(|rs| rs.iter().any(|r| r.name == name))
+        .unwrap_or(false)
 }
 
 pub fn rename_branch(path: &Path, old: &str, new: &str) -> AppResult<()> {
