@@ -13,6 +13,7 @@ import {
   SshKeysPage,
 } from "./components/pages/SettingsPage";
 import { OperationOverlay } from "./components/OperationOverlay";
+import { SshAskpassModal } from "./components/SshAskpassModal";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
 import { OpeningRepoOverlay } from "./components/OpeningRepoOverlay";
@@ -258,6 +259,7 @@ function App() {
         )}
       </div>
       <OperationOverlay />
+      <SshAskpassModal />
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (
         <AlertModal title="Algo deu errado" onClose={clearNotice}>

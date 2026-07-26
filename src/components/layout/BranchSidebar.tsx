@@ -41,8 +41,6 @@ export function BranchSidebar() {
     selectCommit,
   } = useAppStore();
 
-  const [newName, setNewName] = useState("");
-  const [adding, setAdding] = useState(false);
   const [localOpen, setLocalOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -50,6 +48,12 @@ export function BranchSidebar() {
   const [dragging, setDragging] = useState<string | null>(null);
   /** Collapsed folder keys: "local:fix", "remote:origin/feat", … */
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  /** Inline create / rename in the LOCAL list (no browser prompt). */
+  const [inline, setInline] = useState<
+    | { kind: "create"; draft: string }
+    | { kind: "rename"; branch: string; draft: string }
+    | null
+  >(null);
 
   const current = status?.branch ?? branches.find((b) => b.isCurrent)?.name ?? null;
 
@@ -74,10 +78,35 @@ export function BranchSidebar() {
 
   const openCreate = (from?: string) => {
     const base = from ? `${from.replace(/^.*\//, "")}-` : "";
-    const name = window.prompt("Nome da nova branch:", base);
-    if (!name?.trim()) return;
-    void createBranch(name.trim(), true);
+    setMenu(null);
+    setLocalOpen(true);
+    setInline({ kind: "create", draft: base });
   };
+
+  const openRename = (branch: string) => {
+    const short = branch.replace(/^.*\//, "");
+    setMenu(null);
+    setLocalOpen(true);
+    setInline({ kind: "rename", branch, draft: short });
+  };
+
+  const submitInline = () => {
+    if (!inline) return;
+    const name = inline.draft.trim();
+    if (!name) {
+      setInline(null);
+      return;
+    }
+    if (inline.kind === "create") {
+      void createBranch(name, true);
+    } else {
+      const short = inline.branch.replace(/^.*\//, "");
+      if (name !== short) void renameBranch(inline.branch, name);
+    }
+    setInline(null);
+  };
+
+  const cancelInline = () => setInline(null);
 
   const doMerge = async (source: string, target: string) => {
     if (source === target) return;
@@ -128,11 +157,7 @@ export function BranchSidebar() {
         type: "item",
         label: `Rename ${short}…`,
         disabled: busy,
-        onClick: () => {
-          const next = window.prompt("Novo nome:", short);
-          if (!next?.trim() || next.trim() === short) return;
-          void renameBranch(m.branch, next.trim());
-        },
+        onClick: () => openRename(m.branch),
       });
       items.push({
         type: "item",
@@ -165,6 +190,26 @@ export function BranchSidebar() {
   ) => {
     const b = branches.find((x) => x.name === fullName);
     const isCurrent = Boolean(b?.isCurrent);
+
+    if (
+      !isRemote &&
+      inline?.kind === "rename" &&
+      inline.branch === fullName
+    ) {
+      return (
+        <InlineBranchInput
+          key={`${fullName}-rename`}
+          depth={depth}
+          value={inline.draft}
+          placeholder="novo-nome"
+          busy={busy}
+          onChange={(draft) => setInline({ ...inline, draft })}
+          onSubmit={submitInline}
+          onCancel={cancelInline}
+        />
+      );
+    }
+
     return (
       <BranchRow
         key={fullName}
@@ -276,42 +321,14 @@ export function BranchSidebar() {
           type="button"
           className="shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3dd68c]"
           title="Nova branch"
-          onClick={() => setAdding((v) => !v)}
+          onClick={() => {
+            if (inline?.kind === "create") cancelInline();
+            else openCreate();
+          }}
         >
           +
         </button>
       </div>
-
-      {adding && (
-        <form
-          className="flex gap-1 border-b border-[#2d3139] px-2 py-1.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!newName.trim()) return;
-            void createBranch(newName.trim(), true);
-            setNewName("");
-            setAdding(false);
-          }}
-        >
-          <input
-            autoFocus
-            className="min-w-0 flex-1 rounded border border-[#2d3139] bg-[#1c1f26] px-1.5 py-0.5 text-[11px] outline-none focus:border-[#3d8bfd]"
-            placeholder="feat/minha-branch"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onBlur={() => {
-              if (!newName.trim()) setAdding(false);
-            }}
-          />
-          <button
-            type="submit"
-            disabled={busy || !newName.trim()}
-            className="rounded bg-[#238636] px-1.5 text-[10px] font-semibold text-white disabled:opacity-40"
-          >
-            +
-          </button>
-        </form>
-      )}
 
       <div className="min-h-0 flex-1 overflow-auto">
         <p className="px-2.5 pb-1 pt-1.5 text-[9px] leading-snug text-[#5c6370]">
@@ -324,6 +341,17 @@ export function BranchSidebar() {
           open={localOpen}
           onToggle={() => setLocalOpen((v) => !v)}
         >
+          {inline?.kind === "create" && (
+            <InlineBranchInput
+              depth={0}
+              value={inline.draft}
+              placeholder="feat/minha-branch"
+              busy={busy}
+              onChange={(draft) => setInline({ kind: "create", draft })}
+              onSubmit={submitInline}
+              onCancel={cancelInline}
+            />
+          )}
           {renderTree(localTree, "local", false, 0)}
         </Group>
 
@@ -407,6 +435,75 @@ function IconFolder({ className }: { className?: string }) {
       <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
       <path d="M3 7V5a1 1 0 0 1 1-1h5l2 2" />
     </svg>
+  );
+}
+
+function InlineBranchInput({
+  depth,
+  value,
+  placeholder,
+  busy,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  depth: number;
+  value: string;
+  placeholder: string;
+  busy: boolean;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form
+      className="flex h-7 items-center gap-1 bg-[#1a2332] ring-1 ring-inset ring-[#3d8bfd]/50"
+      style={{ paddingLeft: 10 + depth * 12, paddingRight: 6 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+    >
+      <IconBranch className="h-3 w-3 shrink-0 text-[#3d8bfd] opacity-80" />
+      <input
+        autoFocus
+        disabled={busy}
+        className="min-w-0 flex-1 bg-transparent text-[11px] text-[#e8eaed] outline-none placeholder:text-[#5c6370]"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        onBlur={() => {
+          // Allow clicking submit; empty draft cancels.
+          window.setTimeout(() => {
+            if (!value.trim()) onCancel();
+          }, 120);
+        }}
+      />
+      <button
+        type="submit"
+        disabled={busy || !value.trim()}
+        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#3dd68c] hover:bg-[#252830] disabled:opacity-40"
+        title="Confirmar (Enter)"
+      >
+        ✓
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={onCancel}
+        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[#8b909a] hover:bg-[#252830] hover:text-[#f85149]"
+        title="Cancelar (Esc)"
+      >
+        ×
+      </button>
+    </form>
   );
 }
 

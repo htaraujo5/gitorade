@@ -18,6 +18,7 @@ export function BranchesView() {
 
   const [newName, setNewName] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = branchFilter.trim().toLowerCase();
@@ -189,19 +190,52 @@ export function BranchesView() {
                 </button>
               )}
               {!selectedBranch.isRemote && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="rounded-[var(--radius-sm)] border border-border px-3 py-2 text-xs hover:bg-surface disabled:opacity-40"
-                  onClick={() => {
-                    const next = window.prompt("Novo nome", selectedBranch.name);
-                    if (next && next !== selectedBranch.name) {
-                      void renameBranch(selectedBranch.name, next);
-                    }
-                  }}
-                >
-                  Renomear
-                </button>
+                renameDraft !== null ? (
+                  <form
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const next = renameDraft.trim();
+                      if (next && next !== selectedBranch.name) {
+                        void renameBranch(selectedBranch.name, next);
+                      }
+                      setRenameDraft(null);
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-border bg-bg px-2 py-1.5 text-sm outline-none focus:border-primary"
+                      value={renameDraft}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setRenameDraft(null);
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || !renameDraft.trim()}
+                      className="rounded-[var(--radius-sm)] border border-border px-2 py-1.5 text-xs hover:bg-surface disabled:opacity-40"
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-[var(--radius-sm)] border border-border px-2 py-1.5 text-xs hover:bg-surface"
+                      onClick={() => setRenameDraft(null)}
+                    >
+                      ×
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded-[var(--radius-sm)] border border-border px-3 py-2 text-xs hover:bg-surface disabled:opacity-40"
+                    onClick={() => setRenameDraft(selectedBranch.name)}
+                  >
+                    Renomear
+                  </button>
+                )
               )}
             </div>
           </div>
