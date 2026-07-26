@@ -545,6 +545,16 @@ pub fn read_conflict_file(
 }
 
 #[tauri::command]
+pub fn read_conflict_sides(
+    db: State<'_, Database>,
+    repository_id: String,
+    path: String,
+) -> AppResult<crate::domain::ConflictFileSides> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::read_conflict_sides(std::path::Path::new(&repo.path), &path)
+}
+
+#[tauri::command]
 pub fn list_repo_files(
     db: State<'_, Database>,
     repository_id: String,

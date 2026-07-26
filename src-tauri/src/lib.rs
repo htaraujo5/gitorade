@@ -74,6 +74,7 @@ pub fn run() {
             commands::continue_integrate,
             commands::resolve_conflict,
             commands::read_conflict_file,
+            commands::read_conflict_sides,
             commands::list_repo_files,
             commands::terminal_create,
             commands::terminal_write,

@@ -166,9 +166,14 @@ type AppState = {
     content?: string,
   ) => Promise<void>;
   loadConflictFile: (path: string) => Promise<string>;
+  markAllConflictsResolved: () => Promise<void>;
   conflictDraft: string;
   conflictPath: string | null;
+  conflictOurs: string;
+  conflictTheirs: string;
+  resolvedConflictPaths: string[];
   setConflictDraft: (value: string) => void;
+  clearConflictView: () => void;
   terminalOpen: boolean;
   setTerminalOpen: (open: boolean) => void;
   createStash: (message?: string) => Promise<void>;
@@ -301,6 +306,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   checkoutPrompt: null,
   conflictDraft: "",
   conflictPath: null,
+  conflictOurs: "",
+  conflictTheirs: "",
+  resolvedConflictPaths: [],
   terminalOpen: false,
 
   clearNotice: () => set({ notice: null, error: null }),
@@ -709,7 +717,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({
           workspaceTab: "graph",
           selectedCommitHash: null,
-          error: result.message || "Merge com conflitos — resolva no painel WIP.",
+          resolvedConflictPaths: [],
+          conflictPath: null,
+          conflictDraft: "",
+          conflictOurs: "",
+          conflictTheirs: "",
+          error: result.message || "Merge com conflitos — resolva no painel à direita.",
         });
       }
     } catch (err) {
@@ -731,7 +744,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({
           workspaceTab: "graph",
           selectedCommitHash: null,
-          error: result.message || "Merge com conflitos — resolva no painel WIP.",
+          resolvedConflictPaths: [],
+          conflictPath: null,
+          conflictDraft: "",
+          conflictOurs: "",
+          conflictTheirs: "",
+          error: result.message || "Rebase com conflitos — resolva no painel à direita.",
         });
       }
     } catch (err) {
@@ -752,7 +770,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({
           workspaceTab: "graph",
           selectedCommitHash: null,
-          error: result.message || "Merge com conflitos — resolva no painel WIP.",
+          resolvedConflictPaths: [],
+          conflictPath: null,
+          conflictDraft: "",
+          conflictOurs: "",
+          conflictTheirs: "",
+          error: result.message || "Cherry-pick com conflitos — resolva no painel à direita.",
         });
       }
     } catch (err) {
@@ -770,6 +793,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         busy: false,
         conflictDraft: "",
         conflictPath: null,
+        conflictOurs: "",
+        conflictTheirs: "",
+        resolvedConflictPaths: [],
       });
       await get().refreshStatus();
       await get().refreshHistory();
@@ -789,6 +815,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         busy: false,
         conflictDraft: "",
         conflictPath: null,
+        conflictOurs: "",
+        conflictTheirs: "",
+        resolvedConflictPaths: [],
       });
       await get().refreshStatus();
       await get().refreshHistory();
@@ -803,20 +832,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!id) return;
     set({ busy: true, error: null });
     try {
-      const state = await api.resolveConflict(id, path, strategy, content);
+      await api.resolveConflict(id, path, strategy, content);
+      const resolved = get().resolvedConflictPaths;
       set({
         busy: false,
-        notice:
-          state.conflicts.length === 0
-            ? "Conflito resolvido. Você pode continuar a operação."
-            : `Resolvido ${path}. Ainda restam ${state.conflicts.length} conflito(s).`,
-        conflictPath: state.conflicts[0] ?? null,
+        conflictPath: null,
         conflictDraft: "",
+        conflictOurs: "",
+        conflictTheirs: "",
+        resolvedConflictPaths: resolved.includes(path) ? resolved : [...resolved, path],
       });
       await get().refreshStatus();
-      if (state.conflicts[0]) {
-        await get().loadConflictFile(state.conflicts[0]);
-      }
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -826,14 +852,67 @@ export const useAppStore = create<AppState>((set, get) => ({
     const id = get().activeRepoId;
     if (!id) return "";
     try {
-      const content = await api.readConflictFile(id, path);
-      set({ conflictPath: path, conflictDraft: content });
-      return content;
+      const sides = await api.readConflictSides(id, path);
+      set({
+        conflictPath: path,
+        conflictDraft: sides.merged,
+        conflictOurs: sides.ours,
+        conflictTheirs: sides.theirs,
+        selectedCommitHash: null,
+        selectedFile: null,
+      });
+      return sides.merged;
     } catch (err) {
-      set({ error: errMsg(err) });
-      return "";
+      try {
+        const content = await api.readConflictFile(id, path);
+        set({
+          conflictPath: path,
+          conflictDraft: content,
+          conflictOurs: "",
+          conflictTheirs: "",
+          selectedCommitHash: null,
+          selectedFile: null,
+        });
+        return content;
+      } catch (err2) {
+        set({ error: errMsg(err2 ?? err) });
+        return "";
+      }
     }
   },
+
+  markAllConflictsResolved: async () => {
+    const id = get().activeRepoId;
+    const conflicts = get().status?.conflicts ?? [];
+    if (!id || conflicts.length === 0) return;
+    set({ busy: true, error: null });
+    try {
+      for (const path of conflicts) {
+        const content = await api.readConflictFile(id, path);
+        await api.resolveConflict(id, path, "content", content);
+      }
+      const prev = get().resolvedConflictPaths;
+      set({
+        busy: false,
+        conflictPath: null,
+        conflictDraft: "",
+        conflictOurs: "",
+        conflictTheirs: "",
+        resolvedConflictPaths: [...new Set([...prev, ...conflicts])],
+      });
+      await get().refreshStatus();
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  clearConflictView: () =>
+    set({
+      conflictPath: null,
+      conflictDraft: "",
+      conflictOurs: "",
+      conflictTheirs: "",
+    }),
 
   createStash: async (message) => {
     const id = get().activeRepoId;

@@ -59,6 +59,13 @@ export const integrateStateSchema = z.object({
   conflicts: z.array(z.string()),
 });
 
+export const conflictFileSidesSchema = z.object({
+  path: z.string(),
+  ours: z.string(),
+  theirs: z.string(),
+  merged: z.string(),
+});
+
 export const integrateResultSchema = z.object({
   success: z.boolean(),
   message: z.string(),
@@ -519,6 +526,17 @@ export async function readConflictFile(
   path: string,
 ): Promise<string> {
   return z.string().parse(await invoke("read_conflict_file", { repositoryId, path }));
+}
+
+export type ConflictFileSides = z.infer<typeof conflictFileSidesSchema>;
+
+export async function readConflictSides(
+  repositoryId: string,
+  path: string,
+): Promise<ConflictFileSides> {
+  return conflictFileSidesSchema.parse(
+    await invoke("read_conflict_sides", { repositoryId, path }),
+  );
 }
 
 export async function listRepoFiles(repositoryId: string): Promise<string[]> {

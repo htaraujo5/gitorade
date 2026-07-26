@@ -96,6 +96,15 @@ pub struct IntegrateState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ConflictFileSides {
+    pub path: String,
+    pub ours: String,
+    pub theirs: String,
+    pub merged: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IntegrateResult {
     pub success: bool,
     pub message: String,

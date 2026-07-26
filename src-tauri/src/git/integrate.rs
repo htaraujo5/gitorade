@@ -186,6 +186,35 @@ pub fn read_file(path: &Path, file_path: &str) -> AppResult<String> {
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
+/// Ours (:2:) / theirs (:3:) / worktree (with markers) for the 3-way editor.
+pub fn read_conflict_sides(
+    path: &Path,
+    file_path: &str,
+) -> AppResult<crate::domain::ConflictFileSides> {
+    let show = |stage: &str| -> String {
+        let spec = format!("{stage}:{file_path}");
+        run_git(&["show", &spec], Some(path)).unwrap_or_default()
+    };
+
+    let ours = show(":2");
+    let theirs = show(":3");
+    let merged = read_file(path, file_path).unwrap_or_else(|_| {
+        // Fall back to concatenating sides if worktree missing
+        if ours.is_empty() && theirs.is_empty() {
+            String::new()
+        } else {
+            format!("{ours}\n<<<<<<<\n=======\n>>>>>>>\n{theirs}")
+        }
+    });
+
+    Ok(crate::domain::ConflictFileSides {
+        path: file_path.to_string(),
+        ours,
+        theirs,
+        merged,
+    })
+}
+
 fn ensure_clean_for_start(path: &Path) -> AppResult<()> {
     let state = detect_state(path)?;
     if state.kind.is_some() {

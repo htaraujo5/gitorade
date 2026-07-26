@@ -6,15 +6,17 @@ import { StashView } from "../history/StashView";
 import { FilesView } from "../files/FilesView";
 import { DiffViewer } from "../diff/DiffViewer";
 import { CommitFileView } from "../diff/CommitFileView";
+import { MergeConflictView } from "../diff/MergeConflictView";
 import { BranchSidebar } from "./BranchSidebar";
 import { StagingPanel } from "./StagingPanel";
+import { ConflictSidePanel } from "./ConflictSidePanel";
 import { CommitDetailsPanel } from "./CommitDetailsPanel";
 import { ConflictBanner } from "../ConflictBanner";
 import { TerminalPanel } from "../TerminalPanel";
 
 /**
  * GitKraken-inspired workspace:
- * [branches] | [graph / commit-file / wd-diff + terminal] | [staging / details]
+ * [branches] | [graph / conflict-editor / commit-file / wd-diff + terminal] | [staging / conflict / details]
  */
 export function MainWorkspace() {
   const {
@@ -29,6 +31,7 @@ export function MainWorkspace() {
     status,
     selectFile,
     terminalOpen,
+    conflictPath,
   } = useAppStore();
 
   const repo = repositories.find((r) => r.id === activeRepoId);
@@ -40,6 +43,9 @@ export function MainWorkspace() {
     );
   }
 
+  const hasIntegrate =
+    Boolean(status?.inProgress) || (status?.conflicts?.length ?? 0) > 0;
+  const showConflictEditor = Boolean(conflictPath);
   const showCommitFile = Boolean(selectedCommitHash && selectedCommitFile);
   const showWdFile =
     Boolean(selectedFile) &&
@@ -47,7 +53,8 @@ export function MainWorkspace() {
     (workspaceTab === "graph" || workspaceTab === "changes");
 
   let center: ReactNode;
-  if (workspaceTab === "branches") center = <BranchesView />;
+  if (showConflictEditor) center = <MergeConflictView />;
+  else if (workspaceTab === "branches") center = <BranchesView />;
   else if (workspaceTab === "stash") center = <StashView />;
   else if (workspaceTab === "files") center = <FilesView />;
   else if (showCommitFile) center = <CommitFileView />;
@@ -80,6 +87,11 @@ export function MainWorkspace() {
     center = <GraphView />;
   }
 
+  let right: ReactNode;
+  if (hasIntegrate) right = <ConflictSidePanel />;
+  else if (selectedCommitHash) right = <CommitDetailsPanel />;
+  else right = <StagingPanel />;
+
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#171a20]">
       <div className="shrink-0 px-2 pt-1 empty:hidden">
@@ -88,7 +100,8 @@ export function MainWorkspace() {
 
       {(workspaceTab === "branches" ||
         workspaceTab === "stash" ||
-        workspaceTab === "files") && (
+        workspaceTab === "files") &&
+        !showConflictEditor && (
         <div className="flex items-center gap-2 border-b border-[#2d3139] bg-[#1c1f26] px-3 py-1.5 text-[11px]">
           <button
             type="button"
@@ -113,7 +126,7 @@ export function MainWorkspace() {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{center}</div>
           {terminalOpen && <TerminalPanel />}
         </div>
-        {selectedCommitHash ? <CommitDetailsPanel /> : <StagingPanel />}
+        {right}
       </div>
     </section>
   );

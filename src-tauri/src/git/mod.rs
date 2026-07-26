@@ -18,7 +18,8 @@ pub use branches::{
 pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
 pub use integrate::{
     abort_integrate, cherry_pick, continue_integrate, detect_state as detect_integrate_state,
-    list_conflicts, merge_branch, read_file as read_worktree_file, rebase_onto, resolve_conflict,
+    list_conflicts, merge_branch, read_conflict_sides, read_file as read_worktree_file, rebase_onto,
+    resolve_conflict,
 };
 pub use ssh_env::{apply_git_remote_env, discover_default_ssh_key, enhance_ssh_error};
 pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
