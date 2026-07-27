@@ -42,6 +42,8 @@ pub fn run() {
             commands::get_repo_status,
             commands::stage_paths,
             commands::unstage_paths,
+            commands::discard_paths,
+            commands::discard_all_changes,
             commands::get_file_diff,
             commands::commit_changes,
             commands::init_repository,

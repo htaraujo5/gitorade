@@ -107,6 +107,27 @@ pub fn unstage_paths(
 }
 
 #[tauri::command]
+pub fn discard_paths(
+    db: State<'_, Database>,
+    repository_id: String,
+    paths: Vec<String>,
+) -> AppResult<RepoStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::discard_paths(std::path::Path::new(&repo.path), &paths)?;
+    git::status(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn discard_all_changes(
+    db: State<'_, Database>,
+    repository_id: String,
+) -> AppResult<RepoStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::discard_all(std::path::Path::new(&repo.path))?;
+    git::status(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
 pub fn get_file_diff(
     db: State<'_, Database>,
     repository_id: String,

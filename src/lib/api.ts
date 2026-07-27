@@ -231,6 +231,14 @@ export async function unstagePaths(repositoryId: string, paths: string[]): Promi
   return repoStatusSchema.parse(await invoke("unstage_paths", { repositoryId, paths }));
 }
 
+export async function discardPaths(repositoryId: string, paths: string[]): Promise<RepoStatus> {
+  return repoStatusSchema.parse(await invoke("discard_paths", { repositoryId, paths }));
+}
+
+export async function discardAllChanges(repositoryId: string): Promise<RepoStatus> {
+  return repoStatusSchema.parse(await invoke("discard_all_changes", { repositoryId }));
+}
+
 export async function getFileDiff(
   repositoryId: string,
   path: string,

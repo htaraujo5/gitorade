@@ -28,6 +28,8 @@ export function StagingPanel() {
     status,
     stage,
     unstage,
+    discardPaths,
+    discardAllChanges,
     selectFile,
     selectedFile,
     commitMessage,
@@ -99,13 +101,26 @@ export function StagingPanel() {
           <span className="text-[#d8dbe2]">{total.toLocaleString()}</span> file changes
           {status?.branch ? <span className="text-[#6b7280]"> on {status.branch}</span> : null}
         </div>
-        <div className="flex shrink-0 rounded border border-[#2d3139] p-px text-[9px]">
-          <ToggleBtn active={viewMode === "path"} onClick={() => setViewMode("path")}>
-            Path
-          </ToggleBtn>
-          <ToggleBtn active={viewMode === "tree"} onClick={() => setViewMode("tree")}>
-            Tree
-          </ToggleBtn>
+        <div className="flex shrink-0 items-center gap-1">
+          {total > 0 && (
+            <button
+              type="button"
+              disabled={busy}
+              title="Descartar todas as alterações"
+              onClick={() => void discardAllChanges()}
+              className="rounded border border-[#da3633]/50 px-1.5 py-0.5 text-[9px] font-medium text-[#f85149] hover:bg-[#da3633]/15 disabled:opacity-40"
+            >
+              Discard all
+            </button>
+          )}
+          <div className="flex rounded border border-[#2d3139] p-px text-[9px]">
+            <ToggleBtn active={viewMode === "path"} onClick={() => setViewMode("path")}>
+              Path
+            </ToggleBtn>
+            <ToggleBtn active={viewMode === "tree"} onClick={() => setViewMode("tree")}>
+              Tree
+            </ToggleBtn>
+          </div>
         </div>
       </div>
 
@@ -117,10 +132,13 @@ export function StagingPanel() {
           allLabel="Stage All Changes"
           onAll={() => void stage(unstaged.map((f) => f.path))}
           onOne={(p) => void stage([p])}
+          onDiscard={(p) => void discardPaths([p])}
+          onDiscardAll={() => void discardPaths(unstaged.map((f) => f.path))}
           onSelect={(f) => void selectFile(f)}
           selected={selectedFile}
           disabled={busy}
           allAccent="success"
+          showDiscard
         />
         <FileSection
           title="Staged Files"
@@ -129,10 +147,13 @@ export function StagingPanel() {
           allLabel="Unstage All Changes"
           onAll={() => void unstage(staged.map((f) => f.path))}
           onOne={(p) => void unstage([p])}
+          onDiscard={(p) => void discardPaths([p])}
+          onDiscardAll={() => void discardPaths(staged.map((f) => f.path))}
           onSelect={(f) => void selectFile(f)}
           selected={selectedFile}
           disabled={busy}
           allAccent="muted"
+          showDiscard
         />
         {remotes.length === 0 && <RemoteQuickAdd busy={busy} onAdd={addRemote} />}
       </div>
@@ -403,10 +424,13 @@ function FileSection({
   allLabel,
   onAll,
   onOne,
+  onDiscard,
+  onDiscardAll,
   onSelect,
   selected,
   disabled,
   allAccent,
+  showDiscard,
 }: {
   title: string;
   files: FileChange[];
@@ -414,10 +438,13 @@ function FileSection({
   allLabel: string;
   onAll: () => void;
   onOne: (path: string) => void;
+  onDiscard?: (path: string) => void;
+  onDiscardAll?: () => void;
   onSelect: (f: FileChange) => void;
   selected: { path: string; staged: boolean } | null;
   disabled: boolean;
   allAccent: "success" | "muted";
+  showDiscard?: boolean;
 }) {
   const display = useMemo(() => {
     if (viewMode === "path") return files;
@@ -434,18 +461,30 @@ function FileSection({
         {title} ({files.length.toLocaleString()})
       </div>
       {files.length > 0 && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onAll}
-          className={`mx-2 mb-1.5 w-[calc(100%-1rem)] rounded py-1.5 text-[11px] font-normal disabled:opacity-40 ${
-            allAccent === "success"
-              ? "bg-[#238636] text-white hover:bg-[#2ea043]"
-              : "border border-[#2d3139] text-[#c8ccd4] hover:bg-[#2a2e38]"
-          }`}
-        >
-          {allLabel}
-        </button>
+        <div className="mx-2 mb-1.5 flex flex-col gap-1">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onAll}
+            className={`w-full rounded py-1.5 text-[11px] font-normal disabled:opacity-40 ${
+              allAccent === "success"
+                ? "bg-[#238636] text-white hover:bg-[#2ea043]"
+                : "border border-[#2d3139] text-[#c8ccd4] hover:bg-[#2a2e38]"
+            }`}
+          >
+            {allLabel}
+          </button>
+          {showDiscard && onDiscardAll && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onDiscardAll}
+              className="w-full rounded border border-[#da3633]/40 py-1 text-[10px] font-medium text-[#f85149] hover:bg-[#da3633]/12 disabled:opacity-40"
+            >
+              Discard {allAccent === "success" ? "Unstaged" : "Staged"}
+            </button>
+          )}
+        </div>
       )}
       {files.length === 0 ? (
         <p className="px-2.5 pb-2 text-[10px] text-[#5c6370]">No files</p>
@@ -465,6 +504,10 @@ function FileSection({
                   className={`group flex h-6 items-center gap-1 px-1.5 ${
                     isSel ? "bg-[#1e3a5f]" : "hover:bg-[#252830]"
                   }`}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                 >
                   <button
                     type="button"
@@ -484,6 +527,17 @@ function FileSection({
                       )}
                     </span>
                   </button>
+                  {showDiscard && onDiscard && (
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      title="Discard"
+                      className="invisible shrink-0 rounded px-1 text-[9px] font-medium text-[#f85149] group-hover:visible hover:bg-[#2a2e38] disabled:opacity-40"
+                      onClick={() => onDiscard(file.path)}
+                    >
+                      ✕
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={disabled}

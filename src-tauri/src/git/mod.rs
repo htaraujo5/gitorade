@@ -256,6 +256,77 @@ pub fn unstage(path: &Path, paths: &[String]) -> AppResult<()> {
     Ok(())
 }
 
+/// Discard working-tree / index changes for specific paths.
+/// Tracked paths are restored from HEAD; untracked paths are removed (`git clean`).
+pub fn discard_paths(path: &Path, paths: &[String]) -> AppResult<()> {
+    if paths.is_empty() {
+        return Err(AppError::Message("Nenhum arquivo para descartar.".into()));
+    }
+    let validated: Vec<&str> = paths
+        .iter()
+        .map(|p| assert_repo_relative(p))
+        .collect::<AppResult<Vec<_>>>()?;
+
+    let st = status(path)?;
+    let untracked: std::collections::HashSet<&str> = st
+        .unstaged
+        .iter()
+        .filter(|f| f.status == "untracked")
+        .map(|f| f.path.as_str())
+        .collect();
+
+    let mut to_restore: Vec<&str> = Vec::new();
+    let mut to_clean: Vec<&str> = Vec::new();
+    for p in validated {
+        if untracked.contains(p) {
+            to_clean.push(p);
+        } else {
+            to_restore.push(p);
+        }
+    }
+
+    if !to_restore.is_empty() {
+        if has_head(path) {
+            let mut args = vec!["restore", "--source=HEAD", "--staged", "--worktree", "--"];
+            args.extend(to_restore.iter().copied());
+            run_git(&args, Some(path))?;
+        } else {
+            // Unborn HEAD: drop from index and delete working-tree copies.
+            let mut rm = vec!["rm", "-f", "--cached", "--"];
+            rm.extend(to_restore.iter().copied());
+            let _ = run_git(&rm, Some(path));
+            for p in &to_restore {
+                let full = path.join(p);
+                if full.is_file() {
+                    let _ = std::fs::remove_file(&full);
+                } else if full.is_dir() {
+                    let _ = std::fs::remove_dir_all(&full);
+                }
+            }
+        }
+    }
+
+    if !to_clean.is_empty() {
+        let mut args = vec!["clean", "-f", "-d", "--"];
+        args.extend(to_clean);
+        run_git(&args, Some(path))?;
+    }
+
+    Ok(())
+}
+
+/// Discard every local change: hard reset + clean untracked.
+pub fn discard_all(path: &Path) -> AppResult<()> {
+    if has_head(path) {
+        run_git(&["reset", "--hard", "HEAD"], Some(path))?;
+    } else {
+        // No commits yet — clear the index and wipe untracked/new files.
+        let _ = run_git(&["rm", "-rf", "--cached", "."], Some(path));
+    }
+    run_git(&["clean", "-fd"], Some(path))?;
+    Ok(())
+}
+
 /// Returns true when the repository has at least one commit (resolvable HEAD).
 fn has_head(path: &Path) -> bool {
     run_git(&["rev-parse", "--verify", "--quiet", "HEAD"], Some(path)).is_ok()

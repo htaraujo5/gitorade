@@ -191,6 +191,8 @@ type AppState = {
   removeRemote: (name: string) => Promise<void>;
   stage: (paths: string[]) => Promise<void>;
   unstage: (paths: string[]) => Promise<void>;
+  discardPaths: (paths: string[]) => Promise<void>;
+  discardAllChanges: () => Promise<void>;
   selectFile: (file: FileChange | null) => Promise<void>;
   setCommitMessage: (message: string) => void;
   setCommitOverrideProfileId: (id: string | null) => void;
@@ -1201,6 +1203,59 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const status = await api.unstagePaths(id, paths);
       set({ status, busy: false });
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  discardPaths: async (paths) => {
+    const id = get().activeRepoId;
+    if (!id || paths.length === 0) return;
+    const label = paths.length === 1 ? paths[0] : `${paths.length} arquivos`;
+    const ok = requireDangerousConfirm(
+      `Descartar alterações em ${label}?\n\nIsso não pode ser desfeito.`,
+    );
+    if (!ok) return;
+    set({ busy: true, error: null });
+    try {
+      const status = await api.discardPaths(id, paths);
+      const selected = get().selectedFile;
+      const stillSelected =
+        selected && paths.includes(selected.path)
+          ? null
+          : selected;
+      set({
+        status,
+        busy: false,
+        selectedFile: stillSelected,
+        diffText: stillSelected ? get().diffText : "",
+      });
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  discardAllChanges: async () => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const status = get().status;
+    const count = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+    if (count === 0) return;
+    const ok = requireDangerousConfirm(
+      `Descartar TODAS as ${count} alterações locais?\n\nArquivos modificados voltam ao último commit; arquivos novos são apagados. Não dá para desfazer.`,
+    );
+    if (!ok) return;
+    const again = requireDangerousConfirm("Confirma descartar tudo de verdade?");
+    if (!again) return;
+    set({ busy: true, error: null });
+    try {
+      const next = await api.discardAllChanges(id);
+      set({
+        status: next,
+        busy: false,
+        selectedFile: null,
+        diffText: "",
+      });
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }

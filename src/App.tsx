@@ -154,6 +154,15 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [commit, openRepositoryDialog, setTerminalOpen, terminalOpen, needsOnboarding, booting]);
 
+  // Desktop app: never show the WebView/browser native context menu.
+  useEffect(() => {
+    const blockNativeMenu = (e: Event) => {
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", blockNativeMenu, true);
+    return () => document.removeEventListener("contextmenu", blockNativeMenu, true);
+  }, []);
+
   if (booting) {
     return (
       <BootSplash

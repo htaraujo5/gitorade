@@ -12,6 +12,8 @@ export function ChangesView() {
     lastCommit,
     stage,
     unstage,
+    discardPaths,
+    discardAllChanges,
     selectFile,
     commitMessage,
     setCommitMessage,
@@ -29,6 +31,7 @@ export function ChangesView() {
   const activeProfile =
     profiles.find((p) => p.id === commitOverrideProfileId) ?? repo?.activeProfile ?? null;
   const stagedCount = status?.staged.length ?? 0;
+  const changeCount = stagedCount + (status?.unstaged.length ?? 0);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -36,6 +39,19 @@ export function ChangesView() {
       <div className="grid min-h-0 flex-1 gap-0 overflow-hidden rounded-[var(--radius-md)] border border-border lg:grid-cols-[240px_1fr_260px]">
         {/* File list */}
         <div className="flex min-h-0 flex-col border-b border-border bg-bg-secondary lg:border-b-0 lg:border-r">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <span className="text-xs text-text-muted">{changeCount} alterações</span>
+            {changeCount > 0 && (
+              <button
+                type="button"
+                disabled={busy || !repo}
+                className="text-xs text-danger hover:underline disabled:opacity-40"
+                onClick={() => void discardAllChanges()}
+              >
+                Discard all
+              </button>
+            )}
+          </div>
           <div className="flex-1 space-y-3 overflow-auto p-3 text-sm">
             <FileGroup
               title="Staged"
@@ -43,6 +59,7 @@ export function ChangesView() {
               empty="Nenhum staged."
               actionLabel="Unstage"
               onAction={(paths) => void unstage(paths)}
+              onDiscard={(paths) => void discardPaths(paths)}
               onSelect={(file) => void selectFile(file)}
               selected={selectedFile}
               disabled={busy || !repo}
@@ -53,6 +70,7 @@ export function ChangesView() {
               empty={repo ? "Working tree limpa." : "Abra um repositório."}
               actionLabel="Stage"
               onAction={(paths) => void stage(paths)}
+              onDiscard={(paths) => void discardPaths(paths)}
               onSelect={(file) => void selectFile(file)}
               selected={selectedFile}
               disabled={busy || !repo}
@@ -131,6 +149,7 @@ function FileGroup({
   empty,
   actionLabel,
   onAction,
+  onDiscard,
   onSelect,
   selected,
   disabled,
@@ -140,25 +159,36 @@ function FileGroup({
   empty: string;
   actionLabel: string;
   onAction: (paths: string[]) => void;
+  onDiscard: (paths: string[]) => void;
   onSelect: (file: FileChange) => void;
   selected: { path: string; staged: boolean } | null;
   disabled: boolean;
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div className="text-xs font-medium uppercase tracking-wide text-text-muted">
           {title} ({files.length})
         </div>
         {files.length > 0 && (
-          <button
-            type="button"
-            disabled={disabled}
-            className="text-xs text-primary hover:underline disabled:opacity-40"
-            onClick={() => onAction(files.map((f) => f.path))}
-          >
-            {actionLabel} all
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              disabled={disabled}
+              className="text-xs text-danger hover:underline disabled:opacity-40"
+              onClick={() => onDiscard(files.map((f) => f.path))}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              className="text-xs text-primary hover:underline disabled:opacity-40"
+              onClick={() => onAction(files.map((f) => f.path))}
+            >
+              {actionLabel} all
+            </button>
+          </div>
         )}
       </div>
       {files.length === 0 ? (
@@ -183,6 +213,15 @@ function FileGroup({
                   title={file.path}
                 >
                   <StatusDot status={file.status} /> {file.path}
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className="shrink-0 px-1.5 text-[11px] text-danger disabled:opacity-40"
+                  title="Discard"
+                  onClick={() => onDiscard([file.path])}
+                >
+                  ✕
                 </button>
                 <button
                   type="button"
