@@ -230,7 +230,7 @@ pub async fn pull_remote(
         .clone()
         .or_else(|| git::current_branch(path).ok().flatten())
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para pull.".into()))?;
-    let args = git::pull_args(Some(&remote), Some(&branch));
+    let args = git::pull_args_with_opts(Some(&remote), Some(&branch), input.rebase);
     let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
     crate::ops::run_streaming(
         &app,
@@ -259,7 +259,7 @@ pub async fn push_remote(
         .clone()
         .or_else(|| git::current_branch(path).ok().flatten())
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para push.".into()))?;
-    let args = git::push_args(Some(&remote), Some(&branch), true);
+    let args = git::push_args(Some(&remote), Some(&branch), input.set_upstream);
     let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
     crate::ops::run_streaming(
         &app,
@@ -366,11 +366,37 @@ pub fn create_branch(
     repository_id: String,
     name: String,
     checkout: bool,
+    start_point: Option<String>,
 ) -> AppResult<Vec<BranchInfo>> {
     let repo = require_repo(&db, &repository_id)?;
     let path = std::path::Path::new(&repo.path);
-    git::create_branch(path, &name, checkout)?;
+    git::create_branch_at(path, &name, checkout, start_point.as_deref())?;
     git::list_branches(path)
+}
+
+#[tauri::command]
+pub fn reset_to_commit(
+    db: State<'_, Database>,
+    repository_id: String,
+    commit: String,
+    mode: String,
+) -> AppResult<RepoStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::reset_to_commit(path, &commit, &mode)?;
+    git::status(path)
+}
+
+#[tauri::command]
+pub fn revert_commit(
+    db: State<'_, Database>,
+    repository_id: String,
+    commit: String,
+) -> AppResult<RepoStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::revert_commit(path, &commit)?;
+    git::status(path)
 }
 
 #[tauri::command]

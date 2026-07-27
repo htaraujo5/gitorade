@@ -295,6 +295,7 @@ export type SyncInput = {
   remote?: string | null;
   branch?: string | null;
   setUpstream?: boolean;
+  rebase?: boolean;
   profileId?: string | null;
 };
 
@@ -390,10 +391,37 @@ export async function createBranch(
   repositoryId: string,
   name: string,
   checkout = true,
+  startPoint?: string | null,
 ): Promise<BranchInfo[]> {
   return z
     .array(branchInfoSchema)
-    .parse(await invoke("create_branch", { repositoryId, name, checkout }));
+    .parse(
+      await invoke("create_branch", {
+        repositoryId,
+        name,
+        checkout,
+        startPoint: startPoint ?? null,
+      }),
+    );
+}
+
+export async function resetToCommit(
+  repositoryId: string,
+  commit: string,
+  mode: "soft" | "mixed" | "hard",
+): Promise<RepoStatus> {
+  return repoStatusSchema.parse(
+    await invoke("reset_to_commit", { repositoryId, commit, mode }),
+  );
+}
+
+export async function revertCommit(
+  repositoryId: string,
+  commit: string,
+): Promise<RepoStatus> {
+  return repoStatusSchema.parse(
+    await invoke("revert_commit", { repositoryId, commit }),
+  );
 }
 
 export async function checkoutBranch(

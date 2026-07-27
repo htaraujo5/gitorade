@@ -63,6 +63,8 @@ pub fn run() {
             commands::checkout_branch,
             commands::rename_branch,
             commands::delete_branch,
+            commands::reset_to_commit,
+            commands::revert_commit,
             commands::get_upstream_status,
             commands::list_stash,
             commands::create_stash,

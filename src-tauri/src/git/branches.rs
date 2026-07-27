@@ -87,15 +87,64 @@ fn parse_track(track: &str) -> (Option<u32>, Option<u32>) {
 }
 
 pub fn create_branch(path: &Path, name: &str, checkout: bool) -> AppResult<()> {
+    create_branch_at(path, name, checkout, None)
+}
+
+pub fn create_branch_at(
+    path: &Path,
+    name: &str,
+    checkout: bool,
+    start_point: Option<&str>,
+) -> AppResult<()> {
     let name = name.trim();
     if name.is_empty() {
         return Err(AppError::Message("Nome da branch é obrigatório.".into()));
     }
-    if checkout {
-        run_git(&["checkout", "-b", name], Some(path))?;
-    } else {
-        run_git(&["branch", name], Some(path))?;
+    let start = start_point.map(str::trim).filter(|s| !s.is_empty());
+    match (checkout, start) {
+        (true, Some(sp)) => {
+            run_git(&["checkout", "-b", name, sp], Some(path))?;
+        }
+        (true, None) => {
+            run_git(&["checkout", "-b", name], Some(path))?;
+        }
+        (false, Some(sp)) => {
+            run_git(&["branch", name, sp], Some(path))?;
+        }
+        (false, None) => {
+            run_git(&["branch", name], Some(path))?;
+        }
     }
+    Ok(())
+}
+
+/// Soft / mixed / hard reset of HEAD to `commit`.
+pub fn reset_to_commit(path: &Path, commit: &str, mode: &str) -> AppResult<()> {
+    let commit = commit.trim();
+    if commit.is_empty() {
+        return Err(AppError::Message("Commit obrigatório.".into()));
+    }
+    let flag = match mode {
+        "soft" => "--soft",
+        "hard" => "--hard",
+        "mixed" | "" => "--mixed",
+        other => {
+            return Err(AppError::Message(format!(
+                "Modo de reset inválido: {other}. Use soft, mixed ou hard."
+            )));
+        }
+    };
+    run_git(&["reset", flag, commit], Some(path))?;
+    Ok(())
+}
+
+/// Create a revert commit for `commit` (no edit).
+pub fn revert_commit(path: &Path, commit: &str) -> AppResult<()> {
+    let commit = commit.trim();
+    if commit.is_empty() {
+        return Err(AppError::Message("Commit obrigatório.".into()));
+    }
+    run_git(&["revert", "--no-edit", commit], Some(path))?;
     Ok(())
 }
 

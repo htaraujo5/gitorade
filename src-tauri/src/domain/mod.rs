@@ -155,6 +155,9 @@ pub struct SyncInput {
     pub branch: Option<String>,
     #[serde(default)]
     pub set_upstream: bool,
+    /// When true, `git pull --rebase` instead of `--ff-only`.
+    #[serde(default)]
+    pub rebase: bool,
     /// Optional profile whose `sshKeyPath` should be used for this sync.
     pub profile_id: Option<String>,
 }

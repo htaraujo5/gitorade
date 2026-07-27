@@ -8,6 +8,7 @@ import {
   normalizeRefLabel,
 } from "../../lib/branchGraph";
 import { IconClose, IconSearch } from "../Icons";
+import { ContextMenu, type ContextMenuItem } from "../layout/ContextMenu";
 
 const LANE_COLORS = ["#3dd68c", "#3d8bfd", "#e3b341", "#a371f7", "#f778ba", "#f85149", "#56d4dd"];
 const ROW_H = 32;
@@ -201,6 +202,13 @@ export function GraphView() {
     focusBranchInGraph,
     checkoutBranch,
     checkoutCommit,
+    createBranch,
+    cherryPick,
+    resetToCommit,
+    revertCommit,
+    pull,
+    push,
+    remotes,
     status,
     busy,
   } = useAppStore();
@@ -211,6 +219,11 @@ export function GraphView() {
   const listScrollRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLElement>());
   const [resultIndex, setResultIndex] = useState(0);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    commit: CommitSummary;
+  } | null>(null);
 
   const commits = useMemo(() => {
     const raw = filteredCommits ?? graph?.commits ?? [];
@@ -294,6 +307,124 @@ export function GraphView() {
   const onCommitDblClick = (e: MouseEvent, hash: string) => {
     e.preventDefault();
     void checkoutCommit(hash);
+  };
+
+  const currentBranch =
+    status?.branch ?? "HEAD";
+  const hasRemote = remotes.length > 0;
+  const originUrl =
+    remotes.find((r) => r.name === "origin")?.fetchUrl ??
+    remotes.find((r) => r.name === "origin")?.pushUrl ??
+    remotes[0]?.fetchUrl ??
+    remotes[0]?.pushUrl ??
+    null;
+
+  const commitMenuItems = (commit: CommitSummary): ContextMenuItem[] => {
+    const short = commit.shortHash || commit.hash.slice(0, 7);
+    const branchLabel = currentBranch === "HEAD" ? "HEAD" : currentBranch;
+    return [
+      {
+        type: "item",
+        label: "Pull (fast-forward if possible)",
+        disabled: busy || !hasRemote,
+        onClick: () => void pull(),
+      },
+      {
+        type: "item",
+        label: "Pull --rebase",
+        disabled: busy || !hasRemote,
+        onClick: () => void pull({ rebase: true }),
+      },
+      {
+        type: "item",
+        label: "Push",
+        disabled: busy || !hasRemote,
+        onClick: () => void push({ setUpstream: false }),
+      },
+      {
+        type: "item",
+        label: "Set Upstream",
+        disabled: busy || !hasRemote,
+        onClick: () => void push({ setUpstream: true }),
+      },
+      { type: "separator" },
+      {
+        type: "item",
+        label: "Checkout this commit",
+        disabled: busy,
+        onClick: () => void checkoutCommit(commit.hash),
+      },
+      {
+        type: "item",
+        label: "Create branch here…",
+        disabled: busy,
+        onClick: () => {
+          const name = window.prompt(
+            `Nova branch a partir de ${short}:`,
+            `from-${short}`,
+          );
+          if (!name?.trim()) return;
+          void createBranch(name.trim(), true, commit.hash);
+        },
+      },
+      { type: "separator" },
+      {
+        type: "item",
+        label: `Reset ${branchLabel} to this commit (soft)…`,
+        disabled: busy || currentBranch === "HEAD",
+        onClick: () => void resetToCommit(commit.hash, "soft"),
+      },
+      {
+        type: "item",
+        label: `Reset ${branchLabel} to this commit (mixed)…`,
+        disabled: busy || currentBranch === "HEAD",
+        onClick: () => void resetToCommit(commit.hash, "mixed"),
+      },
+      {
+        type: "item",
+        label: `Reset ${branchLabel} to this commit (hard)…`,
+        disabled: busy || currentBranch === "HEAD",
+        danger: true,
+        onClick: () => void resetToCommit(commit.hash, "hard"),
+      },
+      {
+        type: "item",
+        label: "Revert commit",
+        disabled: busy,
+        onClick: () => void revertCommit(commit.hash),
+      },
+      {
+        type: "item",
+        label: "Cherry-pick",
+        disabled: busy,
+        onClick: () => {
+          if (window.confirm(`Cherry-pick ${short}?`)) {
+            void cherryPick(commit.hash);
+          }
+        },
+      },
+      { type: "separator" },
+      {
+        type: "item",
+        label: "Copy commit sha",
+        onClick: () => void navigator.clipboard.writeText(commit.hash),
+      },
+      {
+        type: "item",
+        label: "Copy subject",
+        onClick: () => void navigator.clipboard.writeText(commit.subject),
+      },
+      {
+        type: "item",
+        label: "Copy link to this commit on remote",
+        disabled: !originUrl,
+        onClick: () => {
+          const link = remoteCommitUrl(originUrl!, commit.hash);
+          if (link) void navigator.clipboard.writeText(link);
+          else void navigator.clipboard.writeText(`${originUrl} ${commit.hash}`);
+        },
+      },
+    ];
   };
 
   return (
@@ -511,9 +642,15 @@ export function GraphView() {
                 >
                   <button
                     type="button"
-                    title="Clique: selecionar · 2 cliques: checkout neste commit"
+                    title="Clique: selecionar · 2 cliques: checkout · botão direito: ações"
                     onClick={() => void selectCommit(commit.hash)}
                     onDoubleClick={(e) => onCommitDblClick(e, commit.hash)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void selectCommit(commit.hash);
+                      setMenu({ x: e.clientX, y: e.clientY, commit });
+                    }}
                     className={`flex h-full w-full items-center gap-2 px-2 text-left ${
                       isSel
                         ? "bg-[#1e3a5f]"
@@ -558,6 +695,41 @@ export function GraphView() {
           </div>
         )}
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={commitMenuItems(menu.commit)}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
+}
+
+/** Best-effort commit URL for GitHub / Azure DevOps / GitLab. */
+function remoteCommitUrl(remoteUrl: string, hash: string): string | null {
+  let u = remoteUrl.trim();
+  if (!u) return null;
+  // git@host:org/repo.git → https://host/org/repo
+  const ssh = /^git@([^:]+):(.+?)(?:\.git)?$/i.exec(u);
+  if (ssh) {
+    u = `https://${ssh[1]}/${ssh[2]}`;
+  } else {
+    u = u.replace(/\.git$/i, "");
+  }
+  try {
+    const url = new URL(u);
+    const host = url.hostname.toLowerCase();
+    const path = url.pathname.replace(/\/$/, "");
+    if (host.includes("github")) return `${url.origin}${path}/commit/${hash}`;
+    if (host.includes("gitlab")) return `${url.origin}${path}/-/commit/${hash}`;
+    if (host.includes("dev.azure.com") || host.includes("visualstudio.com")) {
+      return `${url.origin}${path}/commit/${hash}`;
+    }
+    return `${url.origin}${path}/commit/${hash}`;
+  } catch {
+    return null;
+  }
 }

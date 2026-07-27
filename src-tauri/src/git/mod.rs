@@ -12,8 +12,8 @@ pub mod ssh_env;
 pub mod stash;
 
 pub use branches::{
-    checkout_branch, checkout_branch_force, create_branch, delete_branch, list_branches,
-    rename_branch, upstream_status,
+    checkout_branch, checkout_branch_force, create_branch, create_branch_at, delete_branch,
+    list_branches, rename_branch, reset_to_commit, revert_commit, upstream_status,
 };
 pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
 pub use integrate::{
@@ -548,7 +548,18 @@ pub fn fetch_args(remote: Option<&str>) -> Vec<String> {
 }
 
 pub fn pull_args(remote: Option<&str>, branch: Option<&str>) -> Vec<String> {
+    pull_args_with_opts(remote, branch, false)
+}
+
+pub fn pull_args_with_opts(
+    remote: Option<&str>,
+    branch: Option<&str>,
+    rebase: bool,
+) -> Vec<String> {
     let mut args = vec!["pull".to_string(), "--progress".to_string()];
+    if rebase {
+        args.push("--rebase".to_string());
+    }
     if let Some(r) = remote {
         args.push(r.to_string());
         if let Some(b) = branch {

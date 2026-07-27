@@ -153,7 +153,7 @@ type AppState = {
   setBranchFilter: (query: string) => void;
   setSelectedBranchName: (name: string | null) => void;
   focusBranchInGraph: (name: string) => Promise<void>;
-  createBranch: (name: string, checkout?: boolean) => Promise<void>;
+  createBranch: (name: string, checkout?: boolean, startPoint?: string) => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
   checkoutCommit: (hash: string) => Promise<void>;
   confirmCheckout: (mode: CheckoutDirtyMode) => Promise<void>;
@@ -163,6 +163,8 @@ type AppState = {
   mergeBranch: (name: string) => Promise<void>;
   rebaseOnto: (upstream: string) => Promise<void>;
   cherryPick: (commit: string) => Promise<void>;
+  resetToCommit: (commit: string, mode: "soft" | "mixed" | "hard") => Promise<void>;
+  revertCommit: (commit: string) => Promise<void>;
   abortIntegrate: () => Promise<void>;
   continueIntegrate: () => Promise<void>;
   resolveConflict: (
@@ -215,8 +217,8 @@ type AppState = {
   associateProfile: (profileId: string | null) => Promise<void>;
   commit: () => Promise<void>;
   fetch: () => Promise<void>;
-  pull: () => Promise<void>;
-  push: () => Promise<void>;
+  pull: (opts?: { rebase?: boolean }) => Promise<void>;
+  push: (opts?: { setUpstream?: boolean }) => Promise<void>;
   cancelOperation: () => Promise<void>;
   dismissOperation: () => void;
   clearNotice: () => void;
@@ -668,14 +670,65 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  createBranch: async (name, checkout = true) => {
+  createBranch: async (name, checkout = true, startPoint) => {
     const id = get().activeRepoId;
     if (!id) return;
     set({ busy: true, error: null });
     try {
-      const branches = await api.createBranch(id, name, checkout);
-      set({ branches, busy: false });
+      const branches = await api.createBranch(id, name, checkout, startPoint);
+      set({ branches, busy: false, selectedBranchName: name });
       await Promise.all([get().refreshStatus(), get().refreshHistory()]);
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  resetToCommit: async (commit, mode) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const branch =
+      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? "HEAD";
+    const labels = {
+      soft: "Soft (mantém index e working tree)",
+      mixed: "Mixed (mantém working tree, limpa index)",
+      hard: "Hard (DESCARTA alterações locais)",
+    } as const;
+    const ok = window.confirm(
+      `Reset de "${branch}" para ${commit.slice(0, 7)}?\n\nModo: ${labels[mode]}`,
+    );
+    if (!ok) return;
+    if (mode === "hard") {
+      const again = window.confirm(
+        "Hard reset é destrutivo e não pode ser desfeito facilmente. Continuar?",
+      );
+      if (!again) return;
+    }
+    set({ busy: true, error: null });
+    try {
+      const status = await api.resetToCommit(id, commit, mode);
+      set({ status, busy: false, notice: `Reset (${mode}) para ${commit.slice(0, 7)}.` });
+      await Promise.all([
+        get().refreshHistory(),
+        get().refreshBranches(),
+        get().selectCommit(commit),
+      ]);
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  revertCommit: async (commit) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const ok = window.confirm(
+      `Criar commit de revert para ${commit.slice(0, 7)}?`,
+    );
+    if (!ok) return;
+    set({ busy: true, error: null });
+    try {
+      const status = await api.revertCommit(id, commit);
+      set({ status, busy: false, notice: `Revert de ${commit.slice(0, 7)} criado.` });
+      await Promise.all([get().refreshHistory(), get().refreshBranches()]);
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -1493,7 +1546,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  pull: async () => {
+  pull: async (opts) => {
     const id = get().activeRepoId;
     if (!id) return;
     await get().refreshRemotes();
@@ -1508,12 +1561,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
     const branch = get().status?.branch ?? null;
+    const rebase = Boolean(opts?.rebase);
     const operationId = newOperationId();
     set({
       operation: {
         id: operationId,
         kind: "pull",
-        label: `Pull (${remote}${branch ? `/${branch}` : ""})`,
+        label: rebase
+          ? `Pull --rebase (${remote}${branch ? `/${branch}` : ""})`
+          : `Pull (${remote}${branch ? `/${branch}` : ""})`,
         percent: null,
         lines: [],
         done: false,
@@ -1527,6 +1583,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         operationId,
         remote,
         branch,
+        rebase,
         profileId: get().commitOverrideProfileId,
       });
       set({ status });
@@ -1540,7 +1597,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  push: async () => {
+  push: async (opts) => {
     const id = get().activeRepoId;
     if (!id) return;
     await get().refreshRemotes();
@@ -1556,12 +1613,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const repo = get().repositories.find((r) => r.id === id);
     const branch = get().status?.branch ?? repo?.branch ?? null;
     const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
+    const setUpstream = opts?.setUpstream ?? true;
     const operationId = newOperationId();
     set({
       operation: {
         id: operationId,
         kind: "push",
-        label: `Push (${remote}${branch ? `/${branch}` : ""})`,
+        label: setUpstream
+          ? `Push -u (${remote}${branch ? `/${branch}` : ""})`
+          : `Push (${remote}${branch ? `/${branch}` : ""})`,
         percent: null,
         lines: [],
         done: false,
@@ -1575,10 +1635,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         operationId,
         remote,
         branch,
-        setUpstream: true,
+        setUpstream,
         profileId: get().commitOverrideProfileId,
       });
-      set({});
       await Promise.all([
         get().refreshRepositories(),
         get().refreshBranches(),
