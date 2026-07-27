@@ -153,6 +153,8 @@ type AppState = {
   focusBranchInGraph: (name: string) => Promise<void>;
   focusTagInGraph: (name: string) => Promise<void>;
   createBranch: (name: string, checkout?: boolean, startPoint?: string) => Promise<void>;
+  createTag: (name: string, commit?: string, message?: string) => Promise<void>;
+  deleteTag: (name: string) => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
   checkoutCommit: (hash: string) => Promise<void>;
   confirmCheckout: (mode: CheckoutDirtyMode) => Promise<void>;
@@ -723,6 +725,39 @@ export const useAppStore = create<AppState>((set, get) => ({
       const branches = await api.createBranch(id, name, checkout, startPoint);
       set({ branches, busy: false, selectedBranchName: name });
       await Promise.all([get().refreshStatus(), get().refreshHistory()]);
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  createTag: async (name, commit, message) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const tags = await api.createTag(id, name, commit, message);
+      set({ tags, busy: false, selectedBranchName: name });
+      await get().refreshHistory();
+      await get().focusTagInGraph(name);
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  deleteTag: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const ok = requireDangerousConfirm(`Excluir tag local "${name}"?`);
+    if (!ok) return;
+    set({ busy: true, error: null });
+    try {
+      const tags = await api.deleteTag(id, name);
+      set({
+        tags,
+        busy: false,
+        selectedBranchName: get().selectedBranchName === name ? null : get().selectedBranchName,
+      });
+      await get().refreshHistory();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -1581,7 +1616,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         profileId: get().commitOverrideProfileId,
       });
       set({ status });
-      await Promise.all([get().refreshRepositories(), get().refreshBranches()]);
+      await Promise.all([
+        get().refreshRepositories(),
+        get().refreshBranches(),
+        get().refreshHistory(),
+      ]);
     } catch (err) {
       set({ error: errMsg(err) });
     }

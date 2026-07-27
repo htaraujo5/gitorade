@@ -18,8 +18,9 @@ pub use path_guard::{
 };
 
 pub use branches::{
-    checkout_branch, checkout_branch_force, create_branch, create_branch_at, delete_branch,
-    list_branches, list_tags, rename_branch, reset_to_commit, revert_commit, upstream_status,
+    checkout_branch, checkout_branch_force, create_branch, create_branch_at, create_tag,
+    delete_branch, delete_tag, list_branches, list_tags, rename_branch, reset_to_commit,
+    revert_commit, upstream_status,
 };
 pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
 pub use integrate::{
@@ -624,7 +625,12 @@ pub fn remove_remote(path: &Path, name: &str) -> AppResult<()> {
 
 /// Args builders for streaming operations (executed by the ops module).
 pub fn fetch_args(remote: Option<&str>) -> Vec<String> {
-    let mut args = vec!["fetch".to_string(), "--progress".to_string(), "--prune".to_string()];
+    let mut args = vec![
+        "fetch".to_string(),
+        "--progress".to_string(),
+        "--prune".to_string(),
+        "--tags".to_string(),
+    ];
     match remote {
         Some(r) => args.push(r.to_string()),
         None => args.push("--all".to_string()),

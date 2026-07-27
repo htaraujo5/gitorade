@@ -60,6 +60,8 @@ pub fn run() {
             commands::get_file_at_commit,
             commands::list_branches,
             commands::list_tags,
+            commands::create_tag,
+            commands::delete_tag,
             commands::create_branch,
             commands::checkout_branch,
             commands::rename_branch,

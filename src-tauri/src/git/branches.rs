@@ -72,7 +72,8 @@ pub fn list_tags(path: &Path) -> AppResult<Vec<TagInfo>> {
         &[
             "for-each-ref",
             "--sort=-creatordate",
-            "--format=%(refname:short)%00%(objectname)",
+            // objectname = tag/object; *objectname = peeled commit (annotated tags)
+            "--format=%(refname:short)%00%(objectname)%00%(*objectname)",
             "refs/tags",
         ],
         Some(path),
@@ -88,17 +89,62 @@ pub fn list_tags(path: &Path) -> AppResult<Vec<TagInfo>> {
         if parts.is_empty() || parts[0].is_empty() {
             continue;
         }
-        let tip_hash = parts
-            .get(1)
+        let peeled = parts
+            .get(2)
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
+        let tip_hash = peeled.or_else(|| {
+            parts
+                .get(1)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+        });
         tags.push(TagInfo {
             name: parts[0].to_string(),
             tip_hash,
         });
     }
     Ok(tags)
+}
+
+pub fn create_tag(
+    path: &Path,
+    name: &str,
+    commit: Option<&str>,
+    message: Option<&str>,
+) -> AppResult<Vec<TagInfo>> {
+    let name = reject_option_like(name.trim())?;
+    if name.is_empty() || name.contains("..") || name.contains(' ') || name.starts_with('-') {
+        return Err(AppError::Message(
+            "Nome de tag inválido (sem espaços, '..' ou '-' no início).".into(),
+        ));
+    }
+    let commit = match commit {
+        Some(c) if !c.trim().is_empty() => Some(reject_option_like(c.trim())?),
+        _ => None,
+    };
+
+    let mut args: Vec<&str> = vec!["tag"];
+    let msg = message.map(|m| m.trim()).filter(|m| !m.is_empty());
+    if let Some(m) = msg {
+        args.push("-a");
+        args.push("-m");
+        args.push(m);
+    }
+    args.push(name);
+    if let Some(c) = commit {
+        args.push(c);
+    }
+    run_git(&args, Some(path))?;
+    list_tags(path)
+}
+
+pub fn delete_tag(path: &Path, name: &str) -> AppResult<Vec<TagInfo>> {
+    let name = reject_option_like(name.trim())?;
+    run_git(&["tag", "-d", "--", name], Some(path))?;
+    list_tags(path)
 }
 
 fn parse_track(track: &str) -> (Option<u32>, Option<u32>) {

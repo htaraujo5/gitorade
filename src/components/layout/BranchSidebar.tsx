@@ -7,13 +7,21 @@ import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { buildBranchTree, type BranchTreeNode } from "../../lib/branchTree";
 import { remotesLookLikeGithub } from "../../lib/refDecorate";
 
-type MenuState = {
-  x: number;
-  y: number;
-  branch: string;
-  isRemote: boolean;
-  isCurrent: boolean;
-};
+type MenuState =
+  | {
+      kind: "branch";
+      x: number;
+      y: number;
+      branch: string;
+      isRemote: boolean;
+      isCurrent: boolean;
+    }
+  | {
+      kind: "tag";
+      x: number;
+      y: number;
+      name: string;
+    };
 
 /**
  * LOCAL / REMOTE sidebar with folder grouping (fix/, feat/, …):
@@ -31,6 +39,8 @@ export function BranchSidebar() {
     setBranchFilter,
     checkoutBranch,
     createBranch,
+    createTag,
+    deleteTag,
     renameBranch,
     deleteBranch,
     mergeBranch,
@@ -105,6 +115,16 @@ export function BranchSidebar() {
     void createBranch(name.trim(), true);
   };
 
+  const openCreateTag = (commit?: string | null) => {
+    const name = window.prompt("Nome da nova tag:", "v");
+    if (!name?.trim()) return;
+    const message = window.prompt(
+      "Mensagem da tag anotada (deixe vazio para tag leve):",
+      name.trim(),
+    );
+    void createTag(name.trim(), commit ?? undefined, message?.trim() || undefined);
+  };
+
   const doMerge = async (source: string, target: string) => {
     if (source === target) return;
     const ok = requireDangerousConfirm(
@@ -122,6 +142,39 @@ export function BranchSidebar() {
   };
 
   const menuItems = (m: MenuState): ContextMenuItem[] => {
+    if (m.kind === "tag") {
+      return [
+        {
+          type: "item",
+          label: "Focus in graph",
+          onClick: () => void focusTagInGraph(m.name),
+        },
+        {
+          type: "item",
+          label: "Create branch from tag…",
+          onClick: () => {
+            const name = window.prompt("Nome da nova branch:", `${m.name}-branch`);
+            if (!name?.trim()) return;
+            void createBranch(name.trim(), true, m.name);
+          },
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: `Delete tag ${m.name}…`,
+          danger: true,
+          disabled: busy,
+          onClick: () => void deleteTag(m.name),
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Copy tag name",
+          onClick: () => void navigator.clipboard.writeText(m.name),
+        },
+      ];
+    }
+
     const short = m.branch.replace(/^.*\//, "");
     const items: ContextMenuItem[] = [];
 
@@ -206,6 +259,7 @@ export function BranchSidebar() {
           e.stopPropagation();
           selectBranch(fullName);
           setMenu({
+            kind: "branch",
             x: e.clientX,
             y: e.clientY,
             branch: fullName,
@@ -428,6 +482,20 @@ export function BranchSidebar() {
           count={filteredTags.length}
           open={tagsOpen}
           onToggle={() => setTagsOpen((v) => !v)}
+          action={
+            <button
+              type="button"
+              className="rounded px-1 text-[11px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3dd68c]"
+              title="Nova tag no HEAD"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                openCreateTag();
+              }}
+            >
+              +
+            </button>
+          }
         >
           {filteredTags.length === 0 ? (
             <p className="px-2.5 py-1.5 text-[10px] text-[#5c6370]">{t("branches.emptyTags")}</p>
@@ -439,6 +507,16 @@ export function BranchSidebar() {
                   key={tag.name}
                   type="button"
                   onClick={() => void focusTagInGraph(tag.name)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMenu({
+                      kind: "tag",
+                      x: e.clientX,
+                      y: e.clientY,
+                      name: tag.name,
+                    });
+                  }}
                   className={`flex h-6 w-full items-center gap-1.5 text-left text-[11px] ${
                     isSelected
                       ? "bg-[#1e3a5f]/70 text-[#d8dbe2]"
@@ -601,6 +679,7 @@ function Group({
   count,
   open,
   onToggle,
+  action,
   children,
 }: {
   title: string;
@@ -608,20 +687,24 @@ function Group({
   count?: number;
   open: boolean;
   onToggle: () => void;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-[9px] font-medium tracking-[0.08em] text-[#8b909a] hover:text-[#d8dbe2]"
-      >
-        <Chevron open={open} />
-        {icon && <span className="inline-flex shrink-0 opacity-80">{icon}</span>}
-        <span className="flex-1 text-left uppercase">{title}</span>
-        {count !== undefined && <span className="tabular-nums text-[#3d8bfd]">{count}</span>}
-      </button>
+      <div className="flex w-full items-center gap-1 px-2 py-1.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-[9px] font-medium tracking-[0.08em] text-[#8b909a] hover:text-[#d8dbe2]"
+        >
+          <Chevron open={open} />
+          {icon && <span className="inline-flex shrink-0 opacity-80">{icon}</span>}
+          <span className="flex-1 text-left uppercase">{title}</span>
+          {count !== undefined && <span className="tabular-nums text-[#3d8bfd]">{count}</span>}
+        </button>
+        {action}
+      </div>
       {open && children}
     </div>
   );

@@ -191,6 +191,7 @@ export function GraphView() {
     checkoutBranch,
     checkoutCommit,
     createBranch,
+    createTag,
     cherryPick,
     resetToCommit,
     revertCommit,
@@ -353,6 +354,20 @@ export function GraphView() {
           const name = window.prompt(`Nova branch a partir de ${short}:`, `from-${short}`);
           if (!name?.trim()) return;
           void createBranch(name.trim(), true, commit.hash);
+        },
+      },
+      {
+        type: "item",
+        label: "Create tag here…",
+        disabled: busy,
+        onClick: () => {
+          const name = window.prompt(`Nova tag neste commit (${short}):`, "v");
+          if (!name?.trim()) return;
+          const message = window.prompt(
+            "Mensagem da tag anotada (deixe vazio para tag leve):",
+            name.trim(),
+          );
+          void createTag(name.trim(), commit.hash, message?.trim() || undefined);
         },
       },
       { type: "separator" },

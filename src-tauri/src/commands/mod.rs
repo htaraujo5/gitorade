@@ -374,6 +374,33 @@ pub fn list_tags(db: State<'_, Database>, repository_id: String) -> AppResult<Ve
 }
 
 #[tauri::command]
+pub fn create_tag(
+    db: State<'_, Database>,
+    repository_id: String,
+    name: String,
+    commit: Option<String>,
+    message: Option<String>,
+) -> AppResult<Vec<TagInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::create_tag(
+        std::path::Path::new(&repo.path),
+        &name,
+        commit.as_deref(),
+        message.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn delete_tag(
+    db: State<'_, Database>,
+    repository_id: String,
+    name: String,
+) -> AppResult<Vec<TagInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::delete_tag(std::path::Path::new(&repo.path), &name)
+}
+
+#[tauri::command]
 pub fn create_branch(
     db: State<'_, Database>,
     repository_id: String,

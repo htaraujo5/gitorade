@@ -374,6 +374,26 @@ export async function listTags(repositoryId: string): Promise<TagInfo[]> {
   return z.array(tagInfoSchema).parse(await invoke("list_tags", { repositoryId }));
 }
 
+export async function createTag(
+  repositoryId: string,
+  name: string,
+  commit?: string | null,
+  message?: string | null,
+): Promise<TagInfo[]> {
+  return z.array(tagInfoSchema).parse(
+    await invoke("create_tag", {
+      repositoryId,
+      name,
+      commit: commit ?? null,
+      message: message ?? null,
+    }),
+  );
+}
+
+export async function deleteTag(repositoryId: string, name: string): Promise<TagInfo[]> {
+  return z.array(tagInfoSchema).parse(await invoke("delete_tag", { repositoryId, name }));
+}
+
 export async function createBranch(
   repositoryId: string,
   name: string,
