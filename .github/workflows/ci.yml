@@ -11,9 +11,25 @@ concurrency:
 
 jobs:
   check:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux deps (Tauri / WebKitGTK)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
 
       - uses: actions/setup-node@v4
         with:
@@ -24,12 +40,15 @@ jobs:
         run: npm ci
 
       - name: Lint
+        if: runner.os == 'Windows'
         run: npm run lint
 
       - name: Format check
+        if: runner.os == 'Windows'
         run: npm run format:check
 
       - name: Unit tests
+        if: runner.os == 'Windows'
         run: npm test
 
       - name: Frontend build
@@ -41,6 +60,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+          key: ${{ matrix.os }}
 
       - name: Rust tests
         working-directory: src-tauri

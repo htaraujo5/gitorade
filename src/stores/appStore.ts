@@ -1220,10 +1220,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const status = await api.discardPaths(id, paths);
       const selected = get().selectedFile;
-      const stillSelected =
-        selected && paths.includes(selected.path)
-          ? null
-          : selected;
+      const stillSelected = selected && paths.includes(selected.path) ? null : selected;
       set({
         status,
         busy: false,

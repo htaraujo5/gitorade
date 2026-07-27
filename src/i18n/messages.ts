@@ -118,7 +118,7 @@ const ptBR = {
   "settings.plugins.desc": "Extensões — em breve.",
   "settings.plugins.soon": "Nenhum plugin instalado. Automação e hooks chegam no V2.",
   "settings.about.title": "Sobre",
-  "settings.about.desc": "Gitorade — cliente Git para Windows.",
+  "settings.about.desc": "Gitorade — cliente Git desktop (Windows e Linux).",
   "settings.about.version": "Versão {version}",
 
   // Workspace / header
@@ -316,7 +316,7 @@ const en: Record<MessageKey, string> = {
   "settings.plugins.desc": "Extensions — coming soon.",
   "settings.plugins.soon": "No plugins installed. Automation and hooks arrive in V2.",
   "settings.about.title": "About",
-  "settings.about.desc": "Gitorade — Git client for Windows.",
+  "settings.about.desc": "Gitorade — desktop Git client (Windows and Linux).",
   "settings.about.version": "Version {version}",
 
   "ws.selectRepo": "Select a repository on the Dashboard.",

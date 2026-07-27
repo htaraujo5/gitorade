@@ -90,7 +90,7 @@ pub fn run_streaming(
     let mut child = cmd.spawn().map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
             AppError::Message(
-                "Git não encontrado. Instale o Git for Windows e reinicie o Gitorade.".into(),
+                "Git não encontrado no PATH. Instale o Git e reinicie o Gitorade.".into(),
             )
         } else {
             AppError::Io(err)

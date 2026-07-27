@@ -34,7 +34,7 @@ export function BootSplash({
             Gitorade
           </div>
           <p className="mt-2 text-[13px] leading-snug text-[#8b909a]">
-            um cliente Git rápido e amigável para Windows
+            um cliente Git rápido e amigável para Windows e Linux
           </p>
         </div>
       </div>

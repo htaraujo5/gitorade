@@ -45,7 +45,7 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
     let output = cmd.output().map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
             AppError::Message(
-                "Git não encontrado. Instale o Git for Windows e reinicie o Gitorade.".into(),
+                "Git não encontrado no PATH. Instale o Git e reinicie o Gitorade.".into(),
             )
         } else {
             AppError::Io(err)
@@ -76,7 +76,7 @@ fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
     let output = cmd.output().map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
             AppError::Message(
-                "Git não encontrado. Instale o Git for Windows e reinicie o Gitorade.".into(),
+                "Git não encontrado no PATH. Instale o Git e reinicie o Gitorade.".into(),
             )
         } else {
             AppError::Io(err)
@@ -99,9 +99,9 @@ fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
 fn apply_local_git_env(cmd: &mut Command) {
     if let Some(home) = dirs::home_dir() {
         cmd.env("HOME", &home);
-        cmd.env("USERPROFILE", &home);
         #[cfg(windows)]
         {
+            cmd.env("USERPROFILE", &home);
             let s = home.to_string_lossy();
             if s.len() >= 2 && s.as_bytes().get(1) == Some(&b':') {
                 cmd.env("HOMEDRIVE", &s[..2]);

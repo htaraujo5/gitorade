@@ -348,8 +348,8 @@ function SshSection() {
     <>
       <InfoCard title="Agente SSH">
         <p>
-          O Gitorade usa o SSH Agent do Windows / Git Credential Manager para autenticação em
-          remotes. Associe uma chave privada a um perfil para referência (path).
+          O Gitorade usa o ssh-agent do sistema (e AskPass embutido) para autenticação em remotes.
+          Associe uma chave privada a um perfil para referência (path).
         </p>
         <p className="mt-2 text-[11px] text-[#6b7280]">
           Dica: <code className="text-[#8b909a]">ssh-add -l</code> lista chaves carregadas no

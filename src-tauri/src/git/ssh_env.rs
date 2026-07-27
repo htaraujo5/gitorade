@@ -34,9 +34,9 @@ pub struct AskpassRequest {
 pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Option<&Path>) {
     if let Some(home) = dirs::home_dir() {
         cmd.env("HOME", &home);
-        cmd.env("USERPROFILE", &home);
         #[cfg(windows)]
         {
+            cmd.env("USERPROFILE", &home);
             let s = home.to_string_lossy();
             if s.len() >= 2 && s.as_bytes().get(1) == Some(&b':') {
                 cmd.env("HOMEDRIVE", &s[..2]);
@@ -70,6 +70,9 @@ pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Opti
         register_askpass_token(&token);
         cmd.env("SSH_ASKPASS", askpass);
         cmd.env("SSH_ASKPASS_REQUIRE", "force");
+        // Windows OpenSSH needs a fake DISPLAY to invoke askpass; on Linux keep the
+        // real session DISPLAY/WAYLAND_DISPLAY so SSH and the helper keep working.
+        #[cfg(windows)]
         cmd.env("DISPLAY", "localhost:0");
         cmd.env(ASKPASS_ENV, "1");
         cmd.env(ASKPASS_TOKEN_ENV, &token);
@@ -133,6 +136,15 @@ fn tighten_askpass_dir_acl(dir: &Path) {
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(dir) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o700);
+            let _ = fs::set_permissions(dir, perms);
+        }
     }
     let _ = dir;
 }

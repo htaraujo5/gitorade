@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gitorade — Seu Git. Seu fluxo. Seu jeito.</title>
+    <meta
+      name="description"
+      content="Cliente Git desktop open source para Windows e Linux. Local-first, múltiplas identidades, graph visual."
+    />
+    <meta property="og:title" content="Gitorade" />
+    <meta
+      property="og:description"
+      content="Seu Git. Seu fluxo. Seu jeito. Open source para Windows e Linux."
+    />
+    <meta property="og:image" content="/assets/logo.png" />
+    <meta name="theme-color" content="#07070b" />
+    <link rel="icon" href="/assets/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/assets/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+
+    <header class="top">
+      <a class="brand-lockup" href="#top">
+        <img src="/assets/logo.png" width="32" height="32" alt="" />
+        <span>Gitorade</span>
+      </a>
+      <nav class="top-nav">
+        <a href="#features">Recursos</a>
+        <a href="https://github.com/htaraujo5/gitorade" target="_blank" rel="noopener noreferrer"
+          >GitHub</a
+        >
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <img class="brand-mark" src="/assets/logo.png" width="96" height="96" alt="" />
+        <h1 class="brand-title">Gitorade</h1>
+        <p class="tagline">Seu Git. Seu fluxo. Seu jeito.</p>
+        <p class="lede">
+          Cliente Git desktop open source para Windows e Linux — local-first, com identidades
+          múltiplas e graph claro.
+        </p>
+        <div class="cta-row">
+          <a
+            id="download-btn"
+            class="btn btn-primary"
+            href="https://github.com/htaraujo5/gitorade/releases/latest"
+          >
+            <span class="btn-label" id="download-label">Baixar</span>
+            <span class="btn-meta" id="download-meta">release mais recente</span>
+          </a>
+          <a
+            class="btn btn-ghost"
+            href="https://github.com/htaraujo5/gitorade"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Código no GitHub</a
+          >
+        </div>
+        <p class="platforms">Windows · Linux (.deb) · open source</p>
+        <p id="download-hint" class="download-hint" hidden></p>
+      </section>
+
+      <section id="features" class="section">
+        <h2>Feito para o fluxo real</h2>
+        <ul class="feature-list">
+          <li>
+            <strong>Múltiplas identidades</strong>
+            <span>Nome, e-mail e chave SSH por perfil — sem sair do app.</span>
+          </li>
+          <li>
+            <strong>Graph + tags</strong>
+            <span>Branches, tags e HEAD com leitura imediata.</span>
+          </li>
+          <li>
+            <strong>Local-first</strong>
+            <span>Git CLI de verdade. Seu repo, sua máquina.</span>
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-brand">
+        <img src="/assets/logo.png" width="24" height="24" alt="" />
+        Gitorade
+      </div>
+      <p>
+        <a href="https://github.com/htaraujo5/gitorade" target="_blank" rel="noopener noreferrer"
+          >GitHub</a
+        >
+        ·
+        <a href="https://github.com/htaraujo5/gitorade/releases/latest" id="footer-release"
+          >Releases</a
+        >
+      </p>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

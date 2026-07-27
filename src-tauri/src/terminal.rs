@@ -1,4 +1,4 @@
-//! Interactive terminal sessions via portable-pty (Windows ConPTY).
+//! Interactive terminal sessions via portable-pty (ConPTY on Windows, Unix PTY elsewhere).
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -225,27 +225,55 @@ struct ShellSpec {
 }
 
 fn default_shell() -> ShellSpec {
-    let candidates = [
-        (
-            r"C:\Program Files\PowerShell\7\pwsh.exe",
-            vec!["-NoLogo".into()],
-        ),
-        (
-            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
-            vec!["-NoLogo".into()],
-        ),
-        (r"C:\Windows\System32\cmd.exe", vec![]),
-    ];
-    for (program, args) in candidates {
-        if PathBuf::from(program).exists() {
-            return ShellSpec {
-                program: program.into(),
-                args,
-            };
+    #[cfg(windows)]
+    {
+        let candidates = [
+            (
+                r"C:\Program Files\PowerShell\7\pwsh.exe",
+                vec!["-NoLogo".into()],
+            ),
+            (
+                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+                vec!["-NoLogo".into()],
+            ),
+            (r"C:\Windows\System32\cmd.exe", vec![]),
+        ];
+        for (program, args) in candidates {
+            if PathBuf::from(program).exists() {
+                return ShellSpec {
+                    program: program.into(),
+                    args,
+                };
+            }
         }
+        return ShellSpec {
+            program: "cmd.exe".into(),
+            args: vec![],
+        };
     }
-    ShellSpec {
-        program: "cmd.exe".into(),
-        args: vec![],
+
+    #[cfg(not(windows))]
+    {
+        if let Ok(shell) = std::env::var("SHELL") {
+            let path = PathBuf::from(&shell);
+            if path.is_file() {
+                return ShellSpec {
+                    program: shell,
+                    args: vec![],
+                };
+            }
+        }
+        for program in ["/bin/bash", "/usr/bin/bash", "/bin/zsh", "/usr/bin/zsh", "/bin/sh"] {
+            if PathBuf::from(program).is_file() {
+                return ShellSpec {
+                    program: program.into(),
+                    args: vec![],
+                };
+            }
+        }
+        ShellSpec {
+            program: "/bin/sh".into(),
+            args: vec![],
+        }
     }
 }
