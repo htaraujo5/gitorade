@@ -17,6 +17,7 @@ import type {
 } from "../lib/api";
 import * as api from "../lib/api";
 import { progressEventSchema } from "../lib/api";
+import { tipCommitForBranch } from "../lib/branchGraph";
 import { usePrefsStore } from "./prefsStore";
 
 type WorkspaceTab = "graph" | "commits" | "changes" | "branches" | "stash" | "files";
@@ -149,8 +150,10 @@ type AppState = {
   clearCommitSearch: () => Promise<void>;
   setBranchFilter: (query: string) => void;
   setSelectedBranchName: (name: string | null) => void;
+  focusBranchInGraph: (name: string) => Promise<void>;
   createBranch: (name: string, checkout?: boolean) => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
+  checkoutCommit: (hash: string) => Promise<void>;
   confirmCheckout: (mode: CheckoutDirtyMode) => Promise<void>;
   cancelCheckoutPrompt: () => void;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
@@ -262,6 +265,14 @@ async function performCheckout(
       get().refreshBranches(),
       get().refreshStash(),
     ]);
+    // After checkout, jump graph to the tip of the current branch (or the hash).
+    const tipName =
+      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? target;
+    if (/^[0-9a-f]{7,40}$/i.test(target)) {
+      await get().selectCommit(target);
+    } else {
+      await get().focusBranchInGraph(tipName);
+    }
   } catch (err) {
     set({ busy: false, error: errMsg(err) });
   }
@@ -319,6 +330,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedBranchName: (name) => set({ selectedBranchName: name }),
   setConflictDraft: (value) => set({ conflictDraft: value }),
   setTerminalOpen: (open) => set({ terminalOpen: open }),
+
+  focusBranchInGraph: async (name) => {
+    const target = name.trim();
+    if (!target) return;
+    set({
+      selectedBranchName: target,
+      workspaceTab: "graph",
+      appView: "history",
+    });
+    const commits = get().filteredCommits ?? get().graph?.commits ?? [];
+    const tip = tipCommitForBranch(commits, target);
+    if (tip) {
+      await get().selectCommit(tip);
+    } else {
+      set({
+        selectedCommitHash: null,
+        commitFiles: [],
+        selectedCommitFile: null,
+        commitFileContent: "",
+        diffText: "",
+      });
+    }
+  },
 
   bootstrap: async () => {
     set({ bootLoading: true, bootError: null });
@@ -650,8 +684,32 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
     if (current === target) {
       set({ selectedBranchName: target });
+      await get().focusBranchInGraph(target);
       return;
     }
+
+    await get().refreshStatus();
+    const status = get().status;
+    const changeCount =
+      (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+    if (changeCount > 0) {
+      set({ checkoutPrompt: { target, changeCount }, error: null });
+      return;
+    }
+
+    await performCheckout(get, set, target, "keep");
+  },
+
+  checkoutCommit: async (hash) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const target = hash.trim();
+    if (!target) return;
+
+    const ok = window.confirm(
+      `Checkout no commit ${target.slice(0, 7)}?\n\nIsso deixa o HEAD detached (fora de uma branch).`,
+    );
+    if (!ok) return;
 
     await get().refreshStatus();
     const status = get().status;

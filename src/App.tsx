@@ -21,6 +21,7 @@ import { WelcomeSetup } from "./components/WelcomeSetup";
 import { BootSplash } from "./components/BootSplash";
 import { AlertModal } from "./components/AlertModal";
 import { FeedbackModal } from "./components/FeedbackModal";
+import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
 import {
   applyMainWindow,
   applySetupWindow,
@@ -258,6 +259,7 @@ function App() {
         )}
       </div>
       <OperationOverlay />
+      <CheckoutBranchModal />
       {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (

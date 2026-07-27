@@ -1,7 +1,12 @@
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useMemo, useRef, useEffect, useState, type MouseEvent } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
 import type { CommitSummary } from "../../lib/api";
+import {
+  checkoutTargetFromRef,
+  commitHasBranch,
+  normalizeRefLabel,
+} from "../../lib/branchGraph";
 import { IconClose, IconSearch } from "../Icons";
 
 const LANE_COLORS = ["#3dd68c", "#3d8bfd", "#e3b341", "#a371f7", "#f778ba", "#f85149", "#56d4dd"];
@@ -9,7 +14,7 @@ const ROW_H = 32;
 const LANE_W = 16;
 const NODE_R = 7;
 const GRAPH_PAD = 8;
-const REF_COL_W = 120;
+const REF_COL_W = 140;
 
 function relativeTime(iso: string): string {
   const t = Date.parse(iso);
@@ -25,7 +30,7 @@ function relativeTime(iso: string): string {
 }
 
 function shortRef(refName: string): string {
-  return refName.replace(/^refs\/(heads|remotes|tags)\//, "");
+  return normalizeRefLabel(refName);
 }
 
 /** Deterministic color from email/name (identicon-style). */
@@ -192,6 +197,10 @@ export function GraphView() {
     clearCommitSearch,
     selectCommit,
     selectedCommitHash,
+    selectedBranchName,
+    focusBranchInGraph,
+    checkoutBranch,
+    checkoutCommit,
     status,
     busy,
   } = useAppStore();
@@ -199,6 +208,8 @@ export function GraphView() {
   const showAvatars = usePrefsStore((s) => s.showAvatars);
   const relativeDates = usePrefsStore((s) => s.relativeDates);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLElement>());
   const [resultIndex, setResultIndex] = useState(0);
 
   const commits = useMemo(() => {
@@ -251,12 +262,38 @@ export function GraphView() {
     setResultIndex(0);
   }, [filteredCommits]);
 
+  useEffect(() => {
+    if (!selectedCommitHash) return;
+    const el = rowRefs.current.get(selectedCommitHash);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [selectedCommitHash]);
+
   const goResult = (dir: -1 | 1) => {
     if (!filteredCommits || filteredCommits.length === 0) return;
     const next =
       (resultIndex + dir + filteredCommits.length) % filteredCommits.length;
     setResultIndex(next);
     void selectCommit(filteredCommits[next].hash);
+  };
+
+  const onRefClick = (e: MouseEvent, refName: string, commitHash: string) => {
+    e.stopPropagation();
+    const target = checkoutTargetFromRef(refName);
+    void focusBranchInGraph(target);
+    void selectCommit(commitHash);
+  };
+
+  const onRefDblClick = (e: MouseEvent, refName: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const target = checkoutTargetFromRef(refName);
+    if (status?.branch === target) return;
+    void checkoutBranch(target);
+  };
+
+  const onCommitDblClick = (e: MouseEvent, hash: string) => {
+    e.preventDefault();
+    void checkoutCommit(hash);
   };
 
   return (
@@ -338,7 +375,7 @@ export function GraphView() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto" ref={listScrollRef}>
         <button
           type="button"
           onClick={() => void selectCommit(null)}
@@ -418,28 +455,37 @@ export function GraphView() {
             {commits.map((commit) => (
               <div
                 key={`ref-${commit.hash}`}
-                className="flex items-center gap-1 overflow-hidden px-2"
+                className="flex items-center gap-1 overflow-hidden px-1"
                 style={{ height: ROW_H }}
               >
-                {commit.refs.slice(0, 2).map((refName) => {
+                {commit.refs.slice(0, 3).map((refName) => {
                   const label = shortRef(refName);
                   const isLocalHead =
                     status?.branch === label && !refName.includes("remotes/");
+                  const isSelectedTip =
+                    Boolean(selectedBranchName) && label === selectedBranchName;
                   return (
-                    <span
+                    <button
                       key={refName}
-                      className={`inline-flex max-w-[110px] items-center gap-1 truncate rounded px-1.5 py-px text-[9px] font-normal ${
+                      type="button"
+                      title={`${label} — clique: selecionar · 2 cliques: checkout`}
+                      onClick={(e) => onRefClick(e, refName, commit.hash)}
+                      onDoubleClick={(e) => onRefDblClick(e, refName)}
+                      className={`inline-flex max-w-[128px] items-center gap-1 truncate rounded px-1.5 py-px text-[9px] font-normal transition-shadow ${
+                        isSelectedTip
+                          ? "ring-2 ring-[#3d8bfd] ring-offset-1 ring-offset-[#171a20]"
+                          : ""
+                      } ${
                         isLocalHead
                           ? "bg-[#238636] text-white"
                           : refName.includes("remotes/")
-                            ? "bg-[#252830] text-[#8b909a]"
-                            : "bg-[#238636]/20 text-[#3dd68c]"
+                            ? "bg-[#252830] text-[#8b909a] hover:bg-[#2f3440]"
+                            : "bg-[#238636]/20 text-[#3dd68c] hover:bg-[#238636]/35"
                       }`}
-                      title={label}
                     >
                       {isLocalHead && <span className="text-[8px]">✓</span>}
                       {label}
-                    </span>
+                    </button>
                   );
                 })}
               </div>
@@ -451,13 +497,29 @@ export function GraphView() {
           <ul className="min-w-0 flex-1">
             {commits.map((commit) => {
               const isSel = commit.hash === selectedCommitHash;
+              const isBranchTip =
+                Boolean(selectedBranchName) &&
+                commitHasBranch(commit, selectedBranchName!);
               return (
-                <li key={commit.hash} style={{ height: ROW_H }}>
+                <li
+                  key={commit.hash}
+                  style={{ height: ROW_H }}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(commit.hash, el);
+                    else rowRefs.current.delete(commit.hash);
+                  }}
+                >
                   <button
                     type="button"
+                    title="Clique: selecionar · 2 cliques: checkout neste commit"
                     onClick={() => void selectCommit(commit.hash)}
+                    onDoubleClick={(e) => onCommitDblClick(e, commit.hash)}
                     className={`flex h-full w-full items-center gap-2 px-2 text-left ${
-                      isSel ? "bg-[#1e3a5f]" : "hover:bg-[#1c1f26]"
+                      isSel
+                        ? "bg-[#1e3a5f]"
+                        : isBranchTip
+                          ? "bg-[#1e3a5f]/35 hover:bg-[#1e3a5f]/55"
+                          : "hover:bg-[#1c1f26]"
                     }`}
                   >
                     <div className="min-w-0 flex-1 truncate text-[12px] font-normal text-[#d0d4dc]">

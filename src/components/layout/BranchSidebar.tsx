@@ -36,9 +36,8 @@ export function BranchSidebar() {
     status,
     remotes,
     selectedBranchName,
-    setSelectedBranchName,
+    focusBranchInGraph,
     setWorkspaceTab,
-    selectCommit,
   } = useAppStore();
 
   const [newName, setNewName] = useState("");
@@ -92,8 +91,7 @@ export function BranchSidebar() {
   };
 
   const selectBranch = (name: string) => {
-    setSelectedBranchName(name);
-    void selectCommit(null);
+    void focusBranchInGraph(name);
   };
 
   const menuItems = (m: MenuState): ContextMenuItem[] => {
