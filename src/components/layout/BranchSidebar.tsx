@@ -240,15 +240,13 @@ export function BranchSidebar() {
             type="button"
             onClick={() => toggleFolder(key)}
             className="flex h-6 w-full items-center gap-1 text-left text-[11px] text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
-            style={{ paddingLeft: 10 + depth * 12 }}
+            style={{ paddingLeft: rowPad(depth), paddingRight: 8 }}
             title={`${node.name}/ (${node.count})`}
           >
-            <span className="w-2 shrink-0 text-[8px] opacity-70">
-              {open ? "▾" : "▸"}
-            </span>
-            <IconFolder className="h-3 w-3 shrink-0 opacity-55" />
+            <Chevron open={open} />
+            <IconFolder className="h-3 w-3 shrink-0 opacity-70" />
             <span className="min-w-0 flex-1 truncate font-medium">{node.name}</span>
-            <span className="pr-2 tabular-nums text-[9px] text-[#5c6370]">
+            <span className="tabular-nums text-[9px] text-[#5c6370]">
               {node.count}
             </span>
           </button>
@@ -341,26 +339,34 @@ export function BranchSidebar() {
               );
               const tracking = kids.filter((b) => b.name !== r.name);
               const tree = buildBranchTree(tracking, `${r.name}/`);
-              const bare = kids.filter((b) => b.name === r.name);
+              const remoteKey = `remote:${r.name}`;
+              const remoteOpenRow = !collapsed.has(remoteKey);
               return (
-                <div key={r.name} className="mb-1">
-                  <div className="px-2.5 py-1">
-                    <div className="truncate text-[11px] font-normal text-[#c8ccd4]">
-                      {r.name}
-                    </div>
-                  </div>
-                  {kids.length === 0 ? (
-                    <p className="px-2.5 pb-1 text-[9px] text-[#5c6370]">
-                      Sem branches remotas — faça Fetch.
-                    </p>
-                  ) : (
-                    <>
-                      {bare.map((b) =>
-                        renderBranch(b.name, b.name, true, 0),
-                      )}
-                      {renderTree(tree, `remote:${r.name}`, true, 0)}
-                    </>
-                  )}
+                <div key={r.name}>
+                  <button
+                    type="button"
+                    onClick={() => toggleFolder(remoteKey)}
+                    className="flex h-6 w-full items-center gap-1 text-left text-[11px] text-[#c8ccd4] hover:bg-[#1c1f26]"
+                    style={{ paddingLeft: rowPad(0), paddingRight: 8 }}
+                    title={r.name}
+                  >
+                    <Chevron open={remoteOpenRow} />
+                    <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
+                    <span className="tabular-nums text-[9px] text-[#5c6370]">
+                      {tracking.length}
+                    </span>
+                  </button>
+                  {remoteOpenRow &&
+                    (tracking.length === 0 ? (
+                      <p
+                        className="py-1 text-[9px] text-[#5c6370]"
+                        style={{ paddingLeft: rowPad(1), paddingRight: 8 }}
+                      >
+                        Sem branches — faça Fetch.
+                      </p>
+                    ) : (
+                      renderTree(tree, remoteKey, true, 1)
+                    ))}
                 </div>
               );
             })
@@ -377,6 +383,24 @@ export function BranchSidebar() {
         />
       )}
     </aside>
+  );
+}
+
+const ROW_BASE = 8;
+const ROW_STEP = 12;
+
+function rowPad(depth: number): number {
+  return ROW_BASE + depth * ROW_STEP;
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <span
+      className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[10px] font-bold leading-none text-[#a0a6b0]"
+      aria-hidden
+    >
+      {open ? "▾" : "▸"}
+    </span>
   );
 }
 
@@ -478,13 +502,15 @@ function BranchRow({
                 ? "opacity-40"
                 : "text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
       }`}
-      style={{ paddingLeft: 10 + depth * 12, paddingRight: 10 }}
+      style={{ paddingLeft: rowPad(depth), paddingRight: 8 }}
     >
-      {isCurrent ? (
-        <span className="w-3 text-center text-[9px]">✓</span>
-      ) : (
-        <IconBranch className="h-3 w-3 shrink-0 opacity-45" />
-      )}
+      <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+        {isCurrent ? (
+          <span className="text-[9px]">✓</span>
+        ) : (
+          <IconBranch className="h-3 w-3 opacity-55" />
+        )}
+      </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </button>
   );
@@ -508,12 +534,12 @@ function Group({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-[9px] font-normal tracking-[0.08em] text-[#6b7280] hover:text-[#a0a6b0]"
+        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-[9px] font-medium tracking-[0.08em] text-[#8b909a] hover:text-[#d8dbe2]"
       >
-        <span className="w-2 text-[8px] opacity-70">{open ? "▾" : "▸"}</span>
+        <Chevron open={open} />
         <span className="flex-1 text-left uppercase">{title}</span>
         {count !== undefined && (
-          <span className="tabular-nums text-[#5c6370]">{count}</span>
+          <span className="tabular-nums text-[#6b7280]">{count}</span>
         )}
       </button>
       {open && children}
