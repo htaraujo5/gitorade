@@ -34,22 +34,41 @@ const defaults: AppPrefs = {
 };
 
 type PrefsState = AppPrefs & {
+  /** Epoch ms of last auto-save; UI flash only (not persisted). */
+  prefsSavedAt: number | null;
   setPref: <K extends keyof AppPrefs>(key: K, value: AppPrefs[K]) => void;
   resetPrefs: () => void;
+  clearPrefsSaved: () => void;
 };
 
 export const usePrefsStore = create<PrefsState>()(
   persist(
     (set) => ({
       ...defaults,
-      setPref: (key, value) => set({ [key]: value } as Partial<AppPrefs>),
+      prefsSavedAt: null,
+      setPref: (key, value) =>
+        set({ [key]: value, prefsSavedAt: Date.now() } as Partial<PrefsState>),
       resetPrefs: () =>
         set((s) => ({
           ...defaults,
           onboardingComplete: s.onboardingComplete,
           projectsPath: s.projectsPath,
+          prefsSavedAt: Date.now(),
         })),
+      clearPrefsSaved: () => set({ prefsSavedAt: null }),
     }),
-    { name: "gitorade-prefs" },
+    {
+      name: "gitorade-prefs",
+      partialize: (state) => {
+        const {
+          prefsSavedAt: _flash,
+          setPref: _set,
+          resetPrefs: _reset,
+          clearPrefsSaved: _clear,
+          ...prefs
+        } = state;
+        return prefs;
+      },
+    },
   ),
 );

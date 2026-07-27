@@ -177,6 +177,15 @@ export function IconStash({ className }: IconProps) {
   );
 }
 
+export function IconCloudSync({ className }: IconProps) {
+  return (
+    <svg className={iconClass(className)} {...svgProps}>
+      <path d="M7 17h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6-1.5A3.5 3.5 0 0 0 7 17Z" />
+      <path d="M12 11v5M10 14.5 12 16.5 14 14.5" />
+    </svg>
+  );
+}
+
 export function IconTerminal({ className }: IconProps) {
   return (
     <svg className={iconClass(className)} {...svgProps}>

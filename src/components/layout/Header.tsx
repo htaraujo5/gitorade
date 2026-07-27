@@ -38,6 +38,8 @@ export function RepoToolbar() {
     busy,
     commitSearchOpen,
     setCommitSearchOpen,
+    openStagingStash,
+    setStagingPanelMode,
   } = useAppStore();
 
   const repo = repositories.find((r) => r.id === activeRepoId);
@@ -127,6 +129,7 @@ export function RepoToolbar() {
             onClick={() => {
               void selectCommit(null);
               setWorkspaceTab("graph");
+              setStagingPanelMode("commit");
             }}
           />
           <Tool
@@ -163,7 +166,7 @@ export function RepoToolbar() {
             label="Stash"
             icon={<IconStash className="h-5 w-5" />}
             disabled={disabled}
-            onClick={() => setWorkspaceTab("stash")}
+            onClick={() => openStagingStash()}
           />
           <div className="mx-1 h-7 w-px bg-[#2d3139]" />
           <Tool

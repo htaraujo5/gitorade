@@ -1,14 +1,26 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import type { FileChange } from "../../lib/api";
+import { IconBranch, IconStash } from "../Icons";
 
 type ViewMode = "path" | "tree";
 
+function relativeTime(iso?: string | null): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  const diff = Date.now() - t;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${Math.max(mins, 1)} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h`;
+  return `${Math.floor(hours / 24)} d`;
+}
+
 /**
  * Commit panel like GitKraken:
- * - no identity dropdown here (profile menu in header)
- * - dense file rows, icons sized to text
- * - summary + description + primary action
+ * - file changes (unstaged / staged)
+ * - unified Commit | Stash | Sync writing block
  */
 export function StagingPanel() {
   const {
@@ -20,6 +32,7 @@ export function StagingPanel() {
     commitMessage,
     setCommitMessage,
     commit,
+    push,
     busy,
     remotes,
     addRemote,
@@ -27,11 +40,21 @@ export function StagingPanel() {
     activeRepoId,
     profiles,
     commitOverrideProfileId,
+    stagingPanelMode,
+    setStagingPanelMode,
+    stash,
+    createStash,
+    applyStash,
+    dropStash,
   } = useAppStore();
 
   const [description, setDescription] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("path");
   const [amend, setAmend] = useState(false);
+  const [pushAfter, setPushAfter] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(true);
+  const [stashMessage, setStashMessage] = useState("");
+  const [stashDescription, setStashDescription] = useState("");
 
   const repo = repositories.find((r) => r.id === activeRepoId);
   const activeProfile =
@@ -44,6 +67,7 @@ export function StagingPanel() {
   const unstaged = status?.unstaged ?? [];
   const total = staged.length + unstaged.length;
   const summaryLen = commitMessage.length;
+  const mode = stagingPanelMode === "stash" ? "stash" : "commit";
 
   const primaryDisabled =
     !repo ||
@@ -51,6 +75,21 @@ export function StagingPanel() {
     !activeProfile ||
     (staged.length > 0 && !commitMessage.trim()) ||
     (staged.length === 0 && unstaged.length === 0);
+
+  const canStashPush = total > 0 && !busy;
+
+  const runCommit = async () => {
+    if (staged.length === 0) {
+      void stage(unstaged.map((f) => f.path));
+      return;
+    }
+    const summary = commitMessage.trim();
+    const body = description.trim();
+    if (body) setCommitMessage(`${summary}\n\n${body}`);
+    setDescription("");
+    await commit();
+    if (pushAfter) void push();
+  };
 
   return (
     <aside className="flex w-[300px] shrink-0 flex-col border-l border-[#2d3139] bg-[#1c1f26]">
@@ -99,74 +138,249 @@ export function StagingPanel() {
         {remotes.length === 0 && <RemoteQuickAdd busy={busy} onAdd={addRemote} />}
       </div>
 
-      <div className="space-y-1.5 border-t border-[#2d3139] bg-[#171a20] p-2.5">
-        <label className="flex items-center gap-1.5 text-[10px] text-[#8b909a]">
-          <input
-            type="checkbox"
-            checked={amend}
-            onChange={(e) => setAmend(e.target.checked)}
-            className="h-3 w-3 rounded border-[#2d3139]"
-          />
-          Amend previous commit
-        </label>
+      <div className="shrink-0 border-t border-[#2d3139] bg-[#171a20] p-2">
+        <div className="overflow-hidden rounded-md border border-[#2d3139] bg-[#1c1f26]">
+          <div className="flex border-b border-[#2d3139]">
+            <PanelTab
+              active={mode === "commit"}
+              onClick={() => setStagingPanelMode("commit")}
+              title="Commit"
+            >
+              <IconBranch className="h-3.5 w-3.5" />
+              Commit
+            </PanelTab>
+            <PanelTab
+              active={mode === "stash"}
+              onClick={() => setStagingPanelMode("stash")}
+              title="Stash"
+            >
+              <IconStash className="h-3.5 w-3.5" />
+              {stash.length > 0 ? (
+                <span className="tabular-nums">{stash.length}</span>
+              ) : null}
+            </PanelTab>
+          </div>
 
-        <div className="relative">
-          <input
-            className="h-8 w-full rounded border border-[#2d3139] bg-[#1c1f26] px-2 pr-8 text-[12px] text-[#e8eaed] outline-none placeholder:text-[#5c6370] focus:border-[#3d8bfd]"
-            placeholder="Summary"
-            value={commitMessage}
-            disabled={!repo || busy}
-            maxLength={200}
-            onChange={(e) => setCommitMessage(e.target.value)}
-          />
-          <span
-            className={`pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] tabular-nums ${
-              summaryLen > 72 ? "text-[#e3b341]" : "text-[#5c6370]"
-            }`}
-          >
-            {Math.max(0, 72 - summaryLen)}
-          </span>
+          <div className="max-h-[280px] space-y-2 overflow-auto p-2.5">
+            {mode === "commit" && (
+              <>
+                <label className="flex items-center gap-1.5 text-[10px] text-[#8b909a]">
+                  <input
+                    type="checkbox"
+                    checked={amend}
+                    onChange={(e) => setAmend(e.target.checked)}
+                    className="h-3 w-3 rounded border-[#2d3139]"
+                  />
+                  Amend previous commit
+                </label>
+
+                <div className="relative overflow-hidden rounded border border-[#2d3139] bg-[#12141a]">
+                  <span
+                    className={`pointer-events-none absolute right-2 top-2 text-[9px] tabular-nums ${
+                      summaryLen > 72 ? "text-[#e3b341]" : "text-[#5c6370]"
+                    }`}
+                  >
+                    {Math.max(0, 72 - summaryLen)}
+                  </span>
+                  <input
+                    className="h-9 w-full bg-transparent px-2 pr-8 text-[13px] leading-snug text-[#e8eaed] outline-none ring-0 placeholder:text-[#5c6370] focus:outline-none focus:ring-0"
+                    placeholder="Commit summary"
+                    value={commitMessage}
+                    disabled={!repo || busy}
+                    maxLength={200}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                  />
+                  <textarea
+                    className="h-16 w-full resize-none bg-transparent px-2 pb-1.5 text-[11px] leading-snug text-[#e8eaed] outline-none ring-0 placeholder:text-[#5c6370] focus:outline-none focus:ring-0"
+                    placeholder="Description"
+                    value={description}
+                    disabled={!repo || busy}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setOptionsOpen((v) => !v)}
+                    className="flex w-full items-center gap-1 text-[10px] text-[#8b909a] hover:text-[#c8ccd4]"
+                  >
+                    <span className="text-[8px] opacity-70">{optionsOpen ? "▾" : "▸"}</span>
+                    Commit options
+                  </button>
+                  {optionsOpen && (
+                    <label className="mt-1.5 flex items-center gap-1.5 pl-3 text-[10px] text-[#8b909a]">
+                      <input
+                        type="checkbox"
+                        checked={pushAfter}
+                        onChange={(e) => setPushAfter(e.target.checked)}
+                        className="h-3 w-3 rounded border-[#2d3139]"
+                      />
+                      Push after committing
+                    </label>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={primaryDisabled}
+                  onClick={() => void runCommit()}
+                  className="flex w-full items-center justify-center gap-1.5 rounded border border-[#238636] bg-[#238636]/15 py-2 text-[12px] font-medium text-[#3dd68c] hover:bg-[#238636]/25 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <IconBranch className="h-3.5 w-3.5" />
+                  {staged.length === 0
+                    ? "Stage Changes to Commit"
+                    : `Commit to ${status?.branch ?? "HEAD"}`}
+                </button>
+
+                {!activeProfile && (
+                  <p className="text-[10px] text-[#e3b341]">
+                    Selecione um perfil no menu do canto superior direito.
+                  </p>
+                )}
+                {amend && (
+                  <p className="text-[10px] text-[#e3b341]">
+                    Amend em breve — cria commit novo por agora.
+                  </p>
+                )}
+              </>
+            )}
+
+            {mode === "stash" && (
+              <>
+                <div className="overflow-hidden rounded border border-[#2d3139] bg-[#12141a]">
+                  <input
+                    className="h-9 w-full bg-transparent px-2 text-[13px] leading-snug text-[#e8eaed] outline-none ring-0 placeholder:text-[#5c6370] focus:outline-none focus:ring-0"
+                    placeholder="Stash title"
+                    value={stashMessage}
+                    disabled={!canStashPush && total === 0}
+                    onChange={(e) => setStashMessage(e.target.value)}
+                  />
+                  <textarea
+                    className="h-16 w-full resize-none bg-transparent px-2 pb-1.5 text-[11px] leading-snug text-[#e8eaed] outline-none ring-0 placeholder:text-[#5c6370] focus:outline-none focus:ring-0"
+                    placeholder="Description"
+                    value={stashDescription}
+                    disabled={!canStashPush && total === 0}
+                    onChange={(e) => setStashDescription(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!canStashPush}
+                  title={
+                    total === 0
+                      ? "Sem alterações para guardar"
+                      : "Guardar alterações no stash"
+                  }
+                  onClick={() => {
+                    const title = stashMessage.trim();
+                    const body = stashDescription.trim();
+                    const msg =
+                      title && body
+                        ? `${title}\n\n${body}`
+                        : title || body || undefined;
+                    void createStash(msg);
+                    setStashMessage("");
+                    setStashDescription("");
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded border border-[#238636] bg-[#238636]/15 py-2 text-[12px] font-medium text-[#3dd68c] hover:bg-[#238636]/25 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <IconStash className="h-3.5 w-3.5" />
+                  Stage Changes to Stash
+                </button>
+
+                <div className="max-h-28 overflow-auto rounded border border-[#2d3139]/80">
+                  {stash.length === 0 ? (
+                    <p className="px-2 py-2 text-[10px] text-[#5c6370]">
+                      {total === 0
+                        ? "Nenhum stash · working tree limpo"
+                        : `${total} alteração(ões) prontas para stash`}
+                    </p>
+                  ) : (
+                    <ul>
+                      {stash.map((entry) => (
+                        <li
+                          key={entry.selector}
+                          className="border-b border-[#2d3139]/50 px-2 py-1.5 last:border-0"
+                        >
+                          <div className="truncate text-[11px] text-[#e8eaed]">
+                            {entry.message || entry.selector}
+                          </div>
+                          <div className="mt-0.5 font-mono text-[9px] text-[#5c6370]">
+                            {entry.selector}
+                            {entry.authoredAt
+                              ? ` · ${relativeTime(entry.authoredAt)}`
+                              : ""}
+                          </div>
+                          <div className="mt-1 flex gap-2">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className="text-[10px] text-[#3d8bfd] hover:underline disabled:opacity-40"
+                              onClick={() => void applyStash(entry.selector, false)}
+                            >
+                              Apply
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className="text-[10px] text-[#3d8bfd] hover:underline disabled:opacity-40"
+                              onClick={() => void applyStash(entry.selector, true)}
+                            >
+                              Pop
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className="text-[10px] text-[#f85149] hover:underline disabled:opacity-40"
+                              onClick={() => {
+                                if (window.confirm(`Remover ${entry.selector}?`)) {
+                                  void dropStash(entry.selector);
+                                }
+                              }}
+                            >
+                              Drop
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
-
-        <textarea
-          className="h-14 w-full resize-none rounded border border-[#2d3139] bg-[#1c1f26] px-2 py-1.5 text-[11px] text-[#e8eaed] outline-none placeholder:text-[#5c6370] focus:border-[#3d8bfd]"
-          placeholder="Description"
-          value={description}
-          disabled={!repo || busy}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <button
-          type="button"
-          disabled={primaryDisabled}
-          onClick={() => {
-            if (staged.length === 0) {
-              void stage(unstaged.map((f) => f.path));
-              return;
-            }
-            const summary = commitMessage.trim();
-            const body = description.trim();
-            if (body) setCommitMessage(`${summary}\n\n${body}`);
-            setDescription("");
-            void commit();
-          }}
-          className="w-full rounded bg-[#238636] py-2 text-[12px] font-medium text-white hover:bg-[#2ea043] disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          {staged.length === 0
-            ? "Stage Changes to Commit"
-            : `Commit changes to ${status?.branch ?? "HEAD"}`}
-        </button>
-
-        {!activeProfile && (
-          <p className="text-[10px] text-[#e3b341]">
-            Selecione um perfil no menu do canto superior direito.
-          </p>
-        )}
-        {amend && (
-          <p className="text-[10px] text-[#e3b341]">Amend em breve — cria commit novo por agora.</p>
-        )}
       </div>
     </aside>
+  );
+}
+
+function PanelTab({
+  active,
+  onClick,
+  title,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`flex min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-1 py-1.5 text-[10px] font-medium ${
+        active
+          ? "border-[#3d8bfd] bg-[#1e3a5f]/35 text-[#e8eaed]"
+          : "border-transparent text-[#6b7280] hover:bg-[#252830] hover:text-[#c8ccd4]"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

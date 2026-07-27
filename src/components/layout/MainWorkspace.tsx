@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { GraphView } from "../history/GraphView";
 import { BranchesView } from "../history/BranchesView";
-import { StashView } from "../history/StashView";
 import { FilesView } from "../files/FilesView";
 import { DiffViewer } from "../diff/DiffViewer";
 import { CommitFileView } from "../diff/CommitFileView";
@@ -54,7 +53,6 @@ export function MainWorkspace() {
 
   let center: ReactNode;
   if (workspaceTab === "branches") center = <BranchesView />;
-  else if (workspaceTab === "stash") center = <StashView />;
   else if (workspaceTab === "files") center = <FilesView />;
   else if (showCommitFile) center = <CommitFileView />;
   else if (workspaceTab === "changes" || showWdFile) {
@@ -99,9 +97,7 @@ export function MainWorkspace() {
         </div>
       )}
 
-      {(workspaceTab === "branches" ||
-        workspaceTab === "stash" ||
-        workspaceTab === "files") &&
+      {(workspaceTab === "branches" || workspaceTab === "files") &&
         !showConflictEditor && (
         <div className="flex items-center gap-2 border-b border-[#2d3139] bg-[#1c1f26] px-3 py-1.5 text-[11px]">
           <button
@@ -112,11 +108,7 @@ export function MainWorkspace() {
             ← Graph
           </button>
           <span className="text-[#8b909a]">
-            {workspaceTab === "branches"
-              ? "Branches"
-              : workspaceTab === "stash"
-                ? "Stash"
-                : "Files"}
+            {workspaceTab === "branches" ? "Branches" : "Files"}
           </span>
         </div>
       )}

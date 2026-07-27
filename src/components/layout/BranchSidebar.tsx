@@ -37,7 +37,6 @@ export function BranchSidebar() {
     remotes,
     selectedBranchName,
     focusBranchInGraph,
-    setWorkspaceTab,
   } = useAppStore();
 
   const [newName, setNewName] = useState("");
@@ -366,10 +365,6 @@ export function BranchSidebar() {
               );
             })
           )}
-        </Group>
-
-        <Group title="STASH" open={false} onToggle={() => setWorkspaceTab("stash")}>
-          {null}
         </Group>
       </div>
 

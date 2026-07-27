@@ -129,6 +129,8 @@ type AppState = {
   branchFilter: string;
   selectedBranchName: string | null;
   checkoutPrompt: CheckoutPrompt | null;
+  /** Right panel bottom: commit form or stash (GitKraken-style). */
+  stagingPanelMode: "commit" | "stash";
 
   bootstrap: () => Promise<void>;
   refreshRepositories: () => Promise<void>;
@@ -190,6 +192,9 @@ type AppState = {
   setCommitMessage: (message: string) => void;
   setCommitOverrideProfileId: (id: string | null) => void;
   setWorkspaceTab: (tab: WorkspaceTab) => void;
+  setStagingPanelMode: (mode: "commit" | "stash") => void;
+  /** Show WIP + staging panel in stash mode (toolbar / sidebar). */
+  openStagingStash: () => void;
   setAppView: (view: AppView) => void;
   openStartTab: () => void;
   openSettingsTab: () => void;
@@ -315,6 +320,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   branchFilter: "",
   selectedBranchName: null,
   checkoutPrompt: null,
+  stagingPanelMode: "commit",
   conflictDraft: "",
   conflictPath: null,
   conflictOurs: "",
@@ -461,6 +467,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       branchFilter: "",
       selectedBranchName: null,
       selectedCommitHash: null,
+      stagingPanelMode: "commit",
       commitFiles: [],
       selectedCommitFile: null,
       commitFileContent: "",
@@ -1102,6 +1109,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCommitMessage: (message) => set({ commitMessage: message }),
   setCommitOverrideProfileId: (id) => set({ commitOverrideProfileId: id }),
   setWorkspaceTab: (tab) => set({ workspaceTab: tab }),
+  setStagingPanelMode: (mode) => set({ stagingPanelMode: mode }),
+  openStagingStash: () => {
+    set({
+      workspaceTab: "graph",
+      selectedCommitHash: null,
+      selectedCommitFile: null,
+      commitFiles: [],
+      commitFileContent: "",
+      stagingPanelMode: "stash",
+      appView: "history",
+    });
+    void get().refreshStash();
+  },
 
   openStartTab: () => {
     const tabs = [...get().shellTabs];

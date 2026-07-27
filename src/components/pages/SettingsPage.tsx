@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore, type AppPrefs } from "../../stores/prefsStore";
 import logo from "../../assets/brand/logo.png";
@@ -35,37 +35,50 @@ const sections: { id: SectionId; label: string; icon: ReactNode }[] = [
 /** Preferences tab: left categories + working options (GitKraken-like). */
 export function SettingsPage({ initialSection = "general" }: { initialSection?: SectionId }) {
   const [section, setSection] = useState<SectionId>(initialSection);
+  const [showSaved, setShowSaved] = useState(false);
   const prefs = usePrefsStore();
+  const prefsSavedAt = usePrefsStore((s) => s.prefsSavedAt);
+  const clearPrefsSaved = usePrefsStore((s) => s.clearPrefsSaved);
   const { health, profiles, openCredentialsTab } = useAppStore();
+
+  useEffect(() => {
+    if (!prefsSavedAt) return;
+    setShowSaved(true);
+    const hide = window.setTimeout(() => {
+      setShowSaved(false);
+      clearPrefsSaved();
+    }, 1600);
+    return () => window.clearTimeout(hide);
+  }, [prefsSavedAt, clearPrefsSaved]);
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden bg-[#171a20]">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]">
-        <div className="border-b border-[#2d3139] px-3 py-2.5">
+      <aside className="flex w-44 shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]">
+        <div className="border-b border-[#2d3139] px-2.5 py-2">
           <div className="text-[11px] font-medium text-[#e8eaed]">Preferências</div>
-          <div className="text-[10px] text-[#6b7280]">Ajustes do Gitorade</div>
+          <div className="text-[9px] text-[#6b7280]">Ajustes do Gitorade</div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-auto p-2">
+        <nav className="flex-1 space-y-px overflow-auto p-1.5">
           {sections.map((s) => (
             <button
               key={s.id}
               type="button"
               onClick={() => setSection(s.id)}
-              className={`flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[12px] ${
+              className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] leading-tight ${
                 section === s.id
                   ? "bg-[#1e3a5f] text-[#e8eaed]"
                   : "text-[#8b909a] hover:bg-[#252830] hover:text-[#d8dbe2]"
               }`}
             >
-              <span className="opacity-80">{s.icon}</span>
+              <span className="shrink-0 opacity-80">{s.icon}</span>
               {s.label}
             </button>
           ))}
         </nav>
-        <div className="border-t border-[#2d3139] p-2">
+        <div className="border-t border-[#2d3139] p-1.5">
           <button
             type="button"
-            className="w-full rounded px-2 py-1.5 text-[11px] text-[#8b909a] hover:bg-[#252830] hover:text-[#d8dbe2]"
+            className="w-full rounded px-2 py-1 text-[10px] text-[#8b909a] hover:bg-[#252830] hover:text-[#d8dbe2]"
             onClick={() => prefs.resetPrefs()}
           >
             Restaurar padrões
@@ -73,8 +86,19 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
         </div>
       </aside>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-xl space-y-5">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-auto p-5">
+        <div
+          className={`pointer-events-none absolute right-5 top-4 z-10 transition-opacity duration-300 ${
+            showSaved ? "opacity-100" : "opacity-0"
+          }`}
+          aria-live="polite"
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-[#238636]/50 bg-[#238636]/15 px-2.5 py-1 text-[11px] font-medium text-[#3dd68c] shadow-lg shadow-black/30">
+            <span aria-hidden>✓</span>
+            Salvo
+          </span>
+        </div>
+        <div className="mx-auto max-w-xl space-y-3.5">
           {section === "general" && (
             <>
               <Header title="Geral" desc="Comportamento ao iniciar e confirmações." />
@@ -99,13 +123,13 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
                 checked={prefs.openLastRepoOnStart}
                 onChange={(v) => prefs.setPref("openLastRepoOnStart", v)}
               />
-              <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2.5">
-                <div className="mb-1.5 text-[12px] text-[#e8eaed]">Pasta de projetos</div>
-                <div className="mt-0.5 mb-2 text-[10px] text-[#6b7280]">
+              <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-2.5 py-2">
+                <div className="mb-1 text-[11px] text-[#e8eaed]">Pasta de projetos</div>
+                <div className="mb-1.5 text-[10px] leading-snug text-[#6b7280]">
                   Pasta padrão ao abrir, clonar ou inicializar repositórios.
                 </div>
                 <input
-                  className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2 py-1.5 font-mono text-[11px] text-[#d8dbe2] outline-none focus:border-[#3d8bfd]"
+                  className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2 py-1 font-mono text-[11px] text-[#d8dbe2] outline-none focus:border-[#3d8bfd]"
                   value={prefs.projectsPath}
                   onChange={(e) => prefs.setPref("projectsPath", e.target.value)}
                   placeholder="C:\Users\...\Projects"
@@ -460,19 +484,19 @@ function AboutSection() {
 function Header({ title, desc }: { title: string; desc: string }) {
   return (
     <div>
-      <h1 className="text-lg font-medium text-[#e8eaed]">{title}</h1>
-      <p className="mt-1 text-[12px] text-[#6b7280]">{desc}</p>
+      <h1 className="text-[14px] font-medium text-[#e8eaed]">{title}</h1>
+      <p className="mt-0.5 text-[11px] leading-snug text-[#6b7280]">{desc}</p>
     </div>
   );
 }
 
 function InfoCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded border border-[#2d3139] bg-[#1c1f26] p-3">
-      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">
+    <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-2.5 py-2">
+      <div className="mb-1 text-[9px] font-medium uppercase tracking-wide text-[#6b7280]">
         {title}
       </div>
-      <div className="text-[12px] leading-relaxed text-[#c8ccd4]">{children}</div>
+      <div className="text-[11px] leading-snug text-[#c8ccd4]">{children}</div>
     </div>
   );
 }
@@ -489,14 +513,14 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2.5">
+    <label className="flex cursor-pointer items-start justify-between gap-3 rounded border border-[#2d3139] bg-[#1c1f26] px-2.5 py-2">
       <div className="min-w-0">
-        <div className="text-[12px] text-[#e8eaed]">{label}</div>
-        {hint && <div className="mt-0.5 text-[10px] text-[#6b7280]">{hint}</div>}
+        <div className="text-[11px] leading-snug text-[#e8eaed]">{label}</div>
+        {hint && <div className="mt-0.5 text-[10px] leading-snug text-[#6b7280]">{hint}</div>}
       </div>
       <input
         type="checkbox"
-        className="mt-0.5 h-4 w-4 accent-[#3d8bfd]"
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#3d8bfd]"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />
@@ -516,10 +540,10 @@ function SelectRow({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2.5">
-      <div className="mb-1.5 text-[12px] text-[#e8eaed]">{label}</div>
+    <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-2.5 py-2">
+      <div className="mb-1 text-[11px] text-[#e8eaed]">{label}</div>
       <select
-        className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2 py-1.5 text-[12px] text-[#d8dbe2] outline-none focus:border-[#3d8bfd]"
+        className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2 py-1 text-[11px] text-[#d8dbe2] outline-none focus:border-[#3d8bfd]"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -551,12 +575,12 @@ function NumberRow({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2.5">
+    <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-2.5 py-2">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-[12px] text-[#e8eaed]">{label}</div>
-        <span className="font-mono text-[11px] text-[#8b909a]">{value}</span>
+        <div className="text-[11px] text-[#e8eaed]">{label}</div>
+        <span className="font-mono text-[10px] text-[#8b909a]">{value}</span>
       </div>
-      {hint && <div className="mb-2 text-[10px] text-[#6b7280]">{hint}</div>}
+      {hint && <div className="mb-1.5 text-[10px] leading-snug text-[#6b7280]">{hint}</div>}
       <input
         type="range"
         className="w-full accent-[#3d8bfd]"
