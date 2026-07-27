@@ -1,19 +1,125 @@
 name: Release
 
+# Gera instaladores Windows e publica em GitHub Releases.
+# Versão:
+#   fix     → 1.0.x  (patch)
+#   hotfix  → 1.x.0  (minor)
+#   release → x.0.0  (major)
+#
+# Dispare manualmente (Actions → Release → Run workflow)
+# ou faça push em main/master com commits:
+#   fix: ... | hotfix: ... / feat: ... | release: ...
+
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Tipo de bump"
+        required: true
+        type: choice
+        options:
+          - fix
+          - hotfix
+          - release
+  push:
+    branches: [main, master]
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release-windows:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.decide.outputs.should_release }}
+      bump: ${{ steps.decide.outputs.bump }}
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Decide bump type
+        id: decide
+        shell: bash
+        run: |
+          set -euo pipefail
+          MSG="${{ github.event.head_commit.message || '' }}"
+          # Evita loop: commit de release não dispara outro release
+          if [[ "$MSG" == chore\(release\):* ]] || [[ "$MSG" == *"chore(release):"* ]]; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "bump=none" >> "$GITHUB_OUTPUT"
+            echo "Skip: commit de release"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP="${{ inputs.bump }}"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+            echo "Manual bump: $BUMP"
+            exit 0
+          fi
+
+          BUMP="$(node scripts/bump-version.mjs detect)"
+          if [ "$BUMP" = "none" ] || [ -z "$BUMP" ]; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "bump=none" >> "$GITHUB_OUTPUT"
+            echo "Nenhum fix/hotfix/release nos commits desde a última tag — skip"
+            exit 0
+          fi
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "Detected bump: $BUMP"
+
+      - name: Bump version files
+        id: bump
+        if: steps.decide.outputs.should_release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUMP="${{ steps.decide.outputs.bump }}"
+          node scripts/bump-version.mjs "$BUMP"
+          VERSION="$(node scripts/bump-version.mjs print)"
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "New version: ${VERSION} (${TAG})"
+
+      - name: Commit version and create tag
+        if: steps.decide.outputs.should_release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.bump.outputs.version }}"
+          TAG="${{ steps.bump.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+          git commit -m "chore(release): v${VERSION}"
+          git tag -a "${TAG}" -m "Gitorade ${TAG}"
+          git push origin "HEAD:${{ github.ref_name }}"
+          git push origin "${TAG}"
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -30,14 +136,23 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Build and publish installers
+      - name: Build installers and publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tagName: ${{ github.ref_name }}
-          releaseName: "Gitorade ${{ github.ref_name }}"
-          releaseBody: "Instaladores MSI e NSIS para Windows. Consulte o CHANGELOG para detalhes."
-          releaseDraft: true
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseName: "Gitorade ${{ needs.prepare.outputs.tag }}"
+          releaseBody: |
+            ## Gitorade ${{ needs.prepare.outputs.tag }}
+
+            Bump: **${{ needs.prepare.outputs.bump }}** → `${{ needs.prepare.outputs.version }}`
+
+            ### Instaladores (Windows x64)
+            - **NSIS** (`.exe`) — instalador recomendado
+            - **MSI** — instalação via Windows Installer
+
+            Baixe os arquivos na seção **Assets** abaixo.
+          releaseDraft: false
           prerelease: false

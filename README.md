@@ -43,7 +43,37 @@ Na primeira execução: splash estilo Fork → setup (nome/email/pasta) → dash
 
 O instalador NSIS usa `icons/nsis/sidebar.bmp` + `header.bmp` (gere com `npm run icons` antes do `npm run dist`).
 
-Release automatizado: tag `v*` dispara `.github/workflows/release.yml`.
+### Release automático (GitHub Actions)
+
+Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+1. Atualiza a versão (`package.json`, `Cargo.toml`, `tauri.conf.json`)
+2. Compila e gera instaladores Windows
+3. Publica em **GitHub → Releases** (NSIS + MSI)
+
+**Bump de versão**
+
+| Tipo | O que muda | Exemplo |
+|------|------------|---------|
+| `fix` | último número (patch) | `1.0.0` → `1.0.1` |
+| `hotfix` | do meio (minor) | `1.0.1` → `1.1.0` |
+| `release` | o primeiro (major) | `1.1.0` → `2.0.0` |
+
+**Como disparar**
+
+- Manual: Actions → **Release** → Run workflow → escolha `fix` / `hotfix` / `release`
+- Automático no push em `main`/`master` se os commits desde a última tag tiverem prefixo:
+  - `fix: ...` → patch
+  - `hotfix: ...` ou `feat: ...` → minor
+  - `release: ...` ou `BREAKING CHANGE` → major
+
+O CI (`.github/workflows/ci.yml`) só valida lint/testes/`cargo check` — **não** gera instalador (isso evita o Actions quebrar em build longo a cada PR).
+
+```bash
+node scripts/bump-version.mjs print    # versão atual
+node scripts/bump-version.mjs detect   # bump sugerido pelo git log
+node scripts/bump-version.mjs fix      # aplica patch localmente
+```
 
 ## Scripts
 

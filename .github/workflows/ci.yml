@@ -5,8 +5,12 @@ on:
     branches: [main, master]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  windows:
+  check:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,10 +46,7 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-      - name: Tauri build
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: .
-          args: --debug
+      # Full installer build is intentionally NOT here — see release.yml
+      - name: Rust check (lib)
+        working-directory: src-tauri
+        run: cargo check
