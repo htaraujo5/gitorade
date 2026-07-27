@@ -34,10 +34,7 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
       </div>
 
       {/* Center — logo + name, no box */}
-      <div
-        className="flex h-full items-center px-2"
-        data-tauri-drag-region
-      >
+      <div className="flex h-full items-center px-2" data-tauri-drag-region>
         <div
           className="pointer-events-none flex select-none items-center gap-1.5"
           data-tauri-drag-region

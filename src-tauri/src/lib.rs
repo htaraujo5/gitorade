@@ -4,6 +4,7 @@ pub mod domain;
 pub mod error;
 pub mod git;
 mod ops;
+mod process_util;
 mod storage;
 mod terminal;
 mod watcher;
