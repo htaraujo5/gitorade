@@ -225,6 +225,19 @@ export function GraphView() {
     (status?.unstaged.filter((f) => f.status === "deleted").length ?? 0);
   const modified = Math.max(0, changeCount - added - deleted);
   const wipActive = selectedCommitHash === null;
+  const conflictCount = status?.conflicts?.length ?? 0;
+  const inProgress = status?.inProgress ?? null;
+  const hasConflicts = conflictCount > 0;
+  const integrateLabel =
+    inProgress === "merge"
+      ? "Merge"
+      : inProgress === "rebase"
+        ? "Rebase"
+        : inProgress === "cherry-pick"
+          ? "Cherry-pick"
+          : inProgress
+            ? inProgress
+            : null;
   const resultCount = filteredCommits?.length ?? 0;
   const searching = Boolean(filteredCommits);
 
@@ -330,21 +343,65 @@ export function GraphView() {
           type="button"
           onClick={() => void selectCommit(null)}
           className={`flex w-full items-center border-b border-[#2d3139]/50 px-2 text-left ${
-            wipActive ? "bg-[#1e3a5f]/45" : "hover:bg-[#1c1f26]"
+            hasConflicts
+              ? wipActive
+                ? "bg-[#e3b341]/18"
+                : "bg-[#e3b341]/08 hover:bg-[#e3b341]/14"
+              : wipActive
+                ? "bg-[#1e3a5f]/45"
+                : "hover:bg-[#1c1f26]"
           }`}
           style={{ height: ROW_H }}
+          title={
+            hasConflicts
+              ? `${conflictCount} arquivo(s) em conflito — abra no painel à direita`
+              : undefined
+          }
         >
-          <div className="flex shrink-0 items-center" style={{ width: REF_COL_W }}>
-            <span className="font-mono text-[11px] font-normal text-[#e3b341]">// WIP</span>
+          <div className="flex shrink-0 items-center gap-1" style={{ width: REF_COL_W }}>
+            {hasConflicts ? (
+              <span className="inline-flex items-center gap-1 truncate rounded bg-[#e3b341]/25 px-1.5 py-px text-[9px] font-medium text-[#e8c547]">
+                ⚠ {integrateLabel ?? "Conflict"}
+              </span>
+            ) : (
+              <span className="font-mono text-[11px] font-normal text-[#e3b341]">// WIP</span>
+            )}
           </div>
-          <div className="flex shrink-0 items-center justify-center" style={{ width: graphW }}>
-            <span className="inline-block h-[12px] w-[12px] rounded-full border-2 border-dashed border-[#e3b341]" />
+          <div className="relative flex shrink-0 items-center justify-center" style={{ width: graphW }}>
+            {hasConflicts ? (
+              <>
+                <span className="inline-block h-[12px] w-[12px] rounded-full border-2 border-[#e3b341] bg-[#e3b341]/35" />
+                <span
+                  className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-[#e3b341] px-0.5 text-[7px] font-bold leading-none text-[#1a1d24]"
+                  aria-hidden
+                >
+                  {conflictCount > 9 ? "!" : conflictCount}
+                </span>
+              </>
+            ) : (
+              <span className="inline-block h-[12px] w-[12px] rounded-full border-2 border-dashed border-[#e3b341]" />
+            )}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2 pl-2">
-            {changeCount === 0 ? (
+            {hasConflicts ? (
+              <>
+                <span className="truncate text-[12px] font-medium text-[#e8c547]">
+                  {conflictCount} file conflict{conflictCount === 1 ? "" : "s"}
+                  {integrateLabel ? ` · ${integrateLabel} in progress` : ""}
+                </span>
+                {changeCount > 0 && (
+                  <span className="flex shrink-0 items-center gap-1.5 opacity-80">
+                    <Stat kind="mod" n={modified} />
+                    <Stat kind="add" n={added} />
+                    <Stat kind="del" n={deleted} />
+                  </span>
+                )}
+              </>
+            ) : changeCount === 0 ? (
               <span className="text-[11px] text-[#5c6370]">Working directory clean</span>
             ) : (
               <>
+                <span className="font-mono text-[11px] text-[#e3b341]">// WIP</span>
                 <Stat kind="mod" n={modified} />
                 <Stat kind="add" n={added} />
                 <Stat kind="del" n={deleted} />

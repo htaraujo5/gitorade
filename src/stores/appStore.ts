@@ -287,7 +287,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedCommitHash: null,
   selectedCommitFile: null,
   commitFileContent: "",
-  commitFileViewMode: "diff",
+  commitFileViewMode: "file",
   commitFiles: [],
   busy: false,
   openingRepoName: null,
@@ -1194,7 +1194,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       commitFileContent: "",
       selectedFile: null,
       diffText: "",
-      commitFileViewMode: "diff",
+      commitFileViewMode: "file",
     });
     try {
       const commitFiles = await api.getCommitFiles(id, hash);
@@ -1212,7 +1212,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         selectedCommitFile: null,
         commitFileContent: "",
         diffText: "",
-        commitFileViewMode: "diff",
+        commitFileViewMode: "file",
       });
       return;
     }
@@ -1224,7 +1224,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedFile: null,
       busy: true,
       error: null,
-      commitFileViewMode: "diff",
+      commitFileViewMode: "file",
     });
     try {
       const [diffText, content] = await Promise.all([

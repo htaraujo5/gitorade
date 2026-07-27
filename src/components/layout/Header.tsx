@@ -47,6 +47,7 @@ export function RepoToolbar() {
   const localBranches = branches.filter((b) => !b.isRemote);
   const changeCount =
     (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+  const conflictCount = status?.conflicts?.length ?? 0;
 
   return (
     <header className="relative z-40 shrink-0 border-b border-[#2d3139] bg-[#1c1f26]">
@@ -87,17 +88,30 @@ export function RepoToolbar() {
               />
             }
           />
-          {changeCount > 0 && (
+          {conflictCount > 0 ? (
             <button
               type="button"
-              className="mb-0.5 rounded bg-[#e3b341]/10 px-1.5 py-0.5 font-mono text-[9px] font-normal text-[#e3b341]"
+              className="mb-0.5 rounded bg-[#e3b341]/20 px-1.5 py-0.5 text-[9px] font-medium text-[#e8c547]"
               onClick={() => {
                 void selectCommit(null);
                 setWorkspaceTab("graph");
               }}
             >
-              // WIP · {changeCount.toLocaleString()}
+              ⚠ {conflictCount} conflict{conflictCount === 1 ? "" : "s"}
             </button>
+          ) : (
+            changeCount > 0 && (
+              <button
+                type="button"
+                className="mb-0.5 rounded bg-[#e3b341]/10 px-1.5 py-0.5 font-mono text-[9px] font-normal text-[#e3b341]"
+                onClick={() => {
+                  void selectCommit(null);
+                  setWorkspaceTab("graph");
+                }}
+              >
+                // WIP · {changeCount.toLocaleString()}
+              </button>
+            )
           )}
         </div>
 

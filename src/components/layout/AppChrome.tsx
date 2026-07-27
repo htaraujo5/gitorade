@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useAppStore, type ShellTab } from "../../stores/appStore";
+import logo from "../../assets/brand/logo.png";
 import {
   IconBranch,
   IconClose,
@@ -15,14 +16,11 @@ import { MenuBar } from "./MenuBar";
 import { ProfileMenu } from "./ProfileMenu";
 
 /**
- * Single Fork-style chrome: title row (menus · pill · window controls)
+ * Single Fork-style chrome: title row (menus · brand · window controls)
  * + tab row — one visual block, not stacked separate bars.
  */
 export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
   const [maximized, setMaximized] = useState(false);
-  const activeRepoId = useAppStore((s) => s.activeRepoId);
-  const repositories = useAppStore((s) => s.repositories);
-  const status = useAppStore((s) => s.status);
   const shellTabs = useAppStore((s) => s.shellTabs);
   const activeShellTabId = useAppStore((s) => s.activeShellTabId);
   const activateShellTab = useAppStore((s) => s.activateShellTab);
@@ -30,12 +28,6 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
   const openStartTab = useAppStore((s) => s.openStartTab);
   const openSettingsTab = useAppStore((s) => s.openSettingsTab);
   const openRepositoryDialog = useAppStore((s) => s.openRepositoryDialog);
-
-  const activeTab =
-    shellTabs.find((t) => t.id === activeShellTabId) ?? shellTabs[0] ?? null;
-  const inRepo = activeTab?.kind === "repo" && Boolean(activeRepoId);
-  const repo = repositories.find((r) => r.id === activeRepoId);
-  const branch = status?.branch ?? repo?.branch ?? null;
 
   useEffect(() => {
     const win = getCurrentWindow();
@@ -70,24 +62,18 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
 
         <div className="flex h-full items-center px-3" data-tauri-drag-region>
           <div
-            className="flex min-w-[140px] max-w-[260px] flex-col items-center justify-center rounded-md border border-[#2d3139] bg-[#12141a] px-4 py-[3px]"
+            className="pointer-events-none flex select-none items-center gap-1.5"
             data-tauri-drag-region
           >
-            {inRepo && repo ? (
-              <>
-                <span className="max-w-full truncate text-[12px] font-semibold leading-tight text-[#e8eaed]">
-                  {repo.name}
-                </span>
-                <span className="inline-flex max-w-full items-center gap-1 text-[10px] leading-tight text-[#8b909a]">
-                  <IconBranch className="h-2.5 w-2.5 shrink-0 opacity-70" />
-                  <span className="truncate">{branch ?? "—"}</span>
-                </span>
-              </>
-            ) : (
-              <span className="py-0.5 text-[12px] font-semibold tracking-wide text-[#c8ccd4]">
-                Gitorade
-              </span>
-            )}
+            <img
+              src={logo}
+              alt=""
+              className="h-4 w-4 object-contain"
+              aria-hidden
+            />
+            <span className="text-[12px] font-semibold tracking-wide text-[#e8eaed]">
+              gitorade
+            </span>
           </div>
         </div>
 

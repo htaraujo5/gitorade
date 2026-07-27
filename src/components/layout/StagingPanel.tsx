@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
-import type { FileChange, RemoteInfo } from "../../lib/api";
+import type { FileChange } from "../../lib/api";
 
 type ViewMode = "path" | "tree";
 
@@ -96,11 +96,7 @@ export function StagingPanel() {
           disabled={busy}
           allAccent="muted"
         />
-        {remotes.length === 0 ? (
-          <RemoteQuickAdd busy={busy} onAdd={addRemote} />
-        ) : (
-          <RemotesList remotes={remotes} />
-        )}
+        {remotes.length === 0 && <RemoteQuickAdd busy={busy} onAdd={addRemote} />}
       </div>
 
       <div className="space-y-1.5 border-t border-[#2d3139] bg-[#171a20] p-2.5">
@@ -328,29 +324,6 @@ function StatusGlyph({ status }: { status: string }) {
     <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[10px] font-bold leading-none text-[#e3b341]">
       /
     </span>
-  );
-}
-
-function RemotesList({ remotes }: { remotes: RemoteInfo[] }) {
-  return (
-    <div className="border-t border-[#2d3139]/80 px-2.5 py-2">
-      <div className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.07em] text-[#6b7280]">
-        Remotes ({remotes.length})
-      </div>
-      <ul className="space-y-1.5">
-        {remotes.map((r) => {
-          const url = r.fetchUrl ?? r.pushUrl ?? "";
-          return (
-            <li key={r.name} className="min-w-0">
-              <div className="text-[11px] font-medium text-[#e8eaed]">{r.name}</div>
-              <div className="truncate font-mono text-[10px] text-[#8b909a]" title={url}>
-                {url || "(sem URL)"}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }
 

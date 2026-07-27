@@ -3,6 +3,7 @@ import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
 import { parseUnifiedDiff, toSplitRows, type DiffRowKind } from "../../lib/diffParse";
 import { IconClose, IconSearch } from "../Icons";
+import { CodeEditorView, CodeLine } from "./CodeEditorView";
 
 /**
  * GitKraken-like commit file viewer:
@@ -40,7 +41,6 @@ export function CommitFileView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[#171a20]">
-      {/* Path breadcrumb */}
       <div className="flex items-center gap-2 border-b border-[#2d3139] bg-[#1c1f26] px-3 py-1.5">
         <div className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#c8ccd4]">
           {pathParts.map((part, i) => (
@@ -63,7 +63,6 @@ export function CommitFileView() {
         </button>
       </div>
 
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-[#2d3139] px-3 py-1.5">
         <button
           type="button"
@@ -133,45 +132,30 @@ export function CommitFileView() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {busy ? (
           <div className="p-6 text-[12px] text-[#6b7280]">Carregando…</div>
         ) : commitFileViewMode === "file" ? (
-          <FileContentView text={commitFileContent} />
+          <CodeEditorView
+            text={commitFileContent}
+            label={`Conteúdo de ${selectedCommitFile}`}
+            emptyMessage="Conteúdo indisponível neste commit (arquivo removido ou binário)."
+          />
         ) : diffText.trim() === "" ? (
           <div className="p-6 text-[12px] text-[#6b7280]">
             Sem diff textual (binário, rename sem delta, ou sem mudanças visíveis).
           </div>
         ) : layout === "unified" ? (
-          <UnifiedView rows={rows} />
+          <div className="min-h-0 flex-1 overflow-auto bg-[#0d1117]">
+            <UnifiedView rows={rows} />
+          </div>
         ) : (
-          <SplitView rows={split} />
+          <div className="min-h-0 flex-1 overflow-auto bg-[#0d1117]">
+            <SplitView rows={split} />
+          </div>
         )}
       </div>
     </div>
-  );
-}
-
-function FileContentView({ text }: { text: string }) {
-  if (!text) {
-    return (
-      <div className="p-6 text-[12px] text-[#6b7280]">
-        Conteúdo indisponível neste commit (arquivo removido ou binário).
-      </div>
-    );
-  }
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
-  return (
-    <pre className="p-2 font-mono text-[12px] leading-5 text-[#c8ccd4]" aria-label="Conteúdo do arquivo">
-      {lines.map((line, i) => (
-        <div key={i} className="flex">
-          <span className="w-12 shrink-0 select-none px-2 text-right text-[#4a5060]">
-            {i + 1}
-          </span>
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">{line || " "}</span>
-        </div>
-      ))}
-    </pre>
   );
 }
 
@@ -224,21 +208,25 @@ function GhostBtn({
 
 function UnifiedView({ rows }: { rows: ReturnType<typeof parseUnifiedDiff> }) {
   return (
-    <pre className="p-2 font-mono text-[12px] leading-5" aria-label="Diff unificado">
+    <pre className="p-0 font-mono text-[12px] leading-5" aria-label="Diff unificado">
       {rows.map((row, i) => (
         <div key={i} className={`flex ${rowClass(row.kind)}`}>
-          <span className="w-10 shrink-0 select-none px-1 text-right text-[#4a5060]">
+          <span className="w-10 shrink-0 select-none px-1 text-right text-[#484f58]">
             {row.oldLine ?? ""}
           </span>
-          <span className="w-10 shrink-0 select-none px-1 text-right text-[#4a5060]">
+          <span className="w-10 shrink-0 select-none px-1 text-right text-[#484f58]">
             {row.newLine ?? ""}
           </span>
-          <span className="w-4 shrink-0 select-none text-center">
+          <span className="w-4 shrink-0 select-none text-center text-[#8b909a]">
             {row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "}
           </span>
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">
-            {row.text || " "}
-          </span>
+          {row.kind === "hunk" || row.kind === "meta" ? (
+            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">
+              {row.text || " "}
+            </span>
+          ) : (
+            <CodeLine text={row.text} lineKey={`u-${i}`} />
+          )}
         </div>
       ))}
     </pre>
@@ -249,19 +237,19 @@ function SplitView({ rows }: { rows: ReturnType<typeof toSplitRows> }) {
   return (
     <div className="grid grid-cols-2 font-mono text-[12px] leading-5" aria-label="Diff lado a lado">
       <div className="border-r border-[#2d3139]">
-        <div className="sticky top-0 z-10 border-b border-[#2d3139] bg-[#1c1f26] px-3 py-1 text-[10px] uppercase tracking-wide text-[#6b7280]">
+        <div className="sticky top-0 z-10 border-b border-[#2d3139] bg-[#161b22] px-3 py-1 text-[10px] uppercase tracking-wide text-[#8b909a]">
           Antes
         </div>
         {rows.map((row, i) => (
-          <SplitCell key={`l-${i}`} cell={row.left} />
+          <SplitCell key={`l-${i}`} cell={row.left} lineKey={`sl-${i}`} />
         ))}
       </div>
       <div>
-        <div className="sticky top-0 z-10 border-b border-[#2d3139] bg-[#1c1f26] px-3 py-1 text-[10px] uppercase tracking-wide text-[#6b7280]">
+        <div className="sticky top-0 z-10 border-b border-[#2d3139] bg-[#161b22] px-3 py-1 text-[10px] uppercase tracking-wide text-[#8b909a]">
           Depois
         </div>
         {rows.map((row, i) => (
-          <SplitCell key={`r-${i}`} cell={row.right} />
+          <SplitCell key={`r-${i}`} cell={row.right} lineKey={`sr-${i}`} />
         ))}
       </div>
     </div>
@@ -270,20 +258,28 @@ function SplitView({ rows }: { rows: ReturnType<typeof toSplitRows> }) {
 
 function SplitCell({
   cell,
+  lineKey,
 }: {
   cell: { text: string; kind: DiffRowKind; line?: number } | null;
+  lineKey: string;
 }) {
   if (!cell) {
-    return <div className="min-h-[20px] bg-[#12141a]/50 px-2">&nbsp;</div>;
+    return <div className="min-h-[20px] bg-[#010409]/50 px-2">&nbsp;</div>;
   }
   return (
     <div className={`flex min-h-[20px] ${rowClass(cell.kind)}`}>
-      <span className="w-10 shrink-0 select-none px-1 text-right text-[#4a5060]">
+      <span className="w-10 shrink-0 select-none px-1 text-right text-[#484f58]">
         {cell.line ?? ""}
       </span>
-      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all px-1">
-        {cell.text || " "}
-      </span>
+      {cell.kind === "hunk" || cell.kind === "meta" ? (
+        <span className="min-w-0 flex-1 whitespace-pre-wrap break-all px-1">
+          {cell.text || " "}
+        </span>
+      ) : (
+        <span className="px-1">
+          <CodeLine text={cell.text} lineKey={lineKey} />
+        </span>
+      )}
     </div>
   );
 }
@@ -291,14 +287,14 @@ function SplitCell({
 function rowClass(kind: DiffRowKind): string {
   switch (kind) {
     case "add":
-      return "bg-[#238636]/15 text-[#3dd68c]";
+      return "bg-[#238636]/15";
     case "del":
-      return "bg-[#da3633]/15 text-[#f85149]";
+      return "bg-[#da3633]/15";
     case "hunk":
       return "bg-[#1e3a5f]/40 text-[#8bb4f0]";
     case "meta":
       return "text-[#5c6370]";
     default:
-      return "text-[#8b909a]";
+      return "";
   }
 }

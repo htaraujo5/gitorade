@@ -329,18 +329,16 @@ export function BranchSidebar() {
 
         <Group
           title="REMOTE"
-          count={remotes.length}
           open={remoteOpen}
           onToggle={() => setRemoteOpen((v) => !v)}
         >
           {remotes.length === 0 ? (
             <div className="space-y-1 px-2.5 py-1.5 text-[10px] leading-snug text-[#5c6370]">
               <p>Nenhum remote no .git/config deste repo.</p>
-              <p>Cole a URL do origin no painel direito (bloco Sem remote).</p>
+              <p>Adicione um remote via Fetch/Pull ou git remote add.</p>
             </div>
           ) : (
             remotes.map((r) => {
-              const url = r.fetchUrl ?? r.pushUrl ?? "";
               const kids = remoteBranches.filter(
                 (b) => b.name === r.name || b.name.startsWith(`${r.name}/`),
               );
@@ -349,12 +347,9 @@ export function BranchSidebar() {
               const bare = kids.filter((b) => b.name === r.name);
               return (
                 <div key={r.name} className="mb-1">
-                  <div className="px-2.5 py-1" title={url}>
+                  <div className="px-2.5 py-1">
                     <div className="truncate text-[11px] font-normal text-[#c8ccd4]">
                       {r.name}
-                    </div>
-                    <div className="truncate font-mono text-[9px] text-[#5c6370]">
-                      {url || "(sem URL)"}
                     </div>
                   </div>
                   {kids.length === 0 ? (
@@ -375,7 +370,7 @@ export function BranchSidebar() {
           )}
         </Group>
 
-        <Group title="STASH" count={0} open={false} onToggle={() => setWorkspaceTab("stash")}>
+        <Group title="STASH" open={false} onToggle={() => setWorkspaceTab("stash")}>
           {null}
         </Group>
       </div>
@@ -510,7 +505,7 @@ function Group({
   children,
 }: {
   title: string;
-  count: number;
+  count?: number;
   open: boolean;
   onToggle: () => void;
   children: ReactNode;
@@ -524,7 +519,9 @@ function Group({
       >
         <span className="w-2 text-[8px] opacity-70">{open ? "▾" : "▸"}</span>
         <span className="flex-1 text-left uppercase">{title}</span>
-        <span className="tabular-nums text-[#5c6370]">{count}</span>
+        {count !== undefined && (
+          <span className="tabular-nums text-[#5c6370]">{count}</span>
+        )}
       </button>
       {open && children}
     </div>

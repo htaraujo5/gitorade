@@ -53,8 +53,7 @@ export function MainWorkspace() {
     (workspaceTab === "graph" || workspaceTab === "changes");
 
   let center: ReactNode;
-  if (showConflictEditor) center = <MergeConflictView />;
-  else if (workspaceTab === "branches") center = <BranchesView />;
+  if (workspaceTab === "branches") center = <BranchesView />;
   else if (workspaceTab === "stash") center = <StashView />;
   else if (workspaceTab === "files") center = <FilesView />;
   else if (showCommitFile) center = <CommitFileView />;
@@ -94,9 +93,11 @@ export function MainWorkspace() {
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#171a20]">
-      <div className="shrink-0 px-2 pt-1 empty:hidden">
-        <ConflictBanner />
-      </div>
+      {!showConflictEditor && (
+        <div className="shrink-0 px-2 pt-1 empty:hidden">
+          <ConflictBanner />
+        </div>
+      )}
 
       {(workspaceTab === "branches" ||
         workspaceTab === "stash" ||
@@ -120,14 +121,22 @@ export function MainWorkspace() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        <BranchSidebar />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{center}</div>
-          {terminalOpen && <TerminalPanel />}
+      {showConflictEditor ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <MergeConflictView />
         </div>
-        {right}
-      </div>
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <BranchSidebar />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              {center}
+            </div>
+            {terminalOpen && <TerminalPanel />}
+          </div>
+          {right}
+        </div>
+      )}
     </section>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore, type AppPrefs } from "../../stores/prefsStore";
-import { BrandMark } from "../BrandMark";
+import logo from "../../assets/brand/logo.png";
 import {
   IconAbout,
   IconCredentials,
@@ -414,9 +414,21 @@ function AboutSection() {
   const health = useAppStore((s) => s.health);
   return (
     <>
-      <div className="flex flex-col items-start gap-3">
-        <BrandMark lockup />
-        <p className="text-[13px] text-[#8b909a]">Seu Git. Seu fluxo. Seu jeito.</p>
+      <div className="flex flex-col items-center gap-4 self-center text-center">
+        <img
+          src={logo}
+          alt=""
+          className="h-28 w-28 object-contain"
+          aria-hidden
+        />
+        <div>
+          <div className="text-[28px] font-semibold tracking-tight text-[#f0f1f4]">
+            gitorade
+          </div>
+          <p className="mt-1 text-[14px] text-[#8b909a]">
+            Seu Git. Seu fluxo. Seu jeito.
+          </p>
+        </div>
       </div>
       <InfoCard title="Versões">
         <dl className="space-y-1.5 text-[12px]">
@@ -438,7 +450,7 @@ function AboutSection() {
           </div>
         </dl>
       </InfoCard>
-      <p className="text-[11px] text-[#5c6370]">
+      <p className="text-center text-[11px] text-[#5c6370]">
         Cliente Git desktop focado em multi-identidade (nome/email/SSH por repositório).
       </p>
     </>
