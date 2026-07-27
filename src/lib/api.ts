@@ -51,6 +51,8 @@ export const repoStatusSchema = z.object({
   upstream: z.string().nullable().optional(),
   ahead: z.number().optional().default(0),
   behind: z.number().optional().default(0),
+  headDetached: z.boolean().optional().default(false),
+  headShort: z.string().nullable().optional(),
   inProgress: z.string().nullable().optional(),
   conflicts: z.array(z.string()).optional().default([]),
 });

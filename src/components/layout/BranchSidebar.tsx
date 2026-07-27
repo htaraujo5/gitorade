@@ -40,6 +40,10 @@ export function BranchSidebar() {
     selectedBranchName,
     focusBranchInGraph,
     focusTagInGraph,
+    selectCommit,
+    setSelectedBranchName,
+    graph,
+    filteredCommits,
   } = useAppStore();
 
   const [newName, setNewName] = useState("");
@@ -54,6 +58,18 @@ export function BranchSidebar() {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
   const current = status?.branch ?? branches.find((b) => b.isCurrent)?.name ?? null;
+  const detached = Boolean(status?.headDetached);
+  const detachedShort = status?.headShort ?? null;
+
+  const focusDetachedHead = () => {
+    setSelectedBranchName("HEAD");
+    const commits = filteredCommits ?? graph?.commits ?? [];
+    const tip =
+      commits.find(
+        (c) => detachedShort && (c.shortHash === detachedShort || c.hash.startsWith(detachedShort)),
+      )?.hash ?? null;
+    if (tip) void selectCommit(tip);
+  };
 
   const filtered = useMemo(() => {
     const q = branchFilter.trim().toLowerCase();
@@ -315,10 +331,41 @@ export function BranchSidebar() {
         <Group
           title={t("branches.local")}
           icon={<IconLaptop className="h-3 w-3" />}
-          count={local.length}
+          count={local.length + (detached ? 1 : 0)}
           open={localOpen}
           onToggle={() => setLocalOpen((v) => !v)}
         >
+          {detached && (
+            <button
+              type="button"
+              onClick={focusDetachedHead}
+              onDoubleClick={() => {
+                const name = window.prompt(
+                  "Criar branch a partir deste HEAD detached:",
+                  detachedShort ? `wip-${detachedShort}` : "wip",
+                );
+                if (!name?.trim()) return;
+                void createBranch(name.trim(), true);
+              }}
+              className={`flex h-7 w-full items-center gap-1.5 text-left text-[11px] ${
+                selectedBranchName === "HEAD" || !current
+                  ? "bg-[#5c4012]/80 text-[#e3b341]"
+                  : "text-[#e3b341] hover:bg-[#1c1f26]"
+              }`}
+              style={{ paddingLeft: rowPad(0), paddingRight: 8 }}
+              title="HEAD detached — 2 cliques: criar branch aqui"
+            >
+              <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[9px]">
+                ✓
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                HEAD (detached)
+                {detachedShort ? (
+                  <span className="ml-1 font-mono font-normal opacity-80">@{detachedShort}</span>
+                ) : null}
+              </span>
+            </button>
+          )}
           {renderTree(localTree, "local", false, 0)}
         </Group>
 

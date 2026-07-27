@@ -608,16 +608,18 @@ export function GraphView() {
                         } ${
                           pill.isTag
                             ? "bg-[#1e3a5f] text-[#79b8ff] hover:bg-[#254a73]"
-                            : pill.isHead
-                              ? "bg-[#238636] text-white"
-                              : pill.isLocal
-                                ? "bg-[#238636]/20 text-[#3dd68c] hover:bg-[#238636]/35"
-                                : "bg-[#252830] text-[#8b909a] hover:bg-[#2f3440]"
+                            : pill.isHead && pill.label === "HEAD"
+                              ? "bg-[#e3b341] text-[#1c1408]"
+                              : pill.isHead
+                                ? "bg-[#238636] text-white"
+                                : pill.isLocal
+                                  ? "bg-[#238636]/20 text-[#3dd68c] hover:bg-[#238636]/35"
+                                  : "bg-[#252830] text-[#8b909a] hover:bg-[#2f3440]"
                         }`}
                       >
                         {pill.isHead && <span className="text-[8px]">✓</span>}
                         {pill.isTag && <IconTag className="h-2.5 w-2.5 shrink-0 opacity-90" />}
-                        {!pill.isTag && (
+                        {!pill.isTag && pill.label !== "HEAD" && (
                           <RefLocationIcons
                             isLocal={pill.isLocal}
                             remoteName={pill.remoteName}

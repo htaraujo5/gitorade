@@ -162,6 +162,11 @@ pub fn repo_name_from_path(path: &Path) -> String {
 
 pub fn status(path: &Path) -> AppResult<RepoStatus> {
     let branch = current_branch(path)?;
+    let head_short = run_git(&["rev-parse", "--short", "HEAD"], Some(path))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let head_detached = branch.is_none() && head_short.is_some();
     // Default untracked (not `all`) — avoids walking huge untracked trees on open.
     let raw = run_git_raw(&["status", "--porcelain=v2", "-z"], Some(path))?;
     let entries = parse_status_porcelain_v2(&raw);
@@ -207,6 +212,8 @@ pub fn status(path: &Path) -> AppResult<RepoStatus> {
         upstream: upstream.upstream,
         ahead: upstream.ahead,
         behind: upstream.behind,
+        head_detached,
+        head_short,
         in_progress: integrate.kind,
         conflicts: integrate.conflicts,
     })

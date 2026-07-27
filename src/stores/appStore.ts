@@ -245,13 +245,7 @@ async function performCheckout(
     if (mode === "stash") {
       await api.createStash(id, `gitorade: checkout → ${target}`, true);
     }
-    const branches = await api.checkoutBranch(id, target, mode === "discard");
-    const current = branches.find((b) => b.isCurrent)?.name ?? target;
-    set({
-      branches,
-      busy: false,
-      selectedBranchName: current,
-    });
+    await api.checkoutBranch(id, target, mode === "discard");
     if (mode === "stash") {
       try {
         await api.applyStash(id, "stash@{0}", true);
@@ -267,12 +261,32 @@ async function performCheckout(
       get().refreshBranches(),
       get().refreshStash(),
     ]);
-    // After checkout, jump graph to the tip of the current branch (or the hash).
-    const tipName = get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? target;
-    if (/^[0-9a-f]{7,40}$/i.test(target)) {
-      await get().selectCommit(target);
+
+    const status = get().status;
+    if (status?.headDetached) {
+      const short = status.headShort ?? target.slice(0, 7);
+      set({
+        busy: false,
+        selectedBranchName: "HEAD",
+        notice: `HEAD detached em ${short}`,
+      });
+      const commits = get().filteredCommits ?? get().graph?.commits ?? [];
+      const tip =
+        commits.find(
+          (c) =>
+            (status.headShort &&
+              (c.shortHash === status.headShort || c.hash.startsWith(status.headShort))) ||
+            c.hash.startsWith(target) ||
+            c.shortHash === target,
+        )?.hash ?? null;
+      if (tip) await get().selectCommit(tip);
     } else {
-      await get().focusBranchInGraph(tipName);
+      const current = status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? target;
+      set({
+        busy: false,
+        selectedBranchName: current,
+      });
+      await get().focusBranchInGraph(current);
     }
   } catch (err) {
     set({ busy: false, error: errMsg(err) });

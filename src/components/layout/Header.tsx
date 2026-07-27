@@ -44,6 +44,8 @@ export function RepoToolbar() {
 
   const repo = repositories.find((r) => r.id === activeRepoId);
   const branch = status?.branch ?? repo?.branch ?? "";
+  const detached = Boolean(status?.headDetached);
+  const branchDisplay = detached ? `HEAD @ ${status?.headShort ?? "…"}` : branch || "—";
   const opRunning = Boolean(operation && !operation.done);
   const disabled = !repo || busy || opRunning;
   const localBranches = branches.filter((b) => !b.isRemote);
@@ -74,18 +76,30 @@ export function RepoToolbar() {
             label="branch"
             value={
               <HeaderSelect
-                value={branch}
-                display={branch || "—"}
-                accent
-                disabled={disabled || localBranches.length === 0}
-                options={localBranches.map((b) => ({
-                  value: b.name,
-                  label: b.name,
-                }))}
+                value={detached ? "__detached__" : branch}
+                display={branchDisplay}
+                accent={!detached}
+                warn={detached}
+                disabled={disabled || (localBranches.length === 0 && !detached)}
+                options={[
+                  ...(detached
+                    ? [
+                        {
+                          value: "__detached__",
+                          label: branchDisplay,
+                        },
+                      ]
+                    : []),
+                  ...localBranches.map((b) => ({
+                    value: b.name,
+                    label: b.name,
+                  })),
+                ]}
                 onChange={(name) => {
-                  if (name !== branch) void checkoutBranch(name);
+                  if (name === "__detached__" || name === branch) return;
+                  void checkoutBranch(name);
                 }}
-                maxWidth={140}
+                maxWidth={160}
               />
             }
           />
@@ -226,6 +240,7 @@ function HeaderSelect({
   onChange,
   disabled,
   accent,
+  warn,
   maxWidth = 140,
 }: {
   value: string;
@@ -234,6 +249,7 @@ function HeaderSelect({
   onChange: (value: string) => void;
   disabled?: boolean;
   accent?: boolean;
+  warn?: boolean;
   maxWidth?: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -255,6 +271,9 @@ function HeaderSelect({
     };
   }, [open]);
 
+  const tone = warn ? "text-[#e3b341]" : accent ? "text-[#3dd68c]" : "text-[#d8dbe2]";
+  const chevron = warn ? "text-[#e3b341]" : accent ? "text-[#3dd68c]" : "text-[#6b7280]";
+
   return (
     <div ref={rootRef} className="relative min-w-0">
       <button
@@ -263,22 +282,17 @@ function HeaderSelect({
         onClick={() => setOpen((v) => !v)}
         className={`flex max-w-full items-center gap-1 rounded px-1 py-0.5 text-left outline-none hover:bg-[#2a2e38] disabled:cursor-not-allowed disabled:opacity-50 ${
           open ? "bg-[#2a2e38] ring-1 ring-[#3d8bfd]/60" : ""
-        }`}
+        } ${warn ? "ring-1 ring-[#e3b341]/35" : ""}`}
         style={{ maxWidth }}
+        title={warn ? "HEAD detached — escolha uma branch para voltar" : undefined}
       >
-        <span
-          className={`min-w-0 truncate text-[11px] font-normal ${
-            accent ? "text-[#3dd68c]" : "text-[#d8dbe2]"
-          }`}
-        >
-          {display}
-        </span>
+        <span className={`min-w-0 truncate text-[11px] font-normal ${tone}`}>{display}</span>
         <svg
           width="10"
           height="10"
           viewBox="0 0 16 16"
           fill="none"
-          className={`shrink-0 ${accent ? "text-[#3dd68c]" : "text-[#6b7280]"}`}
+          className={`shrink-0 ${chevron}`}
           aria-hidden
         >
           <path

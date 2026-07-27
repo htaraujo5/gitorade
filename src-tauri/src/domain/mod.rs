@@ -84,6 +84,12 @@ pub struct RepoStatus {
     pub upstream: Option<String>,
     pub ahead: u32,
     pub behind: u32,
+    /// True when HEAD is not on a named branch (`git branch --show-current` empty).
+    #[serde(default)]
+    pub head_detached: bool,
+    /// Short hash of HEAD (useful when detached).
+    #[serde(default)]
+    pub head_short: Option<String>,
     /// Active integrate op: "merge" | "rebase" | "cherry-pick"
     #[serde(default)]
     pub in_progress: Option<String>,

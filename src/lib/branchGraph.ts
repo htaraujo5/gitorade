@@ -37,5 +37,12 @@ export function tipCommitForBranch(
 
 export function commitHasBranch(commit: Pick<CommitSummary, "refs">, branchName: string): boolean {
   const name = branchName.trim();
+  if (!name) return false;
+  if (name === "HEAD") {
+    return commit.refs.some((ref) => {
+      const r = ref.trim();
+      return r === "HEAD" || /^HEAD\s*->/.test(r);
+    });
+  }
   return commit.refs.some((ref) => normalizeRefLabel(ref) === name);
 }

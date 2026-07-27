@@ -63,7 +63,25 @@ export function groupRefsForCommit(
 
   for (const raw of refs) {
     const trimmed = raw.trim();
-    if (!trimmed || trimmed === "HEAD") continue;
+    if (!trimmed) continue;
+
+    // Detached HEAD: git decorate is a bare "HEAD" (not "HEAD -> branch").
+    if (trimmed === "HEAD") {
+      const key = "head:detached";
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          key,
+          label: "HEAD",
+          primaryRef: "HEAD",
+          isTag: false,
+          isLocal: true,
+          remoteName: null,
+          isHead: true,
+        });
+        order.push(key);
+      }
+      continue;
+    }
 
     const isHead = /^HEAD\s*->/.test(trimmed);
     const short = normalizeRefLabel(trimmed);
