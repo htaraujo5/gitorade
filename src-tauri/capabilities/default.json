@@ -8,7 +8,14 @@
     "dialog:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/*" }, { "url": "https://*.github.com/*" }]
+      "allow": [
+        { "url": "https://github.com/*" },
+        { "url": "https://*.github.com/*" },
+        { "url": "https://gravatar.com/*" },
+        { "url": "https://*.gravatar.com/*" },
+        { "url": "https://en.gravatar.com/*" },
+        { "url": "https://br.gravatar.com/*" }
+      ]
     },
     {
       "identifier": "opener:allow-open-path",

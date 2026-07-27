@@ -39,6 +39,15 @@ impl Database {
     pub fn migrate(&self) -> AppResult<()> {
         self.with_conn(|conn| {
             conn.execute_batch(include_str!("../../migrations/001_init.sql"))?;
+            // Additive migrations for existing DBs (CREATE TABLE IF NOT EXISTS is not enough).
+            let has_avatar: bool = conn
+                .prepare("PRAGMA table_info(profiles)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|c| c.ok())
+                .any(|name| name == "avatar_data");
+            if !has_avatar {
+                conn.execute("ALTER TABLE profiles ADD COLUMN avatar_data TEXT", [])?;
+            }
             Ok(())
         })
     }
@@ -53,7 +62,7 @@ impl Database {
     pub fn list_profiles(&self) -> AppResult<Vec<Profile>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, email, ssh_key_path, provider, created_at, updated_at
+                "SELECT id, name, email, ssh_key_path, provider, avatar_data, created_at, updated_at
                  FROM profiles ORDER BY name COLLATE NOCASE",
             )?;
             let rows = stmt
@@ -66,7 +75,7 @@ impl Database {
     pub fn get_profile(&self, id: &str) -> AppResult<Option<Profile>> {
         self.with_conn(|conn| {
             conn.query_row(
-                "SELECT id, name, email, ssh_key_path, provider, created_at, updated_at
+                "SELECT id, name, email, ssh_key_path, provider, avatar_data, created_at, updated_at
                  FROM profiles WHERE id = ?1",
                 params![id],
                 map_profile,
@@ -83,6 +92,7 @@ impl Database {
             return Err(AppError::Message("Nome e email são obrigatórios.".into()));
         }
 
+        let avatar_data = normalize_avatar_data(input.avatar_data)?;
         let now = Utc::now().to_rfc3339();
         let profile = Profile {
             id: Uuid::new_v4().to_string(),
@@ -90,20 +100,22 @@ impl Database {
             email,
             ssh_key_path: empty_to_none(input.ssh_key_path),
             provider: empty_to_none(input.provider),
+            avatar_data,
             created_at: now.clone(),
             updated_at: now,
         };
 
         self.with_conn(|conn| {
             conn.execute(
-                "INSERT INTO profiles (id, name, email, ssh_key_path, provider, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO profiles (id, name, email, ssh_key_path, provider, avatar_data, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     profile.id,
                     profile.name,
                     profile.email,
                     profile.ssh_key_path,
                     profile.provider,
+                    profile.avatar_data,
                     profile.created_at,
                     profile.updated_at
                 ],
@@ -121,11 +133,12 @@ impl Database {
             return Err(AppError::Message("Nome e email são obrigatórios.".into()));
         }
 
+        let avatar_data = normalize_avatar_data(input.avatar_data)?;
         let now = Utc::now().to_rfc3339();
         self.with_conn(|conn| {
             let updated = conn.execute(
                 "UPDATE profiles
-                 SET name = ?2, email = ?3, ssh_key_path = ?4, provider = ?5, updated_at = ?6
+                 SET name = ?2, email = ?3, ssh_key_path = ?4, provider = ?5, avatar_data = ?6, updated_at = ?7
                  WHERE id = ?1",
                 params![
                     input.id,
@@ -133,6 +146,7 @@ impl Database {
                     email,
                     empty_to_none(input.ssh_key_path),
                     empty_to_none(input.provider),
+                    avatar_data,
                     now
                 ],
             )?;
@@ -311,8 +325,9 @@ fn map_profile(row: &rusqlite::Row<'_>) -> rusqlite::Result<Profile> {
         email: row.get(2)?,
         ssh_key_path: row.get(3)?,
         provider: row.get(4)?,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        avatar_data: row.get(5)?,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
     })
 }
 
@@ -336,6 +351,37 @@ fn empty_to_none(value: Option<String>) -> Option<String> {
         let t = v.trim().to_string();
         if t.is_empty() { None } else { Some(t) }
     })
+}
+
+/// Accepts `data:image/(png|jpeg|jpg|webp|gif);base64,...` up to ~200KB.
+fn normalize_avatar_data(value: Option<String>) -> AppResult<Option<String>> {
+    let Some(raw) = empty_to_none(value) else {
+        return Ok(None);
+    };
+    if !raw.starts_with("data:image/") || !raw.contains(";base64,") {
+        return Err(AppError::Message(
+            "Avatar inválido: use uma imagem PNG, JPEG ou WebP.".into(),
+        ));
+    }
+    let mime = raw
+        .trim_start_matches("data:")
+        .split(';')
+        .next()
+        .unwrap_or("");
+    if !matches!(
+        mime,
+        "image/png" | "image/jpeg" | "image/jpg" | "image/webp" | "image/gif"
+    ) {
+        return Err(AppError::Message(
+            "Formato de avatar não suportado (use PNG, JPEG ou WebP).".into(),
+        ));
+    }
+    if raw.len() > 220_000 {
+        return Err(AppError::Message(
+            "Avatar muito grande (máx. ~150KB). Escolha uma imagem menor.".into(),
+        ));
+    }
+    Ok(Some(raw))
 }
 
 fn path_to_string(path: &std::path::Path) -> String {

@@ -20,6 +20,7 @@ export const profileSchema = z.object({
   email: z.string(),
   sshKeyPath: z.string().nullable().optional(),
   provider: z.string().nullable().optional(),
+  avatarData: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -168,6 +169,7 @@ export type CreateProfileInput = {
   email: string;
   sshKeyPath?: string | null;
   provider?: string | null;
+  avatarData?: string | null;
 };
 
 export async function getAppHealth(): Promise<AppHealth> {

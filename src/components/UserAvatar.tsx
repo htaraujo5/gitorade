@@ -24,12 +24,12 @@ const roundClass: Record<Roundness, string> = {
 };
 
 /**
- * Gravatar when the email has one; otherwise colored initials.
- * CSP must allow https://www.gravatar.com in img-src.
+ * Custom `src` (data URL) wins; else Gravatar; else colored initials.
  */
 export function UserAvatar({
   name,
   email,
+  src,
   size = 24,
   rounded = "full",
   className = "",
@@ -38,6 +38,8 @@ export function UserAvatar({
 }: {
   name: string;
   email?: string | null;
+  /** Custom avatar (data URL). Overrides Gravatar. */
+  src?: string | null;
   size?: number;
   rounded?: Roundness;
   className?: string;
@@ -48,8 +50,11 @@ export function UserAvatar({
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     setFailed(false);
-  }, [email]);
-  const url = !failed && email ? gravatarUrl(email, size * 2) : null;
+  }, [email, src]);
+
+  const custom = src?.trim() || null;
+  const gravatar = !custom && !failed && email ? gravatarUrl(email, size * 2) : null;
+  const url = custom ?? gravatar;
   const initials = authorInitials(name || email || "?");
   const tip = title ?? (email ? `${name} <${email}>` : name);
   const shape = roundClass[rounded];
@@ -64,7 +69,9 @@ export function UserAvatar({
         height={size}
         className={`shrink-0 object-cover ${shape} ${className}`}
         style={{ width: size, height: size }}
-        onError={() => setFailed(true)}
+        onError={() => {
+          if (!custom) setFailed(true);
+        }}
         referrerPolicy="no-referrer"
       />
     );

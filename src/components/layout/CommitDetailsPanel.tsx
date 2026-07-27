@@ -16,6 +16,7 @@ export function CommitDetailsPanel() {
     selectCommitFile,
     cherryPick,
     busy,
+    profiles,
   } = useAppStore();
 
   const commits = filteredCommits ?? graph?.commits ?? [];
@@ -30,6 +31,10 @@ export function CommitDetailsPanel() {
   }
 
   const parent = selected.parents[0]?.slice(0, 7);
+  const authorAvatar = profiles.find(
+    (p) =>
+      p.email.trim().toLowerCase() === (selected.authorEmail ?? "").trim().toLowerCase(),
+  )?.avatarData;
 
   const modified = commitFiles.filter((f) => {
     const s = f.status.toLowerCase();
@@ -62,19 +67,20 @@ export function CommitDetailsPanel() {
           {selected.subject}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-start gap-2.5">
           <UserAvatar
             name={selected.authorName}
             email={selected.authorEmail}
-            size={20}
-            rounded="sm"
+            src={authorAvatar}
+            size={36}
+            rounded="md"
           />
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-[11px] font-medium text-[#e8eaed]">
+            <div className="truncate text-[12px] font-medium text-[#e8eaed]">
               {selected.authorName}
             </div>
             {selected.authorEmail && (
-              <div className="truncate text-[9px] text-[#8b909a]" title={selected.authorEmail}>
+              <div className="truncate text-[10px] text-[#8b909a]" title={selected.authorEmail}>
                 {selected.authorEmail}
               </div>
             )}

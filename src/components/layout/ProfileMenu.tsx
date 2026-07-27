@@ -48,7 +48,7 @@ export function ProfileMenu() {
           open ? "bg-[#2a2e38]" : ""
         }`}
       >
-        <Avatar name={active?.name ?? "?"} email={active?.email} size={18} />
+        <Avatar name={active?.name ?? "?"} email={active?.email} src={active?.avatarData} size={22} />
         <span className="max-w-[110px] truncate text-[11px] font-normal text-[#d8dbe2]">
           {active?.name ?? "Profile"}
         </span>
@@ -79,7 +79,7 @@ export function ProfileMenu() {
                       setOpen(false);
                     }}
                   >
-                    <Avatar name={p.name} email={p.email} size={22} />
+                    <Avatar name={p.name} email={p.email} src={p.avatarData} size={26} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] font-medium text-[#f0f1f4]">
                         {p.name}
@@ -154,9 +154,19 @@ function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function Avatar({ name, email, size }: { name: string; email?: string | null; size: number }) {
+function Avatar({
+  name,
+  email,
+  src,
+  size,
+}: {
+  name: string;
+  email?: string | null;
+  src?: string | null;
+  size: number;
+}) {
   return (
-    <UserAvatar name={name} email={email} size={size} rounded="sm" gradientFallback />
+    <UserAvatar name={name} email={email} src={src} size={size} rounded="sm" gradientFallback />
   );
 }
 

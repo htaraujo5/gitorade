@@ -25,6 +25,8 @@ pub struct Profile {
     pub email: String,
     pub ssh_key_path: Option<String>,
     pub provider: Option<String>,
+    /// Optional `data:image/...;base64,...` custom avatar (overrides Gravatar in UI).
+    pub avatar_data: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -36,6 +38,7 @@ pub struct CreateProfileInput {
     pub email: String,
     pub ssh_key_path: Option<String>,
     pub provider: Option<String>,
+    pub avatar_data: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +49,7 @@ pub struct UpdateProfileInput {
     pub email: String,
     pub ssh_key_path: Option<String>,
     pub provider: Option<String>,
+    pub avatar_data: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

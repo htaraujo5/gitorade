@@ -335,6 +335,7 @@ function SshSection() {
         email: profile.email,
         provider: profile.provider,
         sshKeyPath: selected,
+        avatarData: profile.avatarData ?? null,
       });
       await refreshProfiles();
       setNotice(`Chave associada a ${profile.name}`);

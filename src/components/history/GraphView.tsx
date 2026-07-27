@@ -71,10 +71,12 @@ function GraphColumn({
   commits,
   maxLane,
   showAvatars,
+  avatarByEmail,
 }: {
   commits: CommitSummary[];
   maxLane: number;
   showAvatars: boolean;
+  avatarByEmail: Map<string, string>;
 }) {
   const width = Math.max((maxLane + 1) * LANE_W + GRAPH_PAD * 2, 28);
   const height = commits.length * ROW_H;
@@ -138,7 +140,12 @@ function GraphColumn({
             }}
           >
             {showAvatars ? (
-              <AuthorAvatar name={commit.authorName} email={commit.authorEmail} size={size - 3} />
+              <AuthorAvatar
+                name={commit.authorName}
+                email={commit.authorEmail}
+                src={avatarByEmail.get(commit.authorEmail.trim().toLowerCase())}
+                size={size - 3}
+              />
             ) : (
               <span
                 className="h-full w-full rounded-full"
@@ -192,6 +199,7 @@ export function GraphView() {
     remotes,
     status,
     busy,
+    profiles,
   } = useAppStore();
 
   const showAvatars = usePrefsStore((s) => s.showAvatars);
@@ -205,6 +213,16 @@ export function GraphView() {
     y: number;
     commit: CommitSummary;
   } | null>(null);
+
+  const avatarByEmail = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of profiles) {
+      const data = p.avatarData?.trim();
+      if (!data) continue;
+      m.set(p.email.trim().toLowerCase(), data);
+    }
+    return m;
+  }, [profiles]);
 
   const commits = useMemo(() => {
     const raw = filteredCommits ?? graph?.commits ?? [];
@@ -622,7 +640,12 @@ export function GraphView() {
             })}
           </div>
 
-          <GraphColumn commits={commits} maxLane={maxLane} showAvatars={showAvatars} />
+          <GraphColumn
+            commits={commits}
+            maxLane={maxLane}
+            showAvatars={showAvatars}
+            avatarByEmail={avatarByEmail}
+          />
 
           <ul className="min-w-0 flex-1">
             {commits.map((commit) => {
@@ -665,7 +688,8 @@ export function GraphView() {
                         <AuthorAvatar
                           name={commit.authorName}
                           email={commit.authorEmail}
-                          size={16}
+                          src={avatarByEmail.get(commit.authorEmail.trim().toLowerCase())}
+                          size={22}
                         />
                       )}
                       <span className="min-w-0 truncate text-[10px] font-normal text-[#8b909a]">

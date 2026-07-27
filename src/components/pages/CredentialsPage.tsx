@@ -1,6 +1,8 @@
-﻿import { useEffect, useState, type FormEvent } from "react";
+﻿import { useEffect, useRef, useState, type FormEvent } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../stores/appStore";
 import type { Profile } from "../../lib/api";
+import { fileToAvatarDataUrl } from "../../lib/avatarImage";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconCredentials, IconKey, IconPlus } from "../Icons";
 import { UserAvatar } from "../UserAvatar";
@@ -33,6 +35,7 @@ export function CredentialsPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [provider, setProvider] = useState("Local");
+  const [avatarData, setAvatarData] = useState<string | null>(null);
 
   useEffect(() => {
     if (profiles.length === 0) {
@@ -50,6 +53,7 @@ export function CredentialsPage() {
     setName("");
     setEmail("");
     setProvider("Local");
+    setAvatarData(null);
     setFormError(null);
     setMode("create");
   };
@@ -59,6 +63,7 @@ export function CredentialsPage() {
     setName(p.name);
     setEmail(p.email);
     setProvider(p.provider ?? "Local");
+    setAvatarData(p.avatarData ?? null);
     setFormError(null);
     setMode("edit");
   };
@@ -87,6 +92,7 @@ export function CredentialsPage() {
           email: email.trim(),
           provider,
           sshKeyPath: selected?.sshKeyPath ?? null,
+          avatarData,
         });
         setMode("view");
       } else {
@@ -95,12 +101,14 @@ export function CredentialsPage() {
             name: name.trim(),
             email: email.trim(),
             provider,
+            avatarData,
           },
           { stay: true },
         );
         setSelectedId(created.id);
         setName("");
         setEmail("");
+        setAvatarData(null);
         setMode("view");
       }
     } catch (err) {
@@ -163,12 +171,13 @@ export function CredentialsPage() {
             title={mode === "edit" ? "Editar identidade" : "Nova identidade"}
             subtitle={
               mode === "edit"
-                ? "Atualize nome, email e provedor usados nos commits."
+                ? "Atualize nome, email, foto e provedor usados nos commits."
                 : "Essa identidade assina commits. Você pode criar várias (trabalho, pessoal…)."
             }
             name={name}
             email={email}
             provider={provider}
+            avatarData={avatarData}
             error={formError}
             busy={busy}
             submitLabel={mode === "edit" ? "Salvar" : "Criar identidade"}
@@ -176,6 +185,7 @@ export function CredentialsPage() {
             onName={setName}
             onEmail={setEmail}
             onProvider={setProvider}
+            onAvatarData={setAvatarData}
             onCancel={cancelForm}
             onSubmit={(e) => void submit(e)}
           />
@@ -210,6 +220,7 @@ function ProfileForm({
   name,
   email,
   provider,
+  avatarData,
   error,
   busy,
   submitLabel,
@@ -217,6 +228,7 @@ function ProfileForm({
   onName,
   onEmail,
   onProvider,
+  onAvatarData,
   onCancel,
   onSubmit,
 }: {
@@ -225,6 +237,7 @@ function ProfileForm({
   name: string;
   email: string;
   provider: string;
+  avatarData: string | null;
   error: string | null;
   busy: boolean;
   submitLabel: string;
@@ -232,19 +245,65 @@ function ProfileForm({
   onName: (v: string) => void;
   onEmail: (v: string) => void;
   onProvider: (v: string) => void;
+  onAvatarData: (v: string | null) => void;
   onCancel: () => void;
   onSubmit: (e: FormEvent) => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const onPickFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      onAvatarData(await fileToAvatarDataUrl(file));
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   return (
     <div className="flex min-h-full items-start justify-center px-8 py-10">
       <form className="w-full max-w-md" onSubmit={onSubmit}>
         <div className="mb-6 flex items-start gap-3">
-          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-white">
-            <IconCredentials className="h-5 w-5" />
-          </span>
-          <div>
+          <UserAvatar
+            key={`${email}-${avatarData ? "custom" : "g"}`}
+            name={name || "?"}
+            email={email}
+            src={avatarData}
+            size={64}
+            rounded="xl"
+            gradientFallback
+          />
+          <div className="min-w-0 flex-1">
             <h1 className="text-[18px] font-semibold tracking-tight text-[#f0f1f4]">{title}</h1>
             <p className="mt-1 text-[12px] leading-relaxed text-[#8b909a]">{subtitle}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded border border-[#3a3f4a] px-2.5 py-1 text-[11px] text-[#c8ccd4] hover:bg-[#252830]"
+                onClick={() => fileRef.current?.click()}
+              >
+                Escolher foto…
+              </button>
+              {avatarData && (
+                <button
+                  type="button"
+                  className="rounded border border-[#3a3f4a] px-2.5 py-1 text-[11px] text-[#f85149] hover:bg-[#252830]"
+                  onClick={() => onAvatarData(null)}
+                >
+                  Remover foto
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                void onPickFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
           </div>
         </div>
 
@@ -272,6 +331,20 @@ function ProfileForm({
           />
         </label>
 
+        <div className="mt-2 rounded border border-[#2d3139] bg-[#12141a] px-3 py-2.5 text-[11px] leading-snug text-[#8b909a]">
+          <p>
+            Sem foto própria, usamos o <span className="text-[#c8ccd4]">Gravatar</span> deste
+            e-mail. O campo Provedor não altera o avatar.
+          </p>
+          <button
+            type="button"
+            className="mt-1.5 text-[11px] text-[#79b8ff] hover:underline"
+            onClick={() => void openGravatarSite()}
+          >
+            Abrir Gravatar →
+          </button>
+        </div>
+
         <label className="mt-4 block">
           <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Provedor</span>
           <select
@@ -286,6 +359,9 @@ function ProfileForm({
             <option value="Azure DevOps">Azure DevOps</option>
             <option value="Outro">Outro</option>
           </select>
+          <span className="mt-1 block text-[10px] text-[#5c6370]">
+            Só identifica o host Git (GitHub, GitLab…). Não altera o avatar.
+          </span>
         </label>
 
         {error && (
@@ -344,7 +420,8 @@ function ProfileDetail({
         <UserAvatar
           name={profile.name}
           email={profile.email}
-          size={56}
+          src={profile.avatarData}
+          size={72}
           rounded="xl"
           gradientFallback
         />
@@ -353,6 +430,18 @@ function ProfileDetail({
             {profile.name}
           </h1>
           <p className="mt-0.5 truncate text-[13px] text-[#8b909a]">{profile.email}</p>
+          <p className="mt-2 text-[11px] leading-snug text-[#6b7280]">
+            {profile.avatarData
+              ? "Foto personalizada neste perfil."
+              : "Avatar via Gravatar deste e-mail (ou inicial). Edite para escolher uma foto."}
+          </p>
+          <button
+            type="button"
+            className="mt-1 text-[11px] text-[#79b8ff] hover:underline"
+            onClick={() => void openGravatarSite()}
+          >
+            Abrir Gravatar →
+          </button>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {profile.provider && (
               <span className="rounded bg-[#252830] px-2 py-0.5 text-[10px] text-[#a8adb8]">
@@ -464,7 +553,8 @@ function ProfileRow({
       <UserAvatar
         name={profile.name}
         email={profile.email}
-        size={32}
+        src={profile.avatarData}
+        size={36}
         rounded="md"
         gradientFallback
       />
@@ -490,4 +580,13 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dd className="min-w-0 break-all text-right text-[12px] text-[#d8dbe2]">{value}</dd>
     </div>
   );
+}
+
+async function openGravatarSite() {
+  const url = "https://gravatar.com/";
+  try {
+    await openUrl(url);
+  } catch {
+    window.open(url, "_blank");
+  }
 }

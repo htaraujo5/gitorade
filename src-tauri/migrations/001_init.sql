@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   email TEXT NOT NULL,
   ssh_key_path TEXT,
   provider TEXT,
+  avatar_data TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
