@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
 pub const ASKPASS_EVENT: &str = "ssh://askpass";
+/// When set on the Git process env, a re-exec of this app runs headless askpass instead of the UI.
+pub const ASKPASS_ENV: &str = "GITORADE_ASKPASS";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,6 +59,8 @@ pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Opti
         cmd.env("SSH_ASKPASS", askpass);
         cmd.env("SSH_ASKPASS_REQUIRE", "force");
         cmd.env("DISPLAY", "localhost:0");
+        // Child askpass re-exec inherits this and stays headless (no console / no UI).
+        cmd.env(ASKPASS_ENV, "1");
     }
 
     try_start_windows_ssh_agent_once();
@@ -95,54 +99,68 @@ fn askpass_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// File-bridge askpass — never shows its own UI.
+/// Headless askpass: this same EXE (Windows GUI subsystem → no console flash).
 fn ensure_askpass_helper() -> Option<PathBuf> {
-    let dir = dirs::data_local_dir()?.join("gitorade");
-    fs::create_dir_all(&dir).ok()?;
     let _ = askpass_dir();
-
-    let ps1 = dir.join("ssh-askpass.ps1");
-    let cmd = dir.join("ssh-askpass.cmd");
-
-    let ps1_body = r#"param([Parameter(ValueFromRemainingArguments=$true)][string[]]$PromptParts)
-$ErrorActionPreference = 'Stop'
-$Prompt = if ($PromptParts) { $PromptParts -join ' ' } else { 'Enter passphrase for SSH key' }
-$dir = Join-Path $env:LOCALAPPDATA 'gitorade\askpass'
-New-Item -ItemType Directory -Force -Path $dir | Out-Null
-$id = [guid]::NewGuid().ToString('N')
-$reqPath = Join-Path $dir 'request.json'
-$tmp = Join-Path $dir ("request.$id.tmp")
-$payload = @{ requestId = $id; prompt = $Prompt } | ConvertTo-Json -Compress
-[System.IO.File]::WriteAllText($tmp, $payload, [System.Text.UTF8Encoding]::new($false))
-Move-Item -Force -Path $tmp -Destination $reqPath
-$deadline = (Get-Date).AddMinutes(5)
-while ((Get-Date) -lt $deadline) {
-  $resp = Join-Path $dir ("response.$id")
-  $cancel = Join-Path $dir ("cancel.$id")
-  if (Test-Path -LiteralPath $cancel) {
-    Remove-Item -LiteralPath $cancel -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $reqPath -Force -ErrorAction SilentlyContinue
-    exit 1
-  }
-  if (Test-Path -LiteralPath $resp) {
-    $text = [System.IO.File]::ReadAllText($resp)
-    Remove-Item -LiteralPath $resp -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $reqPath -Force -ErrorAction SilentlyContinue
-    [Console]::Out.Write($text)
-    exit 0
-  }
-  Start-Sleep -Milliseconds 120
+    std::env::current_exe().ok().filter(|p| p.is_file())
 }
-Remove-Item -LiteralPath $reqPath -Force -ErrorAction SilentlyContinue
-exit 1
-"#;
 
-    let cmd_body =
-        "@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%~dp0ssh-askpass.ps1\" %*\r\n";
+/// Entry for `GITORADE_ASKPASS=1` re-exec — writes request, waits for UI, prints passphrase.
+pub fn run_askpass_cli() -> i32 {
+    use std::io::Write;
 
-    fs::write(&ps1, ps1_body).ok()?;
-    fs::write(&cmd, cmd_body).ok()?;
-    Some(cmd)
+    let prompt = {
+        let joined = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
+        if joined.trim().is_empty() {
+            "Enter passphrase for SSH key".to_string()
+        } else {
+            joined
+        }
+    };
+
+    let Some(dir) = askpass_dir() else {
+        return 1;
+    };
+
+    let id = uuid::Uuid::new_v4().simple().to_string();
+    let req_path = dir.join("request.json");
+    let tmp = dir.join(format!("request.{id}.tmp"));
+    let payload = serde_json::json!({
+        "requestId": id,
+        "prompt": prompt,
+    });
+    if fs::write(&tmp, payload.to_string()).is_err() {
+        return 1;
+    }
+    if fs::rename(&tmp, &req_path).is_err() {
+        let _ = fs::remove_file(&tmp);
+        return 1;
+    }
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(300);
+    let resp_path = dir.join(format!("response.{id}"));
+    let cancel_path = dir.join(format!("cancel.{id}"));
+
+    while std::time::Instant::now() < deadline {
+        if cancel_path.is_file() {
+            let _ = fs::remove_file(&cancel_path);
+            let _ = fs::remove_file(&req_path);
+            return 1;
+        }
+        if resp_path.is_file() {
+            let text = fs::read_to_string(&resp_path).unwrap_or_default();
+            let _ = fs::remove_file(&resp_path);
+            let _ = fs::remove_file(&req_path);
+            let mut out = std::io::stdout();
+            let _ = out.write_all(text.as_bytes());
+            let _ = out.flush();
+            return 0;
+        }
+        thread::sleep(Duration::from_millis(120));
+    }
+
+    let _ = fs::remove_file(&req_path);
+    1
 }
 
 fn try_start_windows_ssh_agent_once() {
@@ -150,7 +168,9 @@ fn try_start_windows_ssh_agent_once() {
     START.call_once(|| {
         #[cfg(windows)]
         {
-            let _ = std::process::Command::new("powershell")
+            let mut cmd = std::process::Command::new("powershell");
+            crate::process_util::hide_console(&mut cmd);
+            let _ = cmd
                 .args([
                     "-NoProfile",
                     "-ExecutionPolicy",
@@ -162,6 +182,7 @@ fn try_start_windows_ssh_agent_once() {
                 ])
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
+                .stdin(std::process::Stdio::null())
                 .status();
         }
     });
@@ -283,7 +304,7 @@ mod tests {
     }
 
     #[test]
-    fn askpass_helper_writes() {
+    fn askpass_helper_resolves_exe() {
         let path = ensure_askpass_helper();
         assert!(path.is_some());
         assert!(path.unwrap().is_file());

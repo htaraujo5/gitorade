@@ -27,6 +27,7 @@ pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
 /// Local-only: do not attach SSH/askpass/agent env (that is only for remote ops via `ops::run_streaming`).
 pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
     let mut cmd = Command::new("git");
+    crate::process_util::hide_console(&mut cmd);
     apply_local_git_env(&mut cmd);
     cmd.args(args);
     if let Some(dir) = cwd {
@@ -57,6 +58,7 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
 
 fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
     let mut cmd = Command::new("git");
+    crate::process_util::hide_console(&mut cmd);
     apply_local_git_env(&mut cmd);
     cmd.args(args);
     if let Some(dir) = cwd {
@@ -272,6 +274,7 @@ pub fn commit(
     }
 
     let mut cmd = Command::new("git");
+    crate::process_util::hide_console(&mut cmd);
     cmd.current_dir(path)
         .env("GIT_AUTHOR_NAME", author_name)
         .env("GIT_AUTHOR_EMAIL", author_email)
@@ -297,19 +300,17 @@ pub fn commit(
 fn which_git() -> Option<String> {
     #[cfg(windows)]
     {
-        Command::new("where.exe")
-            .arg("git")
-            .output()
-            .ok()
-            .and_then(|out| {
-                if !out.status.success() {
-                    return None;
-                }
-                String::from_utf8_lossy(&out.stdout)
-                    .lines()
-                    .next()
-                    .map(|line| line.trim().to_string())
-            })
+        let mut cmd = Command::new("where.exe");
+        crate::process_util::hide_console(&mut cmd);
+        cmd.arg("git").output().ok().and_then(|out| {
+            if !out.status.success() {
+                return None;
+            }
+            String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .next()
+                .map(|line| line.trim().to_string())
+        })
     }
     #[cfg(not(windows))]
     {

@@ -75,6 +75,7 @@ pub fn run_streaming(
     ssh_key: Option<&Path>,
 ) -> AppResult<String> {
     let mut cmd = Command::new("git");
+    crate::process_util::hide_console(&mut cmd);
     crate::git::apply_git_remote_env(&mut cmd, ssh_key);
     cmd.args(["-c", "credential.interactive=false"])
         .args(args)

@@ -113,6 +113,7 @@ pub fn continue_integrate(path: &Path) -> AppResult<IntegrateResult> {
     let result = match state.kind.as_deref() {
         Some("merge") => {
             let mut cmd = Command::new("git");
+            crate::process_util::hide_console(&mut cmd);
             cmd.current_dir(path)
                 .env("GIT_EDITOR", "true")
                 .args(["merge", "--continue"]);
@@ -121,6 +122,7 @@ pub fn continue_integrate(path: &Path) -> AppResult<IntegrateResult> {
         Some("rebase") => {
             // Non-interactive: skip editor
             let mut cmd = Command::new("git");
+            crate::process_util::hide_console(&mut cmd);
             cmd.current_dir(path)
                 .env("GIT_EDITOR", "true")
                 .args(["rebase", "--continue"]);
@@ -128,6 +130,7 @@ pub fn continue_integrate(path: &Path) -> AppResult<IntegrateResult> {
         }
         Some("cherry-pick") => {
             let mut cmd = Command::new("git");
+            crate::process_util::hide_console(&mut cmd);
             cmd.current_dir(path)
                 .env("GIT_EDITOR", "true")
                 .args(["cherry-pick", "--continue"]);
@@ -245,6 +248,7 @@ struct ConflictAware {
 
 fn run_git_allow_conflict(args: &[&str], cwd: Option<&Path>) -> AppResult<ConflictAware> {
     let mut cmd = Command::new("git");
+    crate::process_util::hide_console(&mut cmd);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
