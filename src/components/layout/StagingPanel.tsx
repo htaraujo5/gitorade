@@ -96,9 +96,7 @@ export function StagingPanel() {
       <div className="flex items-center justify-between gap-2 border-b border-[#2d3139] px-2.5 py-2">
         <div className="min-w-0 text-[11px] font-normal leading-snug text-[#a0a6b0]">
           <span className="text-[#d8dbe2]">{total.toLocaleString()}</span> file changes
-          {status?.branch ? (
-            <span className="text-[#6b7280]"> on {status.branch}</span>
-          ) : null}
+          {status?.branch ? <span className="text-[#6b7280]"> on {status.branch}</span> : null}
         </div>
         <div className="flex shrink-0 rounded border border-[#2d3139] p-px text-[9px]">
           <ToggleBtn active={viewMode === "path"} onClick={() => setViewMode("path")}>
@@ -155,9 +153,7 @@ export function StagingPanel() {
               title="Stash"
             >
               <IconStash className="h-3.5 w-3.5" />
-              {stash.length > 0 ? (
-                <span className="tabular-nums">{stash.length}</span>
-              ) : null}
+              {stash.length > 0 ? <span className="tabular-nums">{stash.length}</span> : null}
             </PanelTab>
           </div>
 
@@ -269,17 +265,12 @@ export function StagingPanel() {
                   type="button"
                   disabled={!canStashPush}
                   title={
-                    total === 0
-                      ? "Sem alterações para guardar"
-                      : "Guardar alterações no stash"
+                    total === 0 ? "Sem alterações para guardar" : "Guardar alterações no stash"
                   }
                   onClick={() => {
                     const title = stashMessage.trim();
                     const body = stashDescription.trim();
-                    const msg =
-                      title && body
-                        ? `${title}\n\n${body}`
-                        : title || body || undefined;
+                    const msg = title && body ? `${title}\n\n${body}` : title || body || undefined;
                     void createStash(msg);
                     setStashMessage("");
                     setStashDescription("");
@@ -309,9 +300,7 @@ export function StagingPanel() {
                           </div>
                           <div className="mt-0.5 font-mono text-[9px] text-[#5c6370]">
                             {entry.selector}
-                            {entry.authoredAt
-                              ? ` · ${relativeTime(entry.authoredAt)}`
-                              : ""}
+                            {entry.authoredAt ? ` · ${relativeTime(entry.authoredAt)}` : ""}
                           </div>
                           <div className="mt-1 flex gap-2">
                             <button
@@ -462,8 +451,7 @@ function FileSection({
       ) : (
         <ul className="pb-1">
           {visible.map((file) => {
-            const isSel =
-              selected?.path === file.path && selected.staged === file.staged;
+            const isSel = selected?.path === file.path && selected.staged === file.staged;
             const base = file.path.includes("/")
               ? file.path.slice(file.path.lastIndexOf("/") + 1)
               : file.path;

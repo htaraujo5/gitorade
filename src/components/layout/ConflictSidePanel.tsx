@@ -69,9 +69,7 @@ export function ConflictSidePanel() {
             )}
           </div>
           {conflicts.length === 0 ? (
-            <p className="px-2.5 pb-2 text-[11px] text-[#6b7280]">
-              Nenhum conflito restante.
-            </p>
+            <p className="px-2.5 pb-2 text-[11px] text-[#6b7280]">Nenhum conflito restante.</p>
           ) : (
             <ul className="pb-1">
               {conflicts.map((path) => (

@@ -42,8 +42,7 @@ export function MainWorkspace() {
     );
   }
 
-  const hasIntegrate =
-    Boolean(status?.inProgress) || (status?.conflicts?.length ?? 0) > 0;
+  const hasIntegrate = Boolean(status?.inProgress) || (status?.conflicts?.length ?? 0) > 0;
   const showConflictEditor = Boolean(conflictPath);
   const showCommitFile = Boolean(selectedCommitHash && selectedCommitFile);
   const showWdFile =
@@ -97,8 +96,7 @@ export function MainWorkspace() {
         </div>
       )}
 
-      {(workspaceTab === "branches" || workspaceTab === "files") &&
-        !showConflictEditor && (
+      {(workspaceTab === "branches" || workspaceTab === "files") && !showConflictEditor && (
         <div className="flex items-center gap-2 border-b border-[#2d3139] bg-[#1c1f26] px-3 py-1.5 text-[11px]">
           <button
             type="button"
@@ -121,9 +119,7 @@ export function MainWorkspace() {
         <div className="flex min-h-0 flex-1">
           <BranchSidebar />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              {center}
-            </div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{center}</div>
             {terminalOpen && <TerminalPanel />}
           </div>
           {right}

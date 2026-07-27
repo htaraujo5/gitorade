@@ -43,9 +43,7 @@ export function CommitDetailsPanel() {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col border-l border-[#2d3139] bg-[#1c1f26]">
       <div className="flex items-center justify-between border-b border-[#2d3139] px-2 py-1">
-        <div className="font-mono text-[9px] text-[#6b7280]">
-          commit: {selected.shortHash}
-        </div>
+        <div className="font-mono text-[9px] text-[#6b7280]">commit: {selected.shortHash}</div>
         <button
           type="button"
           className="text-[9px] text-[#3d8bfd] hover:underline"
@@ -71,9 +69,7 @@ export function CommitDetailsPanel() {
             <div className="text-[9px] text-[#5c6370]">
               {new Date(selected.authoredAt).toLocaleString("pt-BR")}
             </div>
-            {parent && (
-              <div className="font-mono text-[9px] text-[#5c6370]">parent: {parent}</div>
-            )}
+            {parent && <div className="font-mono text-[9px] text-[#5c6370]">parent: {parent}</div>}
           </div>
         </div>
 
@@ -114,9 +110,7 @@ export function CommitDetailsPanel() {
                     title={f.path}
                     onClick={() => void selectCommitFile(f.path)}
                     className={`flex w-full items-center gap-1 px-1.5 py-0.5 text-left font-mono text-[10px] leading-tight ${
-                      active
-                        ? "bg-[#1e3a5f] text-[#e8eaed]"
-                        : "text-[#c8ccd4] hover:bg-[#252830]"
+                      active ? "bg-[#1e3a5f] text-[#e8eaed]" : "text-[#c8ccd4] hover:bg-[#252830]"
                     }`}
                   >
                     <StatusLetter status={f.status} />
@@ -159,10 +153,14 @@ export function CommitDetailsPanel() {
 function StatusLetter({ status }: { status: string }) {
   const s = status.toLowerCase();
   if (s.startsWith("a") || s.includes("add") || s.includes("new")) {
-    return <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#3dd68c]">+</span>;
+    return (
+      <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#3dd68c]">+</span>
+    );
   }
   if (s.startsWith("d") || s.includes("del")) {
-    return <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#f85149]">−</span>;
+    return (
+      <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#f85149]">−</span>
+    );
   }
   return <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#e3b341]">/</span>;
 }

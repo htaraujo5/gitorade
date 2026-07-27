@@ -26,11 +26,7 @@ describe("buildBranchTree", () => {
 
   it("strips remote prefix before nesting", () => {
     const tree = buildBranchTree(
-      [
-        { name: "origin/fix/TXKB-1" },
-        { name: "origin/6.22" },
-        { name: "origin/feat/x" },
-      ],
+      [{ name: "origin/fix/TXKB-1" }, { name: "origin/6.22" }, { name: "origin/feat/x" }],
       "origin/",
     );
     expect(tree.map((n) => (n.kind === "folder" ? n.name : n.label))).toEqual([

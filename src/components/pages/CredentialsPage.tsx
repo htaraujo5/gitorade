@@ -23,9 +23,7 @@ export function CredentialsPage() {
   } = useAppStore();
 
   const repo = repositories.find((r) => r.id === activeRepoId);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    profiles[0]?.id ?? null,
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(profiles[0]?.id ?? null);
   const selected = profiles.find((p) => p.id === selectedId) ?? null;
   const [mode, setMode] = useState<Mode>(profiles.length === 0 ? "create" : "view");
   const [formError, setFormError] = useState<string | null>(null);
@@ -237,18 +235,13 @@ function ProfileForm({
 }) {
   return (
     <div className="flex min-h-full items-start justify-center px-8 py-10">
-      <form
-        className="w-full max-w-md"
-        onSubmit={onSubmit}
-      >
+      <form className="w-full max-w-md" onSubmit={onSubmit}>
         <div className="mb-6 flex items-start gap-3">
           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-white">
             <IconCredentials className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="text-[18px] font-semibold tracking-tight text-[#f0f1f4]">
-              {title}
-            </h1>
+            <h1 className="text-[18px] font-semibold tracking-tight text-[#f0f1f4]">{title}</h1>
             <p className="mt-1 text-[12px] leading-relaxed text-[#8b909a]">{subtitle}</p>
           </div>
         </div>
@@ -384,15 +377,10 @@ function ProfileDetail({
         <Detail label="Provedor" value={profile.provider ?? "Local"} />
         <Detail
           label="Chave SSH"
-          value={
-            profile.sshKeyPath ?? "Não configurada — usa o agente SSH do sistema"
-          }
+          value={profile.sshKeyPath ?? "Não configurada — usa o agente SSH do sistema"}
         />
         {repoName && (
-          <Detail
-            label="Repo atual"
-            value={`${repoName}${isRepoDefault ? " · associado" : ""}`}
-          />
+          <Detail label="Repo atual" value={`${repoName}${isRepoDefault ? " · associado" : ""}`} />
         )}
       </dl>
 
@@ -424,8 +412,8 @@ function ProfileDetail({
       </div>
 
       <p className="mt-8 text-[11px] leading-relaxed text-[#5c6370]">
-        Cada repositório pode usar um perfil diferente. O seletor no canto
-        superior direito define a assinatura do próximo commit.
+        Cada repositório pode usar um perfil diferente. O seletor no canto superior direito define a
+        assinatura do próximo commit.
       </p>
     </div>
   );
@@ -467,9 +455,7 @@ function ProfileRow({
       type="button"
       onClick={onSelect}
       className={`flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition ${
-        selected
-          ? "bg-[#1e3a5f] ring-1 ring-[#3d8bfd]/40"
-          : "hover:bg-[#252830]"
+        selected ? "bg-[#1e3a5f] ring-1 ring-[#3d8bfd]/40" : "hover:bg-[#252830]"
       }`}
     >
       <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-[11px] font-semibold text-white">
@@ -484,9 +470,7 @@ function ProfileRow({
             </span>
           )}
         </span>
-        <span className="block truncate text-[10px] text-[#6b7280]">
-          {profile.email}
-        </span>
+        <span className="block truncate text-[10px] text-[#6b7280]">{profile.email}</span>
       </span>
     </button>
   );
@@ -495,12 +479,8 @@ function ProfileRow({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[#2d3139]/70 py-3 last:border-0">
-      <dt className="shrink-0 text-[10px] uppercase tracking-wide text-[#6b7280]">
-        {label}
-      </dt>
-      <dd className="min-w-0 break-all text-right text-[12px] text-[#d8dbe2]">
-        {value}
-      </dd>
+      <dt className="shrink-0 text-[10px] uppercase tracking-wide text-[#6b7280]">{label}</dt>
+      <dd className="min-w-0 break-all text-right text-[12px] text-[#d8dbe2]">{value}</dd>
     </div>
   );
 }

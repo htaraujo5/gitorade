@@ -53,11 +53,11 @@ Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):
 
 **Bump de versão**
 
-| Tipo | O que muda | Exemplo |
-|------|------------|---------|
-| `fix` | último número (patch) | `1.0.0` → `1.0.1` |
-| `hotfix` | do meio (minor) | `1.0.1` → `1.1.0` |
-| `release` | o primeiro (major) | `1.1.0` → `2.0.0` |
+| Tipo      | O que muda            | Exemplo           |
+| --------- | --------------------- | ----------------- |
+| `fix`     | último número (patch) | `1.0.0` → `1.0.1` |
+| `hotfix`  | do meio (minor)       | `1.0.1` → `1.1.0` |
+| `release` | o primeiro (major)    | `1.1.0` → `2.0.0` |
 
 **Como disparar**
 
@@ -77,15 +77,15 @@ node scripts/bump-version.mjs fix      # aplica patch localmente
 
 ## Scripts
 
-| Comando | Descrição |
-|---------|-----------|
-| `npm run tauri dev` | App desktop em modo dev |
-| `npm run icons` | Regenera logos, ícones Windows e banners NSIS |
-| `npm run dist` | Build release + instaladores MSI/NSIS |
-| `npm run build` | Build do frontend |
-| `npm test` | Testes Vitest |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
+| Comando             | Descrição                                     |
+| ------------------- | --------------------------------------------- |
+| `npm run tauri dev` | App desktop em modo dev                       |
+| `npm run icons`     | Regenera logos, ícones Windows e banners NSIS |
+| `npm run dist`      | Build release + instaladores MSI/NSIS         |
+| `npm run build`     | Build do frontend                             |
+| `npm test`          | Testes Vitest                                 |
+| `npm run lint`      | ESLint                                        |
+| `npm run format`    | Prettier                                      |
 
 ## Documentação
 

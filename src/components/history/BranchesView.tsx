@@ -102,9 +102,7 @@ export function BranchesView() {
               )}
             </div>
             <div className="text-xs text-text-muted">
-              {selectedBranch.upstream
-                ? `Upstream: ${selectedBranch.upstream}`
-                : "Sem upstream"}
+              {selectedBranch.upstream ? `Upstream: ${selectedBranch.upstream}` : "Sem upstream"}
             </div>
             <div className="text-xs">
               {selectedBranch.ahead != null || selectedBranch.behind != null ? (
@@ -144,11 +142,7 @@ export function BranchesView() {
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-merge/40 px-3 py-2 text-xs text-merge hover:bg-merge/10 disabled:opacity-40"
                   onClick={() => {
-                    if (
-                      window.confirm(
-                        `Mesclar ${selectedBranch.name} na branch atual?`,
-                      )
-                    ) {
+                    if (window.confirm(`Mesclar ${selectedBranch.name} na branch atual?`)) {
                       void mergeBranch(selectedBranch.name);
                     }
                   }}
@@ -162,11 +156,7 @@ export function BranchesView() {
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-rebase/40 px-3 py-2 text-xs text-rebase hover:bg-rebase/10 disabled:opacity-40"
                   onClick={() => {
-                    if (
-                      window.confirm(
-                        `Rebase da branch atual sobre ${selectedBranch.name}?`,
-                      )
-                    ) {
+                    if (window.confirm(`Rebase da branch atual sobre ${selectedBranch.name}?`)) {
                       void rebaseOnto(selectedBranch.name);
                     }
                   }}

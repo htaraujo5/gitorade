@@ -8,17 +8,17 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 1.1 Filosofia
 
-* **Clareza acima de tudo**
-* **Minimizar carga cognitiva**
-* **Feedback imediato**
-* **Controle total ao usuário**
-* **Visual limpo + poder avançado**
+- **Clareza acima de tudo**
+- **Minimizar carga cognitiva**
+- **Feedback imediato**
+- **Controle total ao usuário**
+- **Visual limpo + poder avançado**
 
 ### 1.2 Inspirações
 
-* Fork → simplicidade e performance
-* GitKraken → visual moderno e feedback visual
-* VS Code → consistência e extensibilidade
+- Fork → simplicidade e performance
+- GitKraken → visual moderno e feedback visual
+- VS Code → consistência e extensibilidade
 
 ---
 
@@ -26,15 +26,15 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 2.1 Personalidade da Interface
 
-* Técnica, porém amigável
-* Moderna, minimalista
-* Focada em produtividade
+- Técnica, porém amigável
+- Moderna, minimalista
+- Focada em produtividade
 
 ### 2.2 Tom Visual
 
-* Escuro como padrão (Dark First)
-* Contraste equilibrado
-* Uso inteligente de cores sem poluição
+- Escuro como padrão (Dark First)
+- Contraste equilibrado
+- Uso inteligente de cores sem poluição
 
 ---
 
@@ -88,8 +88,8 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 4.1 Fontes
 
-* **Primária:** Inter
-* **Monoespaçada:** JetBrains Mono
+- **Primária:** Inter
+- **Monoespaçada:** JetBrains Mono
 
 ---
 
@@ -108,9 +108,9 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 4.3 Uso
 
-* Código sempre monoespaçado
-* Mensagens importantes em semibold
-* Labels em uppercase leve
+- Código sempre monoespaçado
+- Mensagens importantes em semibold
+- Labels em uppercase leve
 
 ---
 
@@ -118,22 +118,22 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 5.1 Sistema Base
 
-* Base unit: **8px**
+- Base unit: **8px**
 
 ### 5.2 Escala
 
-* 4px → micro espaçamento
-* 8px → padrão
-* 16px → seções
-* 24px → separação grande
+- 4px → micro espaçamento
+- 8px → padrão
+- 16px → seções
+- 24px → separação grande
 
 ---
 
 ### 5.3 Layout
 
-* Sidebar fixa
-* Área principal fluida
-* Painéis redimensionáveis
+- Sidebar fixa
+- Área principal fluida
+- Painéis redimensionáveis
 
 ---
 
@@ -145,57 +145,57 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 #### Tipos
 
-* Primary
-* Secondary
-* Ghost
-* Danger
+- Primary
+- Secondary
+- Ghost
+- Danger
 
 #### Estilo
 
 **Primary**
 
-* Background: Primary
-* Texto: branco
-* Border-radius: 6px
-* Padding: 8px 12px
+- Background: Primary
+- Texto: branco
+- Border-radius: 6px
+- Padding: 8px 12px
 
 **Ghost**
 
-* Sem fundo
-* Hover com leve highlight
+- Sem fundo
+- Hover com leve highlight
 
 ---
 
 ### 6.2 Inputs
 
-* Background: Surface
-* Border: 1px solid Border
-* Focus: borda Primary
-* Radius: 6px
+- Background: Surface
+- Border: 1px solid Border
+- Focus: borda Primary
+- Radius: 6px
 
 ---
 
 ### 6.3 Dropdowns
 
-* Fundo escuro
-* Hover highlight
-* Ícones opcionais
+- Fundo escuro
+- Hover highlight
+- Ícones opcionais
 
 ---
 
 ### 6.4 Tabs
 
-* Linha inferior ativa
-* Animação suave
-* Destaque de aba ativa
+- Linha inferior ativa
+- Animação suave
+- Destaque de aba ativa
 
 ---
 
 ### 6.5 Modais
 
-* Overlay escuro (opacity 0.6)
-* Fundo Surface
-* Cantos arredondados (8px)
+- Overlay escuro (opacity 0.6)
+- Fundo Surface
+- Cantos arredondados (8px)
 
 ---
 
@@ -205,26 +205,28 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 7.1 Commit Graph
 
-* Linhas coloridas por branch
-* Nós (commits):
+- Linhas coloridas por branch
+- Nós (commits):
 
-  * círculo preenchido
-  * tamanho: 8px
-* Hover:
+  - círculo preenchido
+  - tamanho: 8px
 
-  * mostra detalhes
-  * highlight
+- Hover:
+
+  - mostra detalhes
+  - highlight
 
 ---
 
 ### 7.2 Diff Viewer
 
-* Lado a lado
-* Cores:
+- Lado a lado
+- Cores:
 
-  * Adição → verde
-  * Remoção → vermelho
-* Highlight por linha
+  - Adição → verde
+  - Remoção → vermelho
+
+- Highlight por linha
 
 ---
 
@@ -244,25 +246,25 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 8.1 Feedback
 
-* Loading → spinner discreto
-* Sucesso → toast verde
-* Erro → toast vermelho + ação
+- Loading → spinner discreto
+- Sucesso → toast verde
+- Erro → toast vermelho + ação
 
 ---
 
 ### 8.2 Atalhos
 
-* Ctrl + P → abrir repo
-* Ctrl + Shift + F → buscar
-* Ctrl + Enter → commit
+- Ctrl + P → abrir repo
+- Ctrl + Shift + F → buscar
+- Ctrl + Enter → commit
 
 ---
 
 ### 8.3 Estados
 
-* Empty state → instrução clara
-* Error state → ação sugerida
-* Loading → skeleton UI
+- Empty state → instrução clara
+- Error state → ação sugerida
+- Loading → skeleton UI
 
 ---
 
@@ -272,18 +274,18 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 9.1 Estrutura
 
-* Sidebar:
+- Sidebar:
 
-  * Repositórios
-  * Favoritos
-  * Configurações
+  - Repositórios
+  - Favoritos
+  - Configurações
 
-* Main:
+- Main:
 
-  * Graph
-  * Changes
-  * History
-  * Branches
+  - Graph
+  - Changes
+  - History
+  - Branches
 
 ---
 
@@ -293,22 +295,22 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 10.1 Exibição
 
-* Avatar + Nome + Email visível
-* Badge indicando perfil ativo
+- Avatar + Nome + Email visível
+- Badge indicando perfil ativo
 
 ---
 
 ### 10.2 Troca de Perfil
 
-* Dropdown rápido
-* Preview antes de confirmar
+- Dropdown rápido
+- Preview antes de confirmar
 
 ---
 
 ### 10.3 Segurança
 
-* Nunca exibir tokens
-* Mostrar apenas alias
+- Nunca exibir tokens
+- Mostrar apenas alias
 
 ---
 
@@ -320,16 +322,16 @@ Referência visual de layout: [`template.png`](./template.png) · estrutura: [`u
 
 ### 11.2 Light (opcional)
 
-* Mesmo sistema de cores adaptado
+- Mesmo sistema de cores adaptado
 
 ---
 
 ## 12. ⚡ Animações
 
-* Transições: 150ms–250ms
-* Ease-in-out
-* Hover suave
-* Evitar excesso
+- Transições: 150ms–250ms
+- Ease-in-out
+- Hover suave
+- Evitar excesso
 
 ---
 
@@ -348,45 +350,45 @@ export const theme = {
   radius: {
     sm: 6,
     md: 8,
-  }
-}
+  },
+};
 ```
 
 ---
 
 ## 14. 🧪 Acessibilidade
 
-* Contraste mínimo AA
-* Navegação por teclado
-* Focus visível
-* Labels claros
+- Contraste mínimo AA
+- Navegação por teclado
+- Focus visível
+- Labels claros
 
 ---
 
 ## 15. 🚀 Guidelines de Código (UI)
 
-* Componentes desacoplados
-* Uso de hooks
-* Evitar lógica na UI
-* Reutilização máxima
+- Componentes desacoplados
+- Uso de hooks
+- Evitar lógica na UI
+- Reutilização máxima
 
 ---
 
 ## 16. 📌 Boas Práticas
 
-* Nunca esconder estado importante
-* Sempre mostrar o que vai acontecer
-* Evitar ações destrutivas sem confirmação
-* Priorizar legibilidade
+- Nunca esconder estado importante
+- Sempre mostrar o que vai acontecer
+- Evitar ações destrutivas sem confirmação
+- Priorizar legibilidade
 
 ---
 
 ## 17. 🧠 Diferenciais do Produto
 
-* Visual moderno + técnico
-* Clareza extrema de estado Git
-* Multi-credenciais como feature central
-* Performance visual
+- Visual moderno + técnico
+- Clareza extrema de estado Git
+- Multi-credenciais como feature central
+- Performance visual
 
 ---
 

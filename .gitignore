@@ -25,6 +25,7 @@ dist-ssr
 
 # Rust / Tauri
 src-tauri/target
+src-tauri/target-test
 src-tauri/gen/schemas
 
 # OS

@@ -183,9 +183,7 @@ export function OperationOverlay() {
                     : "brand-gradient"
               }`}
               style={{
-                width: waitingSsh
-                  ? "100%"
-                  : `${percent ?? (done ? 100 : 8)}%`,
+                width: waitingSsh ? "100%" : `${percent ?? (done ? 100 : 8)}%`,
               }}
             />
           </div>
@@ -209,9 +207,7 @@ export function OperationOverlay() {
               void submitAskpass(false);
             }}
           >
-            <p className="text-[12px] font-medium text-[#e8eaed]">
-              {sshCopy.title}
-            </p>
+            <p className="text-[12px] font-medium text-[#e8eaed]">{sshCopy.title}</p>
             {sshCopy.detail && (
               <p
                 className="mt-1 truncate font-mono text-[11px] text-[#8b909a]"

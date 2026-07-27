@@ -97,12 +97,7 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
       {/* Left — branding + steps (Fork-style) */}
       <aside className="flex w-[240px] shrink-0 flex-col bg-[#14161b] px-5 pb-5 pt-8">
         <div className="flex flex-col items-center text-center">
-          <img
-            src={logo}
-            alt=""
-            className="h-[72px] w-[72px] object-contain"
-            aria-hidden
-          />
+          <img src={logo} alt="" className="h-[72px] w-[72px] object-contain" aria-hidden />
           <h1 className="mt-4 text-[18px] font-semibold tracking-tight text-[#f0f1f4]">
             Bem-vindo ao Gitorade
           </h1>
@@ -126,8 +121,7 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
           Informações do usuário
         </h2>
         <p className="mt-2 max-w-md text-[12px] leading-relaxed text-[#8b909a]">
-          Defina seu nome e email. Essas informações serão associadas aos seus
-          commits no Git.
+          Defina seu nome e email. Essas informações serão associadas aos seus commits no Git.
         </p>
 
         <label className="mt-6 block">
@@ -155,9 +149,7 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
         </label>
 
         <label className="mt-4 block">
-          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">
-            Pasta padrão de projetos:
-          </span>
+          <span className="mb-1.5 block text-[12px] text-[#c8ccd4]">Pasta padrão de projetos:</span>
           <div className="flex gap-2">
             <input
               className="h-9 min-w-0 flex-1 rounded border border-[#2d3139] bg-[#12141a] px-3 font-mono text-[12px] text-[#e8eaed] outline-none focus:border-[#a371f7] focus:ring-1 focus:ring-[#a371f7]/40"

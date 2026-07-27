@@ -65,9 +65,7 @@ describe("conflictParse", () => {
     const right = ["a", "x", "c"];
     const rows = alignLines(left, right, conflictLineMap([]), conflictLineMap([]));
     expect(rows.some((r) => r.kind === "change")).toBe(true);
-    expect(rows.find((r) => r.leftText === "a" && r.rightText === "a")?.kind).toBe(
-      "equal",
-    );
+    expect(rows.find((r) => r.leftText === "a" && r.rightText === "a")?.kind).toBe("equal");
     const change = rows.find((r) => r.kind === "change");
     expect(change?.leftText).toBe("b");
     expect(change?.rightText).toBe("x");

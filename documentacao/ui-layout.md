@@ -43,8 +43,8 @@ Tokens: [`styleguide.md`](./styleguide.md)
 
 ### Changes (3 colunas)
 
-| Esquerda | Centro | Direita |
-|----------|--------|---------|
+| Esquerda          | Centro                         | Direita                        |
+| ----------------- | ------------------------------ | ------------------------------ |
 | Staged / Unstaged | Diff (lado a lado / unificado) | Identidade + mensagem + Commit |
 
 ### Graph

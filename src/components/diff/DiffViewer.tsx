@@ -26,9 +26,7 @@ export function DiffViewer({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
         <div>
           {stagedCount} staged · {unstagedCount} unstaged
-          {lastCommitLabel && (
-            <span className="ml-2 text-success">último: {lastCommitLabel}</span>
-          )}
+          {lastCommitLabel && <span className="ml-2 text-success">último: {lastCommitLabel}</span>}
         </div>
         <div className="flex items-center gap-3">
           {selectedFile && (
@@ -110,9 +108,7 @@ function UnifiedView({ rows }: { rows: ReturnType<typeof parseUnifiedDiff> }) {
             {row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "}
           </span>
           {row.kind === "hunk" || row.kind === "meta" ? (
-            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">
-              {row.text || " "}
-            </span>
+            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">{row.text || " "}</span>
           ) : (
             <CodeLine text={row.text} lineKey={`du-${i}`} />
           )}

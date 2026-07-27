@@ -65,15 +65,8 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
             className="pointer-events-none flex select-none items-center gap-1.5"
             data-tauri-drag-region
           >
-            <img
-              src={logo}
-              alt=""
-              className="h-4 w-4 object-contain"
-              aria-hidden
-            />
-            <span className="text-[12px] font-semibold tracking-wide text-[#e8eaed]">
-              gitorade
-            </span>
+            <img src={logo} alt="" className="h-4 w-4 object-contain" aria-hidden />
+            <span className="text-[12px] font-semibold tracking-wide text-[#e8eaed]">gitorade</span>
           </div>
         </div>
 
@@ -95,22 +88,11 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
           >
             {maximized ? (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                <path
-                  d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
+                <path d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z" stroke="currentColor" strokeWidth="1" />
               </svg>
             ) : (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                <rect
-                  x="1"
-                  y="1"
-                  width="8"
-                  height="8"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
+                <rect x="1" y="1" width="8" height="8" stroke="currentColor" strokeWidth="1" />
               </svg>
             )}
           </WinBtn>
@@ -149,10 +131,7 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
           </button>
         </div>
         <div className="flex shrink-0 items-center gap-0.5 border-l border-[#2d3139] px-1">
-          <IconBtn
-            title="Abrir repositório"
-            onClick={() => void openRepositoryDialog()}
-          >
+          <IconBtn title="Abrir repositório" onClick={() => void openRepositoryDialog()}>
             <IconRepos className="h-3.5 w-3.5" />
           </IconBtn>
           <IconBtn title="Preferências" onClick={() => openSettingsTab()}>
@@ -256,9 +235,7 @@ function WinBtn({
       title={title}
       onClick={onClick}
       className={`flex h-full w-10 items-center justify-center text-[#9aa0ab] ${
-        danger
-          ? "hover:bg-[#e81123] hover:text-white"
-          : "hover:bg-[#252830] hover:text-[#e8eaed]"
+        danger ? "hover:bg-[#e81123] hover:text-white" : "hover:bg-[#252830] hover:text-[#e8eaed]"
       }`}
     >
       {children}

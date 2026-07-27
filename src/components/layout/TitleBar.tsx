@@ -39,15 +39,8 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
           className="pointer-events-none flex select-none items-center gap-1.5"
           data-tauri-drag-region
         >
-          <img
-            src={logo}
-            alt=""
-            className="h-4 w-4 object-contain"
-            aria-hidden
-          />
-          <span className="text-[12px] font-semibold tracking-wide text-[#e8eaed]">
-            gitorade
-          </span>
+          <img src={logo} alt="" className="h-4 w-4 object-contain" aria-hidden />
+          <span className="text-[12px] font-semibold tracking-wide text-[#e8eaed]">gitorade</span>
         </div>
       </div>
 
@@ -68,11 +61,7 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
         >
           {maximized ? (
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-              <path
-                d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
+              <path d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z" stroke="currentColor" strokeWidth="1" />
             </svg>
           ) : (
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
@@ -112,9 +101,7 @@ function WinBtn({
       title={title}
       onClick={onClick}
       className={`flex h-full w-10 items-center justify-center text-[#9aa0ab] ${
-        danger
-          ? "hover:bg-[#e81123] hover:text-white"
-          : "hover:bg-[#252830] hover:text-[#e8eaed]"
+        danger ? "hover:bg-[#e81123] hover:text-white" : "hover:bg-[#252830] hover:text-[#e8eaed]"
       }`}
     >
       {children}

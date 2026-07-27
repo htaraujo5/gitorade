@@ -38,11 +38,7 @@ export function CheckoutBranchModal() {
       <div className="w-full max-w-[420px] rounded-xl border border-[#3a3f4b] bg-[#252830] shadow-2xl shadow-black/60">
         {/* Header — logo + title + close */}
         <div className="flex items-start gap-3 px-5 pb-1 pt-4">
-          <img
-            src={logo}
-            alt=""
-            className="mt-0.5 h-11 w-11 shrink-0 object-contain"
-          />
+          <img src={logo} alt="" className="mt-0.5 h-11 w-11 shrink-0 object-contain" />
           <div className="min-w-0 flex-1 pt-0.5">
             <h2
               id="checkout-branch-title"
@@ -50,9 +46,7 @@ export function CheckoutBranchModal() {
             >
               Checkout Branch
             </h2>
-            <p className="mt-0.5 text-[12px] text-[#8b909a]">
-              Switch to another branch
-            </p>
+            <p className="mt-0.5 text-[12px] text-[#8b909a]">Switch to another branch</p>
           </div>
           <button
             type="button"
@@ -77,14 +71,8 @@ export function CheckoutBranchModal() {
 
           {/* Local changes radios */}
           <div className="flex gap-2 text-[13px]">
-            <span className="w-[7.5rem] shrink-0 pt-0.5 text-[#8b909a]">
-              Local changes:
-            </span>
-            <div
-              className="flex flex-col gap-2"
-              role="radiogroup"
-              aria-label="Local changes"
-            >
+            <span className="w-[7.5rem] shrink-0 pt-0.5 text-[#8b909a]">Local changes:</span>
+            <div className="flex flex-col gap-2" role="radiogroup" aria-label="Local changes">
               {OPTIONS.map((opt) => (
                 <label
                   key={opt.id}

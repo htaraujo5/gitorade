@@ -176,9 +176,7 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
   return profileSchema.parse(await invoke("create_profile", { input }));
 }
 
-export async function updateProfile(
-  input: CreateProfileInput & { id: string },
-): Promise<Profile> {
+export async function updateProfile(input: CreateProfileInput & { id: string }): Promise<Profile> {
   return profileSchema.parse(await invoke("update_profile", { input }));
 }
 
@@ -194,13 +192,8 @@ export async function openRepository(path: string): Promise<Repository> {
   return repositorySchema.parse(await invoke("open_repository", { path }));
 }
 
-export async function setRepositoryFavorite(
-  id: string,
-  isFavorite: boolean,
-): Promise<Repository> {
-  return repositorySchema.parse(
-    await invoke("set_repository_favorite", { id, isFavorite }),
-  );
+export async function setRepositoryFavorite(id: string, isFavorite: boolean): Promise<Repository> {
+  return repositorySchema.parse(await invoke("set_repository_favorite", { id, isFavorite }));
 }
 
 export async function setRepositoryProfile(
@@ -220,17 +213,11 @@ export async function getRepoStatus(repositoryId: string): Promise<RepoStatus> {
   return repoStatusSchema.parse(await invoke("get_repo_status", { repositoryId }));
 }
 
-export async function stagePaths(
-  repositoryId: string,
-  paths: string[],
-): Promise<RepoStatus> {
+export async function stagePaths(repositoryId: string, paths: string[]): Promise<RepoStatus> {
   return repoStatusSchema.parse(await invoke("stage_paths", { repositoryId, paths }));
 }
 
-export async function unstagePaths(
-  repositoryId: string,
-  paths: string[],
-): Promise<RepoStatus> {
+export async function unstagePaths(repositoryId: string, paths: string[]): Promise<RepoStatus> {
   return repoStatusSchema.parse(await invoke("unstage_paths", { repositoryId, paths }));
 }
 
@@ -265,15 +252,10 @@ export async function addRemote(
   name: string,
   url: string,
 ): Promise<RemoteInfo[]> {
-  return z
-    .array(remoteInfoSchema)
-    .parse(await invoke("add_remote", { repositoryId, name, url }));
+  return z.array(remoteInfoSchema).parse(await invoke("add_remote", { repositoryId, name, url }));
 }
 
-export async function removeRemote(
-  repositoryId: string,
-  name: string,
-): Promise<RemoteInfo[]> {
+export async function removeRemote(repositoryId: string, name: string): Promise<RemoteInfo[]> {
   return z.array(remoteInfoSchema).parse(await invoke("remove_remote", { repositoryId, name }));
 }
 
@@ -328,13 +310,8 @@ export async function respondSshAskpass(input: {
   });
 }
 
-export async function getCommitGraph(
-  repositoryId: string,
-  limit = 120,
-): Promise<CommitGraph> {
-  return commitGraphSchema.parse(
-    await invoke("get_commit_graph", { repositoryId, limit }),
-  );
+export async function getCommitGraph(repositoryId: string, limit = 120): Promise<CommitGraph> {
+  return commitGraphSchema.parse(await invoke("get_commit_graph", { repositoryId, limit }));
 }
 
 export async function searchCommits(
@@ -368,9 +345,7 @@ export async function getCommitFileDiff(
   hash: string,
   path: string,
 ): Promise<string> {
-  return z
-    .string()
-    .parse(await invoke("get_commit_file_diff", { repositoryId, hash, path }));
+  return z.string().parse(await invoke("get_commit_file_diff", { repositoryId, hash, path }));
 }
 
 export async function getFileAtCommit(
@@ -378,9 +353,7 @@ export async function getFileAtCommit(
   hash: string,
   path: string,
 ): Promise<string> {
-  return z
-    .string()
-    .parse(await invoke("get_file_at_commit", { repositoryId, hash, path }));
+  return z.string().parse(await invoke("get_file_at_commit", { repositoryId, hash, path }));
 }
 
 export async function listBranches(repositoryId: string): Promise<BranchInfo[]> {
@@ -393,16 +366,14 @@ export async function createBranch(
   checkout = true,
   startPoint?: string | null,
 ): Promise<BranchInfo[]> {
-  return z
-    .array(branchInfoSchema)
-    .parse(
-      await invoke("create_branch", {
-        repositoryId,
-        name,
-        checkout,
-        startPoint: startPoint ?? null,
-      }),
-    );
+  return z.array(branchInfoSchema).parse(
+    await invoke("create_branch", {
+      repositoryId,
+      name,
+      checkout,
+      startPoint: startPoint ?? null,
+    }),
+  );
 }
 
 export async function resetToCommit(
@@ -410,18 +381,11 @@ export async function resetToCommit(
   commit: string,
   mode: "soft" | "mixed" | "hard",
 ): Promise<RepoStatus> {
-  return repoStatusSchema.parse(
-    await invoke("reset_to_commit", { repositoryId, commit, mode }),
-  );
+  return repoStatusSchema.parse(await invoke("reset_to_commit", { repositoryId, commit, mode }));
 }
 
-export async function revertCommit(
-  repositoryId: string,
-  commit: string,
-): Promise<RepoStatus> {
-  return repoStatusSchema.parse(
-    await invoke("revert_commit", { repositoryId, commit }),
-  );
+export async function revertCommit(repositoryId: string, commit: string): Promise<RepoStatus> {
+  return repoStatusSchema.parse(await invoke("revert_commit", { repositoryId, commit }));
 }
 
 export async function checkoutBranch(
@@ -481,48 +445,29 @@ export async function applyStash(
   selector: string,
   pop = false,
 ): Promise<RepoStatus> {
-  return repoStatusSchema.parse(
-    await invoke("apply_stash", { repositoryId, selector, pop }),
-  );
+  return repoStatusSchema.parse(await invoke("apply_stash", { repositoryId, selector, pop }));
 }
 
-export async function dropStash(
-  repositoryId: string,
-  selector: string,
-): Promise<StashEntry[]> {
-  return z
-    .array(stashEntrySchema)
-    .parse(await invoke("drop_stash", { repositoryId, selector }));
+export async function dropStash(repositoryId: string, selector: string): Promise<StashEntry[]> {
+  return z.array(stashEntrySchema).parse(await invoke("drop_stash", { repositoryId, selector }));
 }
 
 export type IntegrateState = z.infer<typeof integrateStateSchema>;
 export type IntegrateResult = z.infer<typeof integrateResultSchema>;
 
-export async function mergeBranch(
-  repositoryId: string,
-  branch: string,
-): Promise<IntegrateResult> {
-  return integrateResultSchema.parse(
-    await invoke("merge_branch", { repositoryId, branch }),
-  );
+export async function mergeBranch(repositoryId: string, branch: string): Promise<IntegrateResult> {
+  return integrateResultSchema.parse(await invoke("merge_branch", { repositoryId, branch }));
 }
 
 export async function cherryPickCommit(
   repositoryId: string,
   commit: string,
 ): Promise<IntegrateResult> {
-  return integrateResultSchema.parse(
-    await invoke("cherry_pick_commit", { repositoryId, commit }),
-  );
+  return integrateResultSchema.parse(await invoke("cherry_pick_commit", { repositoryId, commit }));
 }
 
-export async function rebaseOnto(
-  repositoryId: string,
-  upstream: string,
-): Promise<IntegrateResult> {
-  return integrateResultSchema.parse(
-    await invoke("rebase_onto", { repositoryId, upstream }),
-  );
+export async function rebaseOnto(repositoryId: string, upstream: string): Promise<IntegrateResult> {
+  return integrateResultSchema.parse(await invoke("rebase_onto", { repositoryId, upstream }));
 }
 
 export async function abortIntegrate(repositoryId: string): Promise<IntegrateState> {
@@ -549,10 +494,7 @@ export async function resolveConflict(
   );
 }
 
-export async function readConflictFile(
-  repositoryId: string,
-  path: string,
-): Promise<string> {
+export async function readConflictFile(repositoryId: string, path: string): Promise<string> {
   return z.string().parse(await invoke("read_conflict_file", { repositoryId, path }));
 }
 
@@ -562,9 +504,7 @@ export async function readConflictSides(
   repositoryId: string,
   path: string,
 ): Promise<ConflictFileSides> {
-  return conflictFileSidesSchema.parse(
-    await invoke("read_conflict_sides", { repositoryId, path }),
-  );
+  return conflictFileSidesSchema.parse(await invoke("read_conflict_sides", { repositoryId, path }));
 }
 
 export async function listRepoFiles(repositoryId: string): Promise<string[]> {
@@ -589,11 +529,7 @@ export async function terminalWrite(sessionId: string, data: string): Promise<vo
   await invoke("terminal_write", { sessionId, data });
 }
 
-export async function terminalResize(
-  sessionId: string,
-  cols: number,
-  rows: number,
-): Promise<void> {
+export async function terminalResize(sessionId: string, cols: number, rows: number): Promise<void> {
   await invoke("terminal_resize", { sessionId, cols, rows });
 }
 

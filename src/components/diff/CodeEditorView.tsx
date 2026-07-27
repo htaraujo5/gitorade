@@ -21,18 +21,13 @@ export function CodeEditorView({
   className = "",
 }: Props) {
   if (!text) {
-    return (
-      <div className="p-6 text-[12px] text-[#6b7280]">{emptyMessage}</div>
-    );
+    return <div className="p-6 text-[12px] text-[#6b7280]">{emptyMessage}</div>;
   }
 
   const lines = text.replace(/\r\n/g, "\n").split("\n");
 
   return (
-    <div
-      className={`min-h-0 flex-1 overflow-auto bg-[#0d1117] ${className}`}
-      aria-label={label}
-    >
+    <div className={`min-h-0 flex-1 overflow-auto bg-[#0d1117] ${className}`} aria-label={label}>
       <div className="min-w-max font-mono text-[12px]" style={{ fontFamily: FONT }}>
         {lines.map((line, i) => (
           <div
@@ -40,9 +35,7 @@ export function CodeEditorView({
             className="flex hover:bg-[#161b22]/80"
             style={{ minHeight: 20, lineHeight: "20px" }}
           >
-            <span
-              className="sticky left-0 w-12 shrink-0 select-none border-r border-[#21262d] bg-[#0d1117] px-2 text-right text-[11px] text-[#484f58]"
-            >
+            <span className="sticky left-0 w-12 shrink-0 select-none border-r border-[#21262d] bg-[#0d1117] px-2 text-right text-[11px] text-[#484f58]">
               {i + 1}
             </span>
             <pre
@@ -59,13 +52,7 @@ export function CodeEditorView({
 }
 
 /** Single highlighted line for diff rows (keeps add/del background from parent). */
-export function CodeLine({
-  text,
-  lineKey,
-}: {
-  text: string;
-  lineKey: string;
-}) {
+export function CodeLine({ text, lineKey }: { text: string; lineKey: string }) {
   return (
     <span className="min-w-0 flex-1 whitespace-pre-wrap break-all" style={{ fontFamily: FONT }}>
       {highlightCodeLine(text, lineKey) || "\u00a0"}

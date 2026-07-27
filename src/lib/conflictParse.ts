@@ -12,12 +12,7 @@ export type ConflictHunk = {
   theirsLines: string[];
 };
 
-export type LineKind =
-  | "normal"
-  | "marker"
-  | "ours"
-  | "theirs"
-  | "separator";
+export type LineKind = "normal" | "marker" | "ours" | "theirs" | "separator";
 
 export type AnnotatedLine = {
   text: string;
@@ -275,8 +270,7 @@ export function alignLines(
   let j = 0;
   while (i < n && j < m) {
     if (left[i] === right[j]) {
-      const ci =
-        leftConflictByLine.get(i) ?? rightConflictByLine.get(j) ?? null;
+      const ci = leftConflictByLine.get(i) ?? rightConflictByLine.get(j) ?? null;
       rows.push({
         kind: "equal",
         leftLine: i,
@@ -409,13 +403,10 @@ function naiveAlign(
 }
 
 /** Map original line index → conflict index for a side. */
-export function conflictLineMap(
-  marks: SideHighlight[],
-): Map<number, number> {
+export function conflictLineMap(marks: SideHighlight[]): Map<number, number> {
   const map = new Map<number, number>();
   for (const m of marks) {
     for (let i = m.startLine; i < m.endLine; i++) map.set(i, m.conflictIndex);
   }
   return map;
 }
-

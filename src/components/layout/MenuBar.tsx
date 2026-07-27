@@ -4,7 +4,13 @@ import { useAppStore } from "../../stores/appStore";
 type MenuDef = {
   id: string;
   label: string;
-  items: { label: string; shortcut?: string; action?: () => void; danger?: boolean; disabled?: boolean }[];
+  items: {
+    label: string;
+    shortcut?: string;
+    action?: () => void;
+    danger?: boolean;
+    disabled?: boolean;
+  }[];
 };
 
 /** Native-app style menu bar (Arquivo / Editar / Exibir / Ajuda). */
@@ -213,9 +219,7 @@ function MenuButton({
               }}
             >
               <span>{item.label}</span>
-              {item.shortcut && (
-                <span className="text-[10px] text-[#6b7280]">{item.shortcut}</span>
-              )}
+              {item.shortcut && <span className="text-[10px] text-[#6b7280]">{item.shortcut}</span>}
             </button>
           ))}
         </div>

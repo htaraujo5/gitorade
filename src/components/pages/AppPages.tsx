@@ -2,13 +2,7 @@ import { useAppStore } from "../../stores/appStore";
 
 export { CredentialsPage } from "./CredentialsPage";
 
-export function PlaceholderPage({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function PlaceholderPage({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
       <h1 className="text-xl font-semibold">{title}</h1>
@@ -26,10 +20,7 @@ export function RepoListPage({ mode }: { mode: "all" | "favorites" }) {
     openRepositoryDialog,
     busy,
   } = useAppStore();
-  const list =
-    mode === "favorites"
-      ? repositories.filter((r) => r.isFavorite)
-      : repositories;
+  const list = mode === "favorites" ? repositories.filter((r) => r.isFavorite) : repositories;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-bg p-6">

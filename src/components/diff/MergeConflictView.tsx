@@ -57,10 +57,7 @@ export function MergeConflictView() {
   const hunks = useMemo(() => parseConflictHunks(baseMerged), [baseMerged]);
   const annotated = useMemo(() => annotateMergedLines(conflictDraft), [conflictDraft]);
   const oursLines = useMemo(() => (conflictOurs || "").split("\n"), [conflictOurs]);
-  const theirsLines = useMemo(
-    () => (conflictTheirs || "").split("\n"),
-    [conflictTheirs],
-  );
+  const theirsLines = useMemo(() => (conflictTheirs || "").split("\n"), [conflictTheirs]);
   const oursMarks = useMemo(
     () => sideHighlights(conflictOurs || "", hunks, "ours"),
     [conflictOurs, hunks],
@@ -278,8 +275,7 @@ export function MergeConflictView() {
             {conflictCount > 0 && (
               <div className="flex items-center gap-1 text-[11px] text-[#8b909a]">
                 <span>
-                  conflict {Math.min(activeConflict + 1, conflictCount)} of{" "}
-                  {conflictCount}
+                  conflict {Math.min(activeConflict + 1, conflictCount)} of {conflictCount}
                 </span>
                 <button
                   type="button"
@@ -307,10 +303,7 @@ export function MergeConflictView() {
               className="pointer-events-none absolute inset-0 overflow-auto"
               aria-hidden
             >
-              <OutputHighlightLayer
-                annotated={annotated}
-                activeConflict={activeConflict}
-              />
+              <OutputHighlightLayer annotated={annotated} activeConflict={activeConflict} />
             </div>
             <textarea
               ref={outputEditRef}
@@ -356,9 +349,7 @@ function AlignedPane({
   onScroll: (e: UIEvent<HTMLDivElement>) => void;
 }) {
   const header =
-    accent === "ours"
-      ? "bg-[#1f6feb]/15 text-[#58a6ff]"
-      : "bg-[#9e6a03]/20 text-[#e3b341]";
+    accent === "ours" ? "bg-[#1f6feb]/15 text-[#58a6ff]" : "bg-[#9e6a03]/20 text-[#e3b341]";
 
   const checkboxAtRow = useMemo(() => {
     const map = new Map<number, number>();
@@ -393,7 +384,11 @@ function AlignedPane({
                 accent === "ours"
                   ? "rgba(210, 153, 34, 0.08)" // gap where theirs has content
                   : "rgba(56, 139, 253, 0.08)";
-            } else if (row.kind === "change" || row.kind === "leftOnly" || row.kind === "rightOnly") {
+            } else if (
+              row.kind === "change" ||
+              row.kind === "leftOnly" ||
+              row.kind === "rightOnly"
+            ) {
               if (accent === "ours") {
                 bg = inConflict
                   ? isActive
@@ -453,16 +448,12 @@ function AlignedPane({
                     height: LINE_H,
                   }}
                 >
-                  {isEmpty
-                    ? "\u00a0"
-                    : highlightCodeLine(text, `${accent}-${i}`) || "\u00a0"}
+                  {isEmpty ? "\u00a0" : highlightCodeLine(text, `${accent}-${i}`) || "\u00a0"}
                 </pre>
               </div>
             );
           })}
-          {rows.length === 0 && (
-            <div className="px-3 py-2 text-[11px] text-[#8b909a]">(vazio)</div>
-          )}
+          {rows.length === 0 && <div className="px-3 py-2 text-[11px] text-[#8b909a]">(vazio)</div>}
         </div>
       </div>
     </div>
@@ -510,7 +501,7 @@ function OutputHighlightLayer({
               {isMarker ? (
                 <span className="text-[#d2a8ff]">{row.text || "\u00a0"}</span>
               ) : (
-                ((highlightCodeLine(row.text, `out-${i}`) as ReactNode) || "\u00a0")
+                (highlightCodeLine(row.text, `out-${i}`) as ReactNode) || "\u00a0"
               )}
             </pre>
           </div>

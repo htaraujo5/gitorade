@@ -47,10 +47,7 @@ export function TabBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 border-l border-[#2d3139] px-1">
-        <IconBtn
-          title="Abrir repositório"
-          onClick={() => void openRepositoryDialog()}
-        >
+        <IconBtn title="Abrir repositório" onClick={() => void openRepositoryDialog()}>
           <IconRepos className="h-3.5 w-3.5" />
         </IconBtn>
         <IconBtn title="Preferências" onClick={() => openSettingsTab()}>

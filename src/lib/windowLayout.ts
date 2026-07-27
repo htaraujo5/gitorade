@@ -53,9 +53,7 @@ export async function applySplashWindow(): Promise<void> {
   await safe("maximizable", () => win.setMaximizable(false));
   await safe("minimizable", () => win.setMinimizable(false));
   await safe("minSize", () => win.setMinSize(new LogicalSize(400, 180)));
-  await safe("size", () =>
-    win.setSize(new LogicalSize(SPLASH_SIZE.width, SPLASH_SIZE.height)),
-  );
+  await safe("size", () => win.setSize(new LogicalSize(SPLASH_SIZE.width, SPLASH_SIZE.height)));
   await safe("title", () => win.setTitle("Gitorade"));
   await safe("center", () => win.center());
 }
@@ -67,12 +65,8 @@ export async function applySetupWindow(): Promise<void> {
   await safe("minimizable", () => win.setMinimizable(true));
   await safe("maximizable", () => win.setMaximizable(false));
   await safe("closable", () => win.setClosable(true));
-  await safe("minSize", () =>
-    win.setMinSize(new LogicalSize(SETUP_SIZE.width, SETUP_SIZE.height)),
-  );
-  await safe("size", () =>
-    win.setSize(new LogicalSize(SETUP_SIZE.width, SETUP_SIZE.height)),
-  );
+  await safe("minSize", () => win.setMinSize(new LogicalSize(SETUP_SIZE.width, SETUP_SIZE.height)));
+  await safe("size", () => win.setSize(new LogicalSize(SETUP_SIZE.width, SETUP_SIZE.height)));
   await safe("title", () => win.setTitle("Bem-vindo ao Gitorade"));
   await safe("center", () => win.center());
 }
@@ -91,9 +85,7 @@ export async function applyMainWindow(): Promise<void> {
 
   await safe("minSize-clear", () => win.setMinSize(null));
   await safe("size", () => win.setSize(new LogicalSize(size.width, size.height)));
-  await safe("minSize", () =>
-    win.setMinSize(new LogicalSize(APP_MIN.width, APP_MIN.height)),
-  );
+  await safe("minSize", () => win.setMinSize(new LogicalSize(APP_MIN.width, APP_MIN.height)));
   await safe("title", () => win.setTitle("Gitorade"));
   await safe("center", () => win.center());
   await safe("focus", () => win.setFocus());
@@ -102,9 +94,7 @@ export async function applyMainWindow(): Promise<void> {
     void (async () => {
       await safe("decorations-retry", () => win.setDecorations(false));
       await safe("unmaximize-retry", () => win.unmaximize());
-      await safe("size-retry", () =>
-        win.setSize(new LogicalSize(size.width, size.height)),
-      );
+      await safe("size-retry", () => win.setSize(new LogicalSize(size.width, size.height)));
       await safe("center-retry", () => win.center());
     })();
   }, 80);

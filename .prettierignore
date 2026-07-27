@@ -1,0 +1,20 @@
+# Dependencies & build
+node_modules
+dist
+dist-ssr
+coverage
+
+# Rust / Tauri artifacts
+src-tauri/target
+src-tauri/target-test
+src-tauri/gen
+src-tauri/Cargo.lock
+
+# Lock / generated
+package-lock.json
+
+# Misc
+*.local
+*.log
+.DS_Store
+Thumbs.db

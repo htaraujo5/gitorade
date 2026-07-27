@@ -114,12 +114,8 @@ export function toSplitRows(rows: DiffRow[]): SplitRow[] {
       const d = dels[k];
       const a = adds[k];
       out.push({
-        left: d
-          ? { text: d.text, kind: "del", line: d.oldLine }
-          : null,
-        right: a
-          ? { text: a.text, kind: "add", line: a.newLine }
-          : null,
+        left: d ? { text: d.text, kind: "del", line: d.oldLine } : null,
+        right: a ? { text: a.text, kind: "add", line: a.newLine } : null,
       });
     }
   }

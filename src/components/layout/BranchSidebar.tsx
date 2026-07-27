@@ -2,10 +2,7 @@ import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { IconBranch } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
-import {
-  buildBranchTree,
-  type BranchTreeNode,
-} from "../../lib/branchTree";
+import { buildBranchTree, type BranchTreeNode } from "../../lib/branchTree";
 
 type MenuState = {
   x: number;
@@ -154,12 +151,7 @@ export function BranchSidebar() {
     return items;
   };
 
-  const renderBranch = (
-    fullName: string,
-    label: string,
-    isRemote: boolean,
-    depth: number,
-  ) => {
+  const renderBranch = (fullName: string, label: string, isRemote: boolean, depth: number) => {
     const b = branches.find((x) => x.name === fullName);
     const isCurrent = Boolean(b?.isCurrent);
     return (
@@ -190,11 +182,7 @@ export function BranchSidebar() {
             isCurrent,
           });
         }}
-        onDragStart={
-          isRemote
-            ? undefined
-            : () => setDragging(fullName)
-        }
+        onDragStart={isRemote ? undefined : () => setDragging(fullName)}
         onDragEnd={
           isRemote
             ? undefined
@@ -205,9 +193,7 @@ export function BranchSidebar() {
         }
         onDragOver={isRemote ? undefined : () => setDragOver(fullName)}
         onDragLeave={
-          isRemote
-            ? undefined
-            : () => setDragOver((cur) => (cur === fullName ? null : cur))
+          isRemote ? undefined : () => setDragOver((cur) => (cur === fullName ? null : cur))
         }
         onDrop={
           isRemote
@@ -246,9 +232,7 @@ export function BranchSidebar() {
             <Chevron open={open} />
             <IconFolder className="h-3 w-3 shrink-0 opacity-70" />
             <span className="min-w-0 flex-1 truncate font-medium">{node.name}</span>
-            <span className="tabular-nums text-[9px] text-[#5c6370]">
-              {node.count}
-            </span>
+            <span className="tabular-nums text-[9px] text-[#5c6370]">{node.count}</span>
           </button>
           {open && renderTree(node.children, key, isRemote, depth + 1)}
         </div>
@@ -322,11 +306,7 @@ export function BranchSidebar() {
           {renderTree(localTree, "local", false, 0)}
         </Group>
 
-        <Group
-          title="REMOTE"
-          open={remoteOpen}
-          onToggle={() => setRemoteOpen((v) => !v)}
-        >
+        <Group title="REMOTE" open={remoteOpen} onToggle={() => setRemoteOpen((v) => !v)}>
           {remotes.length === 0 ? (
             <div className="space-y-1 px-2.5 py-1.5 text-[10px] leading-snug text-[#5c6370]">
               <p>Nenhum remote no .git/config deste repo.</p>
@@ -375,12 +355,7 @@ export function BranchSidebar() {
       </div>
 
       {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={menuItems(menu)}
-          onClose={() => setMenu(null)}
-        />
+        <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu)} onClose={() => setMenu(null)} />
       )}
     </aside>
   );
@@ -538,9 +513,7 @@ function Group({
       >
         <Chevron open={open} />
         <span className="flex-1 text-left uppercase">{title}</span>
-        {count !== undefined && (
-          <span className="tabular-nums text-[#6b7280]">{count}</span>
-        )}
+        {count !== undefined && <span className="tabular-nums text-[#6b7280]">{count}</span>}
       </button>
       {open && children}
     </div>

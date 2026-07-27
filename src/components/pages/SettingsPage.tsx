@@ -12,14 +12,7 @@ import {
 } from "../Icons";
 
 type SectionId =
-  | "general"
-  | "appearance"
-  | "git"
-  | "terminal"
-  | "identity"
-  | "ssh"
-  | "plugins"
-  | "about";
+  "general" | "appearance" | "git" | "terminal" | "identity" | "ssh" | "plugins" | "about";
 
 const sections: { id: SectionId; label: string; icon: ReactNode }[] = [
   { id: "general", label: "Geral", icon: <IconSettings className="h-3.5 w-3.5" /> },
@@ -190,7 +183,7 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
                 <p>
                   {health?.git.available
                     ? `Disponível · ${health.git.version ?? "versão desconhecida"}`
-                    : health?.git.message ?? "Git não encontrado"}
+                    : (health?.git.message ?? "Git não encontrado")}
                 </p>
                 {health?.git.path && (
                   <p className="mt-1 font-mono text-[11px] text-[#6b7280]">{health.git.path}</p>
@@ -439,19 +432,10 @@ function AboutSection() {
   return (
     <>
       <div className="flex flex-col items-center gap-4 self-center text-center">
-        <img
-          src={logo}
-          alt=""
-          className="h-28 w-28 object-contain"
-          aria-hidden
-        />
+        <img src={logo} alt="" className="h-28 w-28 object-contain" aria-hidden />
         <div>
-          <div className="text-[28px] font-semibold tracking-tight text-[#f0f1f4]">
-            gitorade
-          </div>
-          <p className="mt-1 text-[14px] text-[#8b909a]">
-            Seu Git. Seu fluxo. Seu jeito.
-          </p>
+          <div className="text-[28px] font-semibold tracking-tight text-[#f0f1f4]">gitorade</div>
+          <p className="mt-1 text-[14px] text-[#8b909a]">Seu Git. Seu fluxo. Seu jeito.</p>
         </div>
       </div>
       <InfoCard title="Versões">

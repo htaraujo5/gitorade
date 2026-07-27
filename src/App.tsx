@@ -5,12 +5,7 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { CredentialsPage } from "./components/pages/CredentialsPage";
 import { RepoListPage } from "./components/pages/AppPages";
-import {
-  AboutPage,
-  PluginsPage,
-  SettingsPage,
-  SshKeysPage,
-} from "./components/pages/SettingsPage";
+import { AboutPage, PluginsPage, SettingsPage, SshKeysPage } from "./components/pages/SettingsPage";
 import { OperationOverlay } from "./components/OperationOverlay";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
@@ -22,11 +17,7 @@ import { BootSplash } from "./components/BootSplash";
 import { AlertModal } from "./components/AlertModal";
 import { FeedbackModal } from "./components/FeedbackModal";
 import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
-import {
-  applyMainWindow,
-  applySetupWindow,
-  applySplashWindow,
-} from "./lib/windowLayout";
+import { applyMainWindow, applySetupWindow, applySplashWindow } from "./lib/windowLayout";
 
 function App() {
   const bootstrap = useAppStore((s) => s.bootstrap);
@@ -54,9 +45,7 @@ function App() {
   const onboardingComplete = usePrefsStore((s) => s.onboardingComplete);
   const setPref = usePrefsStore((s) => s.setPref);
 
-  const [prefsReady, setPrefsReady] = useState(() =>
-    usePrefsStore.persist.hasHydrated(),
-  );
+  const [prefsReady, setPrefsReady] = useState(() => usePrefsStore.persist.hasHydrated());
   const [setupDone, setSetupDone] = useState(false);
   const [splashProgress, setSplashProgress] = useState(0.15);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -147,21 +136,11 @@ function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [
-    commit,
-    openRepositoryDialog,
-    setTerminalOpen,
-    terminalOpen,
-    needsOnboarding,
-    booting,
-  ]);
+  }, [commit, openRepositoryDialog, setTerminalOpen, terminalOpen, needsOnboarding, booting]);
 
   if (booting) {
     return (
-      <BootSplash
-        message={prefsReady ? "Carregando…" : "Iniciando…"}
-        progress={splashProgress}
-      />
+      <BootSplash message={prefsReady ? "Carregando…" : "Iniciando…"} progress={splashProgress} />
     );
   }
 
@@ -184,14 +163,11 @@ function App() {
     );
   }
 
-  const activeTab =
-    shellTabs.find((t) => t.id === activeShellTabId) ?? shellTabs[0] ?? null;
+  const activeTab = shellTabs.find((t) => t.id === activeShellTabId) ?? shellTabs[0] ?? null;
   const inRepo = activeTab?.kind === "repo" && Boolean(activeRepoId);
   const repo = repositories.find((r) => r.id === activeRepoId);
   const showSidebar =
-    activeTab?.kind === "start" ||
-    appView === "repositories" ||
-    appView === "favorites";
+    activeTab?.kind === "start" || appView === "repositories" || appView === "favorites";
 
   let main: ReactNode = null;
   if (appView === "dashboard") main = <Dashboard />;
@@ -219,9 +195,7 @@ function App() {
                 <span className="text-[#c8ccd4]">{repo?.name}</span>
                 <span className="text-[#3dd68c]">{status?.branch ?? "—"}</span>
                 <span>
-                  {remotes.length === 0
-                    ? "sem remote"
-                    : remotes.map((r) => r.name).join(", ")}
+                  {remotes.length === 0 ? "sem remote" : remotes.map((r) => r.name).join(", ")}
                 </span>
                 {status?.upstream && (
                   <span className="font-mono">
@@ -239,9 +213,7 @@ function App() {
                 >
                   <IconTerminal className="h-3.5 w-3.5" />
                   Terminal
-                  <kbd className="rounded border border-[#2d3139] px-0.5 text-[8px]">
-                    Ctrl+`
-                  </kbd>
+                  <kbd className="rounded border border-[#2d3139] px-0.5 text-[8px]">Ctrl+`</kbd>
                 </button>
                 <span>v{health?.appVersion ?? "0.1.0"}</span>
               </div>
@@ -251,7 +223,10 @@ function App() {
           <div className="flex min-h-0 flex-1 overflow-hidden">
             {showSidebar && <Sidebar />}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              <main aria-label="Área de trabalho" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+              <main
+                aria-label="Área de trabalho"
+                className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+              >
                 {main}
               </main>
             </div>

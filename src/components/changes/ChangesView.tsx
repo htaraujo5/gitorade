@@ -27,9 +27,7 @@ export function ChangesView() {
 
   const repo = repositories.find((r) => r.id === activeRepoId);
   const activeProfile =
-    profiles.find((p) => p.id === commitOverrideProfileId) ??
-    repo?.activeProfile ??
-    null;
+    profiles.find((p) => p.id === commitOverrideProfileId) ?? repo?.activeProfile ?? null;
   const stagedCount = status?.staged.length ?? 0;
 
   return (
@@ -69,9 +67,7 @@ export function ChangesView() {
             diffText={diffText}
             stagedCount={stagedCount}
             unstagedCount={status?.unstaged.length ?? 0}
-            lastCommitLabel={
-              lastCommit ? `${lastCommit.hash} · ${lastCommit.authorName}` : null
-            }
+            lastCommitLabel={lastCommit ? `${lastCommit.hash} · ${lastCommit.authorName}` : null}
           />
         </div>
 
@@ -80,9 +76,7 @@ export function ChangesView() {
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="text-text-muted">Identidade</span>
             {activeProfile && (
-              <span className="rounded-full bg-success/20 px-2 py-0.5 text-success">
-                Active
-              </span>
+              <span className="rounded-full bg-success/20 px-2 py-0.5 text-success">Active</span>
             )}
           </div>
           <select
@@ -174,8 +168,7 @@ function FileGroup({
       ) : (
         <ul className="space-y-0.5">
           {files.map((file) => {
-            const isSelected =
-              selected?.path === file.path && selected.staged === file.staged;
+            const isSelected = selected?.path === file.path && selected.staged === file.staged;
             return (
               <li
                 key={`${file.staged}-${file.path}`}

@@ -41,13 +41,7 @@ export type CheckoutPrompt = {
 
 /** GitKraken-style shell tabs (repos + Start + settings pages). */
 export type ShellTabKind =
-  | "start"
-  | "repo"
-  | "settings"
-  | "credentials"
-  | "about"
-  | "ssh"
-  | "plugins";
+  "start" | "repo" | "settings" | "credentials" | "about" | "ssh" | "plugins";
 
 export type ShellTab = {
   id: string;
@@ -235,11 +229,7 @@ function errMsg(err: unknown): string {
 
 async function performCheckout(
   get: () => AppState,
-  set: (
-    partial:
-      | Partial<AppState>
-      | ((state: AppState) => Partial<AppState>),
-  ) => void,
+  set: (partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)) => void,
   target: string,
   mode: CheckoutDirtyMode,
 ): Promise<void> {
@@ -273,8 +263,7 @@ async function performCheckout(
       get().refreshStash(),
     ]);
     // After checkout, jump graph to the tip of the current branch (or the hash).
-    const tipName =
-      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? target;
+    const tipName = get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? target;
     if (/^[0-9a-f]{7,40}$/i.test(target)) {
       await get().selectCommit(target);
     } else {
@@ -377,9 +366,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             ...current,
             percent: p.percent ?? current.percent,
             lines:
-              p.stream === "system"
-                ? current.lines
-                : [...current.lines.slice(-200), p.message],
+              p.stream === "system" ? current.lines : [...current.lines.slice(-200), p.message],
             done: p.done ? true : current.done,
             success: p.success ?? current.success,
           },
@@ -390,7 +377,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const health = await api.getAppHealth();
       set({ health });
       await Promise.all([get().refreshRepositories(), get().refreshProfiles()]);
-      set({ bootLoading: false, appView: "dashboard", shellTabs: [START_TAB], activeShellTabId: START_TAB.id });
+      set({
+        bootLoading: false,
+        appView: "dashboard",
+        shellTabs: [START_TAB],
+        activeShellTabId: START_TAB.id,
+      });
     } catch (err) {
       set({ bootLoading: false, bootError: errMsg(err) });
     }
@@ -407,9 +399,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const stillValid = current && profiles.some((p) => p.id === current);
     set({
       profiles,
-      commitOverrideProfileId: stillValid
-        ? current
-        : (profiles[0]?.id ?? null),
+      commitOverrideProfileId: stillValid ? current : (profiles[0]?.id ?? null),
     });
   },
 
@@ -474,24 +464,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedCommitFile: null,
       commitFileContent: "",
       commitOverrideProfileId:
-        repo?.defaultProfileId ??
-        get().commitOverrideProfileId ??
-        get().profiles[0]?.id ??
-        null,
+        repo?.defaultProfileId ?? get().commitOverrideProfileId ?? get().profiles[0]?.id ?? null,
     });
     try {
       // Critical path for first paint — remotes/stash can fill in after overlay closes.
-      await Promise.all([
-        get().refreshStatus(),
-        get().refreshHistory(),
-        get().refreshBranches(),
-      ]);
+      await Promise.all([get().refreshStatus(), get().refreshHistory(), get().refreshBranches()]);
       set({
         selectedCommitHash: null,
         commitFiles: [],
-        terminalOpen: usePrefsStore.getState().terminalOpenByDefault
-          ? true
-          : get().terminalOpen,
+        terminalOpen: usePrefsStore.getState().terminalOpenByDefault ? true : get().terminalOpen,
         openingRepoName: null,
       });
       void get().refreshRemotes();
@@ -686,8 +667,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetToCommit: async (commit, mode) => {
     const id = get().activeRepoId;
     if (!id) return;
-    const branch =
-      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? "HEAD";
+    const branch = get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? "HEAD";
     const labels = {
       soft: "Soft (mantém index e working tree)",
       mixed: "Mixed (mantém working tree, limpa index)",
@@ -720,9 +700,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   revertCommit: async (commit) => {
     const id = get().activeRepoId;
     if (!id) return;
-    const ok = window.confirm(
-      `Criar commit de revert para ${commit.slice(0, 7)}?`,
-    );
+    const ok = window.confirm(`Criar commit de revert para ${commit.slice(0, 7)}?`);
     if (!ok) return;
     set({ busy: true, error: null });
     try {
@@ -740,8 +718,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = name.trim();
     if (!target) return;
 
-    const current =
-      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
+    const current = get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
     if (current === target) {
       set({ selectedBranchName: target });
       await get().focusBranchInGraph(target);
@@ -750,8 +727,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     await get().refreshStatus();
     const status = get().status;
-    const changeCount =
-      (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+    const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
     if (changeCount > 0) {
       set({ checkoutPrompt: { target, changeCount }, error: null });
       return;
@@ -773,8 +749,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     await get().refreshStatus();
     const status = get().status;
-    const changeCount =
-      (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+    const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
     if (changeCount > 0) {
       set({ checkoutPrompt: { target, changeCount }, error: null });
       return;
@@ -1298,7 +1273,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         return;
       }
       get().openStartTab();
-      set({ });
+      set({});
       return;
     }
     // repositories / favorites / ssh / plugins — open Start and set view
@@ -1464,17 +1439,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const repo = get().repositories.find((r) => r.id === repoId);
     const profile =
       profiles.find((p) => p.id === overrideId) ??
-      (repo?.defaultProfileId
-        ? profiles.find((p) => p.id === repo.defaultProfileId)
-        : undefined) ??
+      (repo?.defaultProfileId ? profiles.find((p) => p.id === repo.defaultProfileId) : undefined) ??
       repo?.activeProfile ??
       profiles[0] ??
       null;
 
     if (!profile) {
       set({
-        error:
-          "Selecione um perfil no menu do canto superior direito antes do commit.",
+        error: "Selecione um perfil no menu do canto superior direito antes do commit.",
       });
       return;
     }
@@ -1587,11 +1559,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         profileId: get().commitOverrideProfileId,
       });
       set({ status });
-      await Promise.all([
-        get().refreshStatus(),
-        get().refreshHistory(),
-        get().refreshBranches(),
-      ]);
+      await Promise.all([get().refreshStatus(), get().refreshHistory(), get().refreshBranches()]);
     } catch (err) {
       set({ error: errMsg(err) });
     }
@@ -1653,7 +1621,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!op || op.done) return;
     try {
       await api.cancelOperation(op.id);
-      set({ });
+      set({});
     } catch (err) {
       set({ error: errMsg(err) });
     }

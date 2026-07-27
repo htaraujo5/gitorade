@@ -27,8 +27,7 @@ export function Dashboard() {
     const q = query.trim().toLowerCase();
     if (!q) return repositories;
     return repositories.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q),
+      (r) => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q),
     );
   }, [repositories, query]);
 
@@ -71,11 +70,7 @@ export function Dashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <ActionBtn
-              disabled={busy}
-              onClick={() => setCloneOpen((v) => !v)}
-              secondary
-            >
+            <ActionBtn disabled={busy} onClick={() => setCloneOpen((v) => !v)} secondary>
               Clonar
             </ActionBtn>
             <ActionBtn disabled={busy} onClick={() => void initRepositoryDialog()} secondary>
@@ -202,12 +197,8 @@ export function Dashboard() {
                       {repo.name.slice(0, 1).toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] text-[#e8eaed]">
-                        {repo.name}
-                      </span>
-                      <span className="block truncate text-[11px] text-[#5c6370]">
-                        {repo.path}
-                      </span>
+                      <span className="block truncate text-[13px] text-[#e8eaed]">{repo.name}</span>
+                      <span className="block truncate text-[11px] text-[#5c6370]">{repo.path}</span>
                     </span>
                   </button>
                   <span className="hidden shrink-0 font-mono text-[11px] text-[#3dd68c] sm:inline">
@@ -270,13 +261,7 @@ function EmptyState({
   );
 }
 
-function SectionTitle({
-  children,
-  icon,
-}: {
-  children: ReactNode;
-  icon: ReactNode;
-}) {
+function SectionTitle({ children, icon }: { children: ReactNode; icon: ReactNode }) {
   return (
     <h2 className="mb-2.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[#6b7280]">
       {icon}

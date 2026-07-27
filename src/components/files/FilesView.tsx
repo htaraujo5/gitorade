@@ -39,9 +39,7 @@ export function FilesView() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <span className="shrink-0 text-xs text-text-muted">
-          {filtered.length} arquivos
-        </span>
+        <span className="shrink-0 text-xs text-text-muted">{filtered.length} arquivos</span>
       </div>
       {loading && <p className="shrink-0 text-sm text-text-muted">Carregando…</p>}
       {error && <p className="shrink-0 text-sm text-danger">{error}</p>}

@@ -2,11 +2,7 @@ import { useMemo, useRef, useEffect, useState, type MouseEvent } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
 import type { CommitSummary } from "../../lib/api";
-import {
-  checkoutTargetFromRef,
-  commitHasBranch,
-  normalizeRefLabel,
-} from "../../lib/branchGraph";
+import { checkoutTargetFromRef, commitHasBranch, normalizeRefLabel } from "../../lib/branchGraph";
 import { IconClose, IconSearch } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "../layout/ContextMenu";
 
@@ -110,9 +106,7 @@ function GraphColumn({
                 const px = GRAPH_PAD + parent.lane * LANE_W;
                 const py = pRow * ROW_H + ROW_H / 2;
                 const stroke =
-                  LANE_COLORS[
-                    (idx === 0 ? commit.lane : parent.lane) % LANE_COLORS.length
-                  ];
+                  LANE_COLORS[(idx === 0 ? commit.lane : parent.lane) % LANE_COLORS.length];
                 const midY = (cy + py) / 2;
                 return (
                   <path
@@ -149,11 +143,7 @@ function GraphColumn({
             }}
           >
             {showAvatars ? (
-              <AuthorAvatar
-                name={commit.authorName}
-                email={commit.authorEmail}
-                size={size - 3}
-              />
+              <AuthorAvatar name={commit.authorName} email={commit.authorEmail} size={size - 3} />
             ) : (
               <span
                 className="h-full w-full rounded-full"
@@ -167,13 +157,7 @@ function GraphColumn({
   );
 }
 
-function Stat({
-  kind,
-  n,
-}: {
-  kind: "add" | "mod" | "del";
-  n: number;
-}) {
+function Stat({ kind, n }: { kind: "add" | "mod" | "del"; n: number }) {
   if (n <= 0) return null;
   const color =
     kind === "add" ? "text-[#3dd68c]" : kind === "del" ? "text-[#f85149]" : "text-[#e3b341]";
@@ -232,18 +216,12 @@ export function GraphView() {
     const remap = new Map(used.map((lane, i) => [lane, i]));
     return raw.map((c) => ({ ...c, lane: remap.get(c.lane) ?? 0 }));
   }, [filteredCommits, graph]);
-  const maxLane = useMemo(
-    () => commits.reduce((m, c) => Math.max(m, c.lane), 0),
-    [commits],
-  );
+  const maxLane = useMemo(() => commits.reduce((m, c) => Math.max(m, c.lane), 0), [commits]);
   const graphW = Math.max((maxLane + 1) * LANE_W + GRAPH_PAD * 2, 28);
-  const changeCount =
-    (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+  const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
   const added =
-    (status?.staged.filter((f) => f.status === "added" || f.status === "untracked")
-      .length ?? 0) +
-    (status?.unstaged.filter((f) => f.status === "added" || f.status === "untracked")
-      .length ?? 0);
+    (status?.staged.filter((f) => f.status === "added" || f.status === "untracked").length ?? 0) +
+    (status?.unstaged.filter((f) => f.status === "added" || f.status === "untracked").length ?? 0);
   const deleted =
     (status?.staged.filter((f) => f.status === "deleted").length ?? 0) +
     (status?.unstaged.filter((f) => f.status === "deleted").length ?? 0);
@@ -283,8 +261,7 @@ export function GraphView() {
 
   const goResult = (dir: -1 | 1) => {
     if (!filteredCommits || filteredCommits.length === 0) return;
-    const next =
-      (resultIndex + dir + filteredCommits.length) % filteredCommits.length;
+    const next = (resultIndex + dir + filteredCommits.length) % filteredCommits.length;
     setResultIndex(next);
     void selectCommit(filteredCommits[next].hash);
   };
@@ -309,8 +286,7 @@ export function GraphView() {
     void checkoutCommit(hash);
   };
 
-  const currentBranch =
-    status?.branch ?? "HEAD";
+  const currentBranch = status?.branch ?? "HEAD";
   const hasRemote = remotes.length > 0;
   const originUrl =
     remotes.find((r) => r.name === "origin")?.fetchUrl ??
@@ -359,10 +335,7 @@ export function GraphView() {
         label: "Create branch here…",
         disabled: busy,
         onClick: () => {
-          const name = window.prompt(
-            `Nova branch a partir de ${short}:`,
-            `from-${short}`,
-          );
+          const name = window.prompt(`Nova branch a partir de ${short}:`, `from-${short}`);
           if (!name?.trim()) return;
           void createBranch(name.trim(), true, commit.hash);
         },
@@ -535,7 +508,10 @@ export function GraphView() {
               <span className="font-mono text-[11px] font-normal text-[#e3b341]">// WIP</span>
             )}
           </div>
-          <div className="relative flex shrink-0 items-center justify-center" style={{ width: graphW }}>
+          <div
+            className="relative flex shrink-0 items-center justify-center"
+            style={{ width: graphW }}
+          >
             {hasConflicts ? (
               <>
                 <span className="inline-block h-[12px] w-[12px] rounded-full border-2 border-[#e3b341] bg-[#e3b341]/35" />
@@ -591,10 +567,8 @@ export function GraphView() {
               >
                 {commit.refs.slice(0, 3).map((refName) => {
                   const label = shortRef(refName);
-                  const isLocalHead =
-                    status?.branch === label && !refName.includes("remotes/");
-                  const isSelectedTip =
-                    Boolean(selectedBranchName) && label === selectedBranchName;
+                  const isLocalHead = status?.branch === label && !refName.includes("remotes/");
+                  const isSelectedTip = Boolean(selectedBranchName) && label === selectedBranchName;
                   return (
                     <button
                       key={refName}
@@ -629,8 +603,7 @@ export function GraphView() {
             {commits.map((commit) => {
               const isSel = commit.hash === selectedCommitHash;
               const isBranchTip =
-                Boolean(selectedBranchName) &&
-                commitHasBranch(commit, selectedBranchName!);
+                Boolean(selectedBranchName) && commitHasBranch(commit, selectedBranchName!);
               return (
                 <li
                   key={commit.hash}

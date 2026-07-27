@@ -28,10 +28,7 @@ type BranchLike = { name: string };
  * @param stripPrefix optional prefix to remove before splitting
  *   (e.g. "origin/" for remote-tracking branches)
  */
-export function buildBranchTree(
-  branches: BranchLike[],
-  stripPrefix = "",
-): BranchTreeNode[] {
+export function buildBranchTree(branches: BranchLike[], stripPrefix = ""): BranchTreeNode[] {
   type Mutable = {
     folders: Map<string, Mutable>;
     leaves: BranchLeaf[];
@@ -73,10 +70,7 @@ export function buildBranchTree(
       .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base" }))
       .map(([name, child]) => {
         const children = toNodes(child);
-        const count = children.reduce(
-          (n, c) => n + (c.kind === "folder" ? c.count : 1),
-          0,
-        );
+        const count = children.reduce((n, c) => n + (c.kind === "folder" ? c.count : 1), 0);
         return { kind: "folder" as const, name, children, count };
       });
 

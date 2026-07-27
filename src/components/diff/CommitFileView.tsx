@@ -26,9 +26,7 @@ export function CommitFileView() {
     busy,
   } = useAppStore();
 
-  const [layout, setLayout] = useState<"unified" | "split">(
-    usePrefsStore.getState().diffLayout,
-  );
+  const [layout, setLayout] = useState<"unified" | "split">(usePrefsStore.getState().diffLayout);
   const commits = filteredCommits ?? graph?.commits ?? [];
   const selected = commits.find((c) => c.hash === selectedCommitHash);
   const fileIdx = commitFiles.findIndex((f) => f.path === selectedCommitFile);
@@ -221,9 +219,7 @@ function UnifiedView({ rows }: { rows: ReturnType<typeof parseUnifiedDiff> }) {
             {row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "}
           </span>
           {row.kind === "hunk" || row.kind === "meta" ? (
-            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">
-              {row.text || " "}
-            </span>
+            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">{row.text || " "}</span>
           ) : (
             <CodeLine text={row.text} lineKey={`u-${i}`} />
           )}

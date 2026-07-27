@@ -52,10 +52,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-start gap-3 border-b border-[#2d3139] px-4 py-3">
           <img src={logo} alt="" className="mt-0.5 h-8 w-8 object-contain" />
           <div className="min-w-0 flex-1">
-            <h2
-              id="feedback-title"
-              className="text-[15px] font-semibold text-[#f0f1f4]"
-            >
+            <h2 id="feedback-title" className="text-[15px] font-semibold text-[#f0f1f4]">
               Feedback
             </h2>
             <p className="mt-0.5 text-[12px] text-[#8b909a]">

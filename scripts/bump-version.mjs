@@ -48,9 +48,7 @@ function format({ major, minor, patch }) {
 function bumpVersion(current, kind) {
   const level = BUMP[kind];
   if (!level) {
-    throw new Error(
-      `Unknown bump "${kind}". Use: fix | hotfix | release (or patch|minor|major)`,
-    );
+    throw new Error(`Unknown bump "${kind}". Use: fix | hotfix | release (or patch|minor|major)`);
   }
   const v = parseSemver(current);
   if (level === "major") return format({ major: v.major + 1, minor: 0, patch: 0 });
@@ -103,7 +101,10 @@ function detectBumpFromGit() {
     });
   }
 
-  const lines = log.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const lines = log
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   let found = null; // patch | minor | major
   for (const line of lines) {
     const lower = line.toLowerCase();
@@ -116,17 +117,10 @@ function detectBumpFromGit() {
       found = "major";
       break;
     }
-    if (
-      /^(hotfix|feat|minor)(\(.+\))?\s*:/.test(lower) &&
-      found !== "major"
-    ) {
+    if (/^(hotfix|feat|minor)(\(.+\))?\s*:/.test(lower) && found !== "major") {
       found = "minor";
     }
-    if (
-      /^(fix|patch)(\(.+\))?\s*:/.test(lower) &&
-      found !== "major" &&
-      found !== "minor"
-    ) {
+    if (/^(fix|patch)(\(.+\))?\s*:/.test(lower) && found !== "major" && found !== "minor") {
       found = "patch";
     }
   }

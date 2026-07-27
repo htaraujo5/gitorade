@@ -47,8 +47,7 @@ export function RepoToolbar() {
   const opRunning = Boolean(operation && !operation.done);
   const disabled = !repo || busy || opRunning;
   const localBranches = branches.filter((b) => !b.isRemote);
-  const changeCount =
-    (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+  const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
   const conflictCount = status?.conflicts?.length ?? 0;
 
   return (
@@ -315,9 +314,7 @@ function HeaderSelect({
                   }}
                 >
                   <span className="truncate">{opt.label}</span>
-                  {selected && (
-                    <span className="ml-auto pl-2 text-[10px] text-[#3dd68c]">✓</span>
-                  )}
+                  {selected && <span className="ml-auto pl-2 text-[10px] text-[#3dd68c]">✓</span>}
                 </button>
               );
             })

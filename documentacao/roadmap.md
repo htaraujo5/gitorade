@@ -8,16 +8,16 @@ Aplicativo desktop Windows local-first para Git, com **múltiplas identidades** 
 
 ## Stack vigente
 
-| Área | Escolha |
-|------|---------|
-| Shell | Tauri 2 |
-| UI | React + TypeScript + Vite |
-| Estado UI | Zustand |
-| Validação | Zod |
-| Estilo | TailwindCSS + tokens do styleguide |
-| Git | CLI Git via adapter Rust |
-| Persistência | SQLite (backend) |
-| Segredos | Windows Credential Manager / SSH Agent / GCM |
+| Área         | Escolha                                      |
+| ------------ | -------------------------------------------- |
+| Shell        | Tauri 2                                      |
+| UI           | React + TypeScript + Vite                    |
+| Estado UI    | Zustand                                      |
+| Validação    | Zod                                          |
+| Estilo       | TailwindCSS + tokens do styleguide           |
+| Git          | CLI Git via adapter Rust                     |
+| Persistência | SQLite (backend)                             |
+| Segredos     | Windows Credential Manager / SSH Agent / GCM |
 
 ## Fases
 

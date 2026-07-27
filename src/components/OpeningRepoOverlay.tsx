@@ -21,9 +21,7 @@ export function OpeningRepoOverlay({ name }: { name: string }) {
         </div>
         <p className="text-[14px] font-normal tracking-wide text-[#e8eaed]">
           Opening repo
-          {name ? (
-            <span className="text-[#8b909a]"> · {name}</span>
-          ) : null}
+          {name ? <span className="text-[#8b909a]"> · {name}</span> : null}
         </p>
       </div>
     </div>

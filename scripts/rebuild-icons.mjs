@@ -67,9 +67,7 @@ async function toTransparentGlyph(inputPath) {
   maxX = Math.min(width - 1, maxX + pad);
   maxY = Math.min(height - 1, maxY + pad);
 
-  console.log(
-    `Glyph ${maxX - minX + 1}x${maxY - minY + 1} (transparent) from ${width}x${height}`,
-  );
+  console.log(`Glyph ${maxX - minX + 1}x${maxY - minY + 1} (transparent) from ${width}x${height}`);
 
   return sharp(out, { raw: { width, height, channels: 4 } })
     .extract({
@@ -271,7 +269,9 @@ async function main() {
   );
 
   await writeNsisAssets(glyph);
-  console.log("Done. Fully quit Gitorade (and restart Explorer if needed) to refresh taskbar icon.");
+  console.log(
+    "Done. Fully quit Gitorade (and restart Explorer if needed) to refresh taskbar icon.",
+  );
 }
 
 main().catch((err) => {

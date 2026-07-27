@@ -9,9 +9,7 @@ type BrandMarkProps = {
 
 export function BrandMark({ compact = false, lockup = false }: BrandMarkProps) {
   if (lockup) {
-    return (
-      <img src={brand} alt="gitorade" className="h-12 w-auto object-contain" />
-    );
+    return <img src={brand} alt="gitorade" className="h-12 w-auto object-contain" />;
   }
 
   return (
@@ -19,11 +17,7 @@ export function BrandMark({ compact = false, lockup = false }: BrandMarkProps) {
       <img
         src={logo}
         alt=""
-        className={
-          compact
-            ? "h-11 w-11 object-contain"
-            : "h-14 w-14 object-contain"
-        }
+        className={compact ? "h-11 w-11 object-contain" : "h-14 w-14 object-contain"}
         aria-hidden
       />
       <div className="leading-tight">
