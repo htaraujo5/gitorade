@@ -59,16 +59,10 @@ export const usePrefsStore = create<PrefsState>()(
     }),
     {
       name: "gitorade-prefs",
-      partialize: (state) => {
-        const {
-          prefsSavedAt: _flash,
-          setPref: _set,
-          resetPrefs: _reset,
-          clearPrefsSaved: _clear,
-          ...prefs
-        } = state;
-        return prefs;
-      },
+      partialize: (state) =>
+        Object.fromEntries(
+          (Object.keys(defaults) as (keyof AppPrefs)[]).map((key) => [key, state[key]]),
+        ) as AppPrefs,
     },
   ),
 );

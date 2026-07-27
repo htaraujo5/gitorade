@@ -17,7 +17,7 @@ export function ConflictSidePanel() {
   } = useAppStore();
 
   const inProgress = status?.inProgress ?? null;
-  const conflicts = status?.conflicts ?? [];
+  const conflicts = useMemo(() => status?.conflicts ?? [], [status?.conflicts]);
   const resolved = useMemo(
     () => resolvedConflictPaths.filter((p) => !conflicts.includes(p)),
     [resolvedConflictPaths, conflicts],
