@@ -214,6 +214,13 @@ pub struct BranchInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TagInfo {
+    pub name: String,
+    pub tip_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StashEntry {
     pub index: u32,
     pub selector: String,

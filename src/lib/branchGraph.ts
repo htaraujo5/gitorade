@@ -5,6 +5,7 @@ export function normalizeRefLabel(ref: string): string {
   let s = ref.trim();
   s = s.replace(/^HEAD ->\s*/, "");
   s = s.replace(/^refs\/(heads|remotes|tags)\//, "");
+  s = s.replace(/^remotes\//, "");
   if (s.startsWith("tag: ")) s = s.slice(5).trim();
   return s;
 }

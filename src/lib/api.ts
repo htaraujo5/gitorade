@@ -129,6 +129,11 @@ export const branchInfoSchema = z.object({
   tipHash: z.string().nullable().optional(),
 });
 
+export const tagInfoSchema = z.object({
+  name: z.string(),
+  tipHash: z.string().nullable().optional(),
+});
+
 export const stashEntrySchema = z.object({
   index: z.number(),
   selector: z.string(),
@@ -154,6 +159,7 @@ export type ProgressEvent = z.infer<typeof progressEventSchema>;
 export type CommitSummary = z.infer<typeof commitSummarySchema>;
 export type CommitGraph = z.infer<typeof commitGraphSchema>;
 export type BranchInfo = z.infer<typeof branchInfoSchema>;
+export type TagInfo = z.infer<typeof tagInfoSchema>;
 export type StashEntry = z.infer<typeof stashEntrySchema>;
 export type UpstreamStatus = z.infer<typeof upstreamStatusSchema>;
 
@@ -358,6 +364,10 @@ export async function getFileAtCommit(
 
 export async function listBranches(repositoryId: string): Promise<BranchInfo[]> {
   return z.array(branchInfoSchema).parse(await invoke("list_branches", { repositoryId }));
+}
+
+export async function listTags(repositoryId: string): Promise<TagInfo[]> {
+  return z.array(tagInfoSchema).parse(await invoke("list_tags", { repositoryId }));
 }
 
 export async function createBranch(

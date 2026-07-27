@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::domain::{BranchInfo, UpstreamStatus};
+use crate::domain::{BranchInfo, TagInfo, UpstreamStatus};
 use crate::error::{AppError, AppResult};
 use crate::git::path_guard::reject_option_like;
 use crate::git::run_git;
@@ -65,6 +65,40 @@ pub fn list_branches(path: &Path) -> AppResult<Vec<BranchInfo>> {
     });
 
     Ok(branches)
+}
+
+pub fn list_tags(path: &Path) -> AppResult<Vec<TagInfo>> {
+    let raw = run_git(
+        &[
+            "for-each-ref",
+            "--sort=-creatordate",
+            "--format=%(refname:short)%00%(objectname:short)",
+            "refs/tags",
+        ],
+        Some(path),
+    )?;
+
+    let mut tags = Vec::new();
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\0').collect();
+        if parts.is_empty() || parts[0].is_empty() {
+            continue;
+        }
+        let tip_hash = parts
+            .get(1)
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        tags.push(TagInfo {
+            name: parts[0].to_string(),
+            tip_hash,
+        });
+    }
+    Ok(tags)
 }
 
 fn parse_track(track: &str) -> (Option<u32>, Option<u32>) {

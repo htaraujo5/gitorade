@@ -170,14 +170,15 @@ select {
   }
 }
 
-/* xterm — match panel chrome (GitKraken-like) */
+/* xterm — fill host; padding lives on .gk-term wrapper */
 .gk-term .xterm {
-  padding: 4px 8px 8px;
   height: 100%;
+  width: 100%;
 }
 
 .gk-term .xterm-viewport {
   overflow-y: auto !important;
+  background-color: transparent !important;
 }
 
 .gk-term .xterm-screen {

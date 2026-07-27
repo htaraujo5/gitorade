@@ -14,6 +14,7 @@ import type {
   RepoStatus,
   Repository,
   StashEntry,
+  TagInfo,
 } from "../lib/api";
 import * as api from "../lib/api";
 import { progressEventSchema } from "../lib/api";
@@ -120,6 +121,7 @@ type AppState = {
   commitSearchOpen: boolean;
   filteredCommits: CommitSummary[] | null;
   branches: BranchInfo[];
+  tags: TagInfo[];
   stash: StashEntry[];
   branchFilter: string;
   selectedBranchName: string | null;
@@ -140,6 +142,7 @@ type AppState = {
   refreshRemotes: () => Promise<void>;
   refreshHistory: () => Promise<void>;
   refreshBranches: () => Promise<void>;
+  refreshTags: () => Promise<void>;
   refreshStash: () => Promise<void>;
   setCommitQuery: (query: string) => void;
   setCommitSearchOpen: (open: boolean) => void;
@@ -148,6 +151,7 @@ type AppState = {
   setBranchFilter: (query: string) => void;
   setSelectedBranchName: (name: string | null) => void;
   focusBranchInGraph: (name: string) => Promise<void>;
+  focusTagInGraph: (name: string) => Promise<void>;
   createBranch: (name: string, checkout?: boolean, startPoint?: string) => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
   checkoutCommit: (hash: string) => Promise<void>;
@@ -308,6 +312,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   commitSearchOpen: false,
   filteredCommits: null,
   branches: [],
+  tags: [],
   stash: [],
   branchFilter: "",
   selectedBranchName: null,
@@ -341,6 +346,41 @@ export const useAppStore = create<AppState>((set, get) => ({
     const tip = tipCommitForBranch(commits, target);
     if (tip) {
       await get().selectCommit(tip);
+    } else {
+      set({
+        selectedCommitHash: null,
+        commitFiles: [],
+        selectedCommitFile: null,
+        commitFileContent: "",
+        diffText: "",
+      });
+    }
+  },
+
+  focusTagInGraph: async (name) => {
+    const target = name.trim();
+    if (!target) return;
+    set({
+      selectedBranchName: null,
+      workspaceTab: "graph",
+      appView: "history",
+    });
+    const fromList = get().tags.find((t) => t.name === target)?.tipHash ?? null;
+    const commits = get().filteredCommits ?? get().graph?.commits ?? [];
+    const fromGraph =
+      fromList ??
+      commits.find((c) =>
+        c.refs.some((r) => {
+          const n = r.trim();
+          return (
+            (n.startsWith("tag: ") || n.includes("refs/tags/")) &&
+            n.replace(/^tag:\s*/, "").replace(/^refs\/tags\//, "") === target
+          );
+        }),
+      )?.hash ??
+      null;
+    if (fromGraph) {
+      await get().selectCommit(fromGraph);
     } else {
       set({
         selectedCommitHash: null,
@@ -455,6 +495,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       graph: null,
       filteredCommits: null,
       branches: [],
+      tags: [],
       stash: [],
       commitQuery: "",
       branchFilter: "",
@@ -628,14 +669,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshBranches: async () => {
     const id = get().activeRepoId;
     if (!id) {
-      set({ branches: [] });
+      set({ branches: [], tags: [] });
       return;
     }
     try {
-      const branches = await api.listBranches(id);
-      set({ branches });
+      const [branches, tags] = await Promise.all([api.listBranches(id), api.listTags(id)]);
+      set({ branches, tags });
     } catch (err) {
       set({ error: errMsg(err) });
+    }
+  },
+
+  refreshTags: async () => {
+    const id = get().activeRepoId;
+    if (!id) {
+      set({ tags: [] });
+      return;
+    }
+    try {
+      const tags = await api.listTags(id);
+      set({ tags });
+    } catch {
+      set({ tags: [] });
     }
   },
 

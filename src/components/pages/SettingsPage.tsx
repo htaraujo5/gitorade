@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore, type AppPrefs } from "../../stores/prefsStore";
+import { useT, type MessageKey } from "../../i18n";
 import logo from "../../assets/brand/logo.png";
 import {
   IconAbout,
@@ -14,19 +15,40 @@ import {
 type SectionId =
   "general" | "appearance" | "git" | "terminal" | "identity" | "ssh" | "plugins" | "about";
 
-const sections: { id: SectionId; label: string; icon: ReactNode }[] = [
-  { id: "general", label: "Geral", icon: <IconSettings className="h-3.5 w-3.5" /> },
-  { id: "appearance", label: "Aparência", icon: <IconAbout className="h-3.5 w-3.5" /> },
-  { id: "git", label: "Git", icon: <IconSettings className="h-3.5 w-3.5" /> },
-  { id: "terminal", label: "Terminal", icon: <IconTerminal className="h-3.5 w-3.5" /> },
-  { id: "identity", label: "Identidade", icon: <IconCredentials className="h-3.5 w-3.5" /> },
-  { id: "ssh", label: "SSH Keys", icon: <IconKey className="h-3.5 w-3.5" /> },
-  { id: "plugins", label: "Plugins", icon: <IconPlugins className="h-3.5 w-3.5" /> },
-  { id: "about", label: "Sobre", icon: <IconAbout className="h-3.5 w-3.5" /> },
+const sectionDefs: { id: SectionId; labelKey: MessageKey; icon: ReactNode }[] = [
+  {
+    id: "general",
+    labelKey: "settings.section.general",
+    icon: <IconSettings className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "appearance",
+    labelKey: "settings.section.appearance",
+    icon: <IconAbout className="h-3.5 w-3.5" />,
+  },
+  { id: "git", labelKey: "settings.section.git", icon: <IconSettings className="h-3.5 w-3.5" /> },
+  {
+    id: "terminal",
+    labelKey: "settings.section.terminal",
+    icon: <IconTerminal className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "identity",
+    labelKey: "settings.section.identity",
+    icon: <IconCredentials className="h-3.5 w-3.5" />,
+  },
+  { id: "ssh", labelKey: "settings.section.ssh", icon: <IconKey className="h-3.5 w-3.5" /> },
+  {
+    id: "plugins",
+    labelKey: "settings.section.plugins",
+    icon: <IconPlugins className="h-3.5 w-3.5" />,
+  },
+  { id: "about", labelKey: "settings.section.about", icon: <IconAbout className="h-3.5 w-3.5" /> },
 ];
 
 /** Preferences tab: left categories + working options (GitKraken-like). */
 export function SettingsPage({ initialSection = "general" }: { initialSection?: SectionId }) {
+  const t = useT();
   const [section, setSection] = useState<SectionId>(initialSection);
   const [showSaved, setShowSaved] = useState(false);
   const prefs = usePrefsStore();
@@ -48,11 +70,11 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
     <div className="flex min-h-0 flex-1 overflow-hidden bg-[#171a20]">
       <aside className="flex w-44 shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]">
         <div className="border-b border-[#2d3139] px-2.5 py-2">
-          <div className="text-[11px] font-medium text-[#e8eaed]">Preferências</div>
-          <div className="text-[9px] text-[#6b7280]">Ajustes do Gitorade</div>
+          <div className="text-[11px] font-medium text-[#e8eaed]">{t("settings.title")}</div>
+          <div className="text-[9px] text-[#6b7280]">{t("settings.subtitle")}</div>
         </div>
         <nav className="flex-1 space-y-px overflow-auto p-1.5">
-          {sections.map((s) => (
+          {sectionDefs.map((s) => (
             <button
               key={s.id}
               type="button"
@@ -64,7 +86,7 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
               }`}
             >
               <span className="shrink-0 opacity-80">{s.icon}</span>
-              {s.label}
+              {t(s.labelKey)}
             </button>
           ))}
         </nav>
@@ -74,7 +96,7 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
             className="w-full rounded px-2 py-1 text-[10px] text-[#8b909a] hover:bg-[#252830] hover:text-[#d8dbe2]"
             onClick={() => prefs.resetPrefs()}
           >
-            Restaurar padrões
+            {t("settings.reset")}
           </button>
         </div>
       </aside>
@@ -88,38 +110,38 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
         >
           <span className="inline-flex items-center gap-1.5 rounded-md border border-[#238636]/50 bg-[#238636]/15 px-2.5 py-1 text-[11px] font-medium text-[#3dd68c] shadow-lg shadow-black/30">
             <span aria-hidden>✓</span>
-            Salvo
+            {t("common.saved")}
           </span>
         </div>
         <div className="mx-auto max-w-xl space-y-3.5">
           {section === "general" && (
             <>
-              <Header title="Geral" desc="Comportamento ao iniciar e confirmações." />
+              <Header title={t("settings.general.title")} desc={t("settings.general.desc")} />
               <SelectRow
-                label="Idioma"
+                label={t("settings.language")}
                 value={prefs.language}
                 options={[
-                  { value: "pt-BR", label: "Português (Brasil)" },
-                  { value: "en", label: "English" },
+                  { value: "pt-BR", label: t("settings.lang.pt") },
+                  { value: "en", label: t("settings.lang.en") },
                 ]}
                 onChange={(v) => prefs.setPref("language", v as AppPrefs["language"])}
               />
               <ToggleRow
-                label="Confirmar ações destrutivas"
-                hint="Merge, delete branch, discard, etc."
+                label={t("settings.confirmDangerous")}
+                hint={t("settings.confirmDangerous.hint")}
                 checked={prefs.confirmDangerous}
                 onChange={(v) => prefs.setPref("confirmDangerous", v)}
               />
               <ToggleRow
-                label="Reabrir último repositório ao iniciar"
-                hint="Em breve: restaurar a última aba de repo."
+                label={t("settings.openLastRepo")}
+                hint={t("settings.openLastRepo.hint")}
                 checked={prefs.openLastRepoOnStart}
                 onChange={(v) => prefs.setPref("openLastRepoOnStart", v)}
               />
               <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-2.5 py-2">
-                <div className="mb-1 text-[11px] text-[#e8eaed]">Pasta de projetos</div>
+                <div className="mb-1 text-[11px] text-[#e8eaed]">{t("settings.projectsPath")}</div>
                 <div className="mb-1.5 text-[10px] leading-snug text-[#6b7280]">
-                  Pasta padrão ao abrir, clonar ou inicializar repositórios.
+                  {t("settings.projectsPath.hint")}
                 </div>
                 <input
                   className="w-full rounded border border-[#2d3139] bg-[#12141a] px-2 py-1 font-mono text-[11px] text-[#d8dbe2] outline-none focus:border-[#3d8bfd]"
@@ -133,25 +155,25 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
 
           {section === "appearance" && (
             <>
-              <Header title="Aparência" desc="Como o histórico e a UI se apresentam." />
+              <Header title={t("settings.appearance.title")} desc={t("settings.appearance.desc")} />
               <ToggleRow
-                label="Avatares no graph"
-                hint="Iniciais coloridas nos nós de commit."
+                label={t("settings.avatars")}
+                hint={t("settings.avatars.hint")}
                 checked={prefs.showAvatars}
                 onChange={(v) => prefs.setPref("showAvatars", v)}
               />
               <ToggleRow
-                label="Datas relativas"
-                hint="Ex.: 2d, 5h — em vez de data completa."
+                label={t("settings.relativeDates")}
+                hint={t("settings.relativeDates.hint")}
                 checked={prefs.relativeDates}
                 onChange={(v) => prefs.setPref("relativeDates", v)}
               />
               <SelectRow
-                label="Layout padrão do diff"
+                label={t("settings.diffLayout")}
                 value={prefs.diffLayout}
                 options={[
-                  { value: "unified", label: "Inline (unificado)" },
-                  { value: "split", label: "Split (lado a lado)" },
+                  { value: "unified", label: t("settings.diff.unified") },
+                  { value: "split", label: t("settings.diff.split") },
                 ]}
                 onChange={(v) => prefs.setPref("diffLayout", v as AppPrefs["diffLayout"])}
               />
@@ -160,10 +182,10 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
 
           {section === "git" && (
             <>
-              <Header title="Git" desc="Histórico, polling e ambiente Git." />
+              <Header title={t("settings.git.title")} desc={t("settings.git.desc")} />
               <NumberRow
-                label="Limite de commits no graph"
-                hint="Quantos commits carregar no histórico."
+                label={t("settings.graphLimit")}
+                hint={t("settings.graphLimit.hint")}
                 value={prefs.graphCommitLimit}
                 min={50}
                 max={500}
@@ -171,19 +193,21 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
                 onChange={(v) => prefs.setPref("graphCommitLimit", v)}
               />
               <NumberRow
-                label="Atualizar status a cada (segundos)"
-                hint="Polling do working tree."
+                label={t("settings.statusPoll")}
+                hint={t("settings.statusPoll.hint")}
                 value={prefs.statusPollSeconds}
                 min={2}
                 max={30}
                 step={1}
                 onChange={(v) => prefs.setPref("statusPollSeconds", v)}
               />
-              <InfoCard title="Git no sistema">
+              <InfoCard title={t("settings.gitSystem")}>
                 <p>
                   {health?.git.available
-                    ? `Disponível · ${health.git.version ?? "versão desconhecida"}`
-                    : (health?.git.message ?? "Git não encontrado")}
+                    ? t("settings.gitAvailable", {
+                        version: health.git.version ?? t("settings.gitUnknownVersion"),
+                      })
+                    : (health?.git.message ?? t("settings.gitMissing"))}
                 </p>
                 {health?.git.path && (
                   <p className="mt-1 font-mono text-[11px] text-[#6b7280]">{health.git.path}</p>
@@ -194,12 +218,9 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
 
           {section === "terminal" && (
             <>
-              <Header
-                title="Terminal"
-                desc="Painel integrado (Ctrl+`). Equivale a um shell completo do usuário — desative se não precisar."
-              />
+              <Header title={t("settings.terminal.title")} desc={t("settings.terminal.desc")} />
               <ToggleRow
-                label="Habilitar terminal integrado"
+                label={t("settings.enableTerminal")}
                 checked={prefs.enableTerminal}
                 onChange={(v) => {
                   prefs.setPref("enableTerminal", v);
@@ -208,7 +229,7 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
                 }}
               />
               <NumberRow
-                label="Tamanho da fonte"
+                label={t("settings.terminalFont")}
                 value={prefs.terminalFontSize}
                 min={10}
                 max={18}
@@ -216,7 +237,7 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
                 onChange={(v) => prefs.setPref("terminalFontSize", v)}
               />
               <ToggleRow
-                label="Abrir terminal ao entrar no repo"
+                label={t("settings.terminalOpenDefault")}
                 checked={prefs.terminalOpenByDefault}
                 onChange={(v) => prefs.setPref("terminalOpenByDefault", v)}
               />
@@ -225,13 +246,10 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
 
           {section === "identity" && (
             <>
-              <Header
-                title="Identidade"
-                desc="Perfis name/email usados nos commits (multi-identity)."
-              />
-              <InfoCard title="Perfis configurados">
+              <Header title={t("settings.identity.title")} desc={t("settings.identity.desc")} />
+              <InfoCard title={t("settings.identity.profiles")}>
                 {profiles.length === 0 ? (
-                  <p>Nenhum perfil. Crie em Credenciais.</p>
+                  <p>{t("settings.identity.empty")}</p>
                 ) : (
                   <ul className="space-y-1.5">
                     {profiles.map((p) => (
@@ -248,7 +266,7 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
                 className="rounded border border-[#3d8bfd]/40 bg-[#1e3a5f]/30 px-3 py-2 text-[12px] text-[#8bb4f0] hover:bg-[#1e3a5f]"
                 onClick={() => openCredentialsTab()}
               >
-                Abrir Credenciais
+                {t("settings.identity.open")}
               </button>
             </>
           )}
@@ -263,10 +281,11 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
 }
 
 export function SshKeysPage() {
+  const t = useT();
   return (
     <div className="flex min-h-0 flex-1 overflow-auto bg-[#171a20] p-6">
       <div className="mx-auto w-full max-w-xl space-y-5">
-        <Header title="SSH Keys" desc="Associe chaves aos perfis e use o agente do sistema." />
+        <Header title={t("settings.ssh.title")} desc={t("settings.ssh.desc")} />
         <SshSection />
       </div>
     </div>
@@ -274,10 +293,11 @@ export function SshKeysPage() {
 }
 
 export function PluginsPage() {
+  const t = useT();
   return (
     <div className="flex min-h-0 flex-1 overflow-auto bg-[#171a20] p-6">
       <div className="mx-auto w-full max-w-xl space-y-5">
-        <Header title="Plugins" desc="Extensões planejadas para o Gitorade." />
+        <Header title={t("settings.plugins.title")} desc={t("settings.plugins.desc")} />
         <PluginsSection />
       </div>
     </div>
@@ -387,59 +407,16 @@ function SshSection() {
 }
 
 function PluginsSection() {
-  const plugins = [
-    {
-      id: "ai-commit",
-      name: "AI Commit Message",
-      desc: "Sugere mensagem de commit a partir do diff staged.",
-      status: "Planejado",
-    },
-    {
-      id: "github",
-      name: "GitHub PR",
-      desc: "Abrir / revisar pull requests sem sair do app.",
-      status: "Planejado",
-    },
-    {
-      id: "gitlab",
-      name: "GitLab MR",
-      desc: "Merge requests e pipelines.",
-      status: "Planejado",
-    },
-    {
-      id: "themes",
-      name: "Temas",
-      desc: "Pacotes de tema claro/escuro customizados.",
-      status: "Planejado",
-    },
-  ];
-
+  const t = useT();
   return (
-    <>
-      <InfoCard title="Ecossistema">
-        Plugins serão carregados de forma isolada na V2. Por enquanto, veja o roadmap abaixo.
-      </InfoCard>
-      <ul className="space-y-2">
-        {plugins.map((p) => (
-          <li
-            key={p.id}
-            className="flex items-start justify-between gap-3 rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2.5"
-          >
-            <div className="min-w-0">
-              <div className="text-[13px] text-[#e8eaed]">{p.name}</div>
-              <div className="mt-0.5 text-[11px] text-[#6b7280]">{p.desc}</div>
-            </div>
-            <span className="shrink-0 rounded bg-[#252830] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[#8b909a]">
-              {p.status}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </>
+    <InfoCard title={t("settings.plugins.title")}>
+      <p>{t("settings.plugins.soon")}</p>
+    </InfoCard>
   );
 }
 
 function AboutSection() {
+  const t = useT();
   const health = useAppStore((s) => s.health);
   return (
     <>
@@ -447,32 +424,13 @@ function AboutSection() {
         <img src={logo} alt="" className="h-28 w-28 object-contain" aria-hidden />
         <div>
           <div className="text-[28px] font-semibold tracking-tight text-[#f0f1f4]">gitorade</div>
-          <p className="mt-1 text-[14px] text-[#8b909a]">Seu Git. Seu fluxo. Seu jeito.</p>
+          <p className="mt-1 text-[14px] text-[#8b909a]">{t("dash.tagline")}</p>
         </div>
       </div>
-      <InfoCard title="Versões">
-        <dl className="space-y-1.5 text-[12px]">
-          <div className="flex justify-between gap-4">
-            <dt className="text-[#6b7280]">Gitorade</dt>
-            <dd className="font-mono text-[#e8eaed]">v{health?.appVersion ?? "0.1.0"}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-[#6b7280]">Git</dt>
-            <dd className="font-mono text-[#e8eaed]">
-              {health?.git.version ?? (health?.git.available ? "ok" : "—")}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-[#6b7280]">Database</dt>
-            <dd className="font-mono text-[#e8eaed]">
-              {health?.databaseReady ? "pronta" : "erro"}
-            </dd>
-          </div>
-        </dl>
+      <InfoCard title={t("settings.about.title")}>
+        <p>{t("settings.about.version", { version: health?.appVersion ?? "0.1.0" })}</p>
+        <p className="mt-2 text-[12px] text-[#8b909a]">{t("settings.about.desc")}</p>
       </InfoCard>
-      <p className="text-center text-[11px] text-[#5c6370]">
-        Cliente Git desktop focado em multi-identidade (nome/email/SSH por repositório).
-      </p>
     </>
   );
 }

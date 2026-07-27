@@ -9,6 +9,7 @@ import { AboutPage, PluginsPage, SettingsPage, SshKeysPage } from "./components/
 import { OperationOverlay } from "./components/OperationOverlay";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
+import { useT } from "./i18n";
 import { OpeningRepoOverlay } from "./components/OpeningRepoOverlay";
 import { AppChrome } from "./components/layout/AppChrome";
 import { IconTerminal } from "./components/Icons";
@@ -20,6 +21,8 @@ import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
 import { applyMainWindow, applySetupWindow, applySplashWindow } from "./lib/windowLayout";
 
 function App() {
+  const t = useT();
+  const language = usePrefsStore((s) => s.language);
   const bootstrap = useAppStore((s) => s.bootstrap);
   const bootLoading = useAppStore((s) => s.bootLoading);
   const bootError = useAppStore((s) => s.bootError);
@@ -50,6 +53,10 @@ function App() {
   const [setupDone, setSetupDone] = useState(false);
   const [splashProgress, setSplashProgress] = useState(0.15);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.lang = language === "en" ? "en" : "pt-BR";
+  }, [language]);
 
   useEffect(() => {
     const unsub = usePrefsStore.persist.onFinishHydration(() => {
@@ -149,14 +156,17 @@ function App() {
 
   if (booting) {
     return (
-      <BootSplash message={prefsReady ? "Carregando…" : "Iniciando…"} progress={splashProgress} />
+      <BootSplash
+        message={prefsReady ? t("boot.loading") : t("boot.starting")}
+        progress={splashProgress}
+      />
     );
   }
 
   if (bootError) {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-[#12141a] px-8 text-center">
-        <p className="text-[14px] text-[#f0f1f4]">Não foi possível iniciar</p>
+        <p className="text-[14px] text-[#f0f1f4]">{t("boot.failed")}</p>
         <p className="max-w-md text-[12px] text-[#f85149]">{bootError}</p>
       </div>
     );
@@ -204,7 +214,7 @@ function App() {
                 <span className="text-[#c8ccd4]">{repo?.name}</span>
                 <span className="text-[#3dd68c]">{status?.branch ?? "—"}</span>
                 <span>
-                  {remotes.length === 0 ? "sem remote" : remotes.map((r) => r.name).join(", ")}
+                  {remotes.length === 0 ? t("ws.noRemote") : remotes.map((r) => r.name).join(", ")}
                 </span>
                 {status?.upstream && (
                   <span className="font-mono">
@@ -222,7 +232,7 @@ function App() {
                     onClick={() => setTerminalOpen(!terminalOpen)}
                   >
                     <IconTerminal className="h-3.5 w-3.5" />
-                    Terminal
+                    {t("ws.terminal")}
                     <kbd className="rounded border border-[#2d3139] px-0.5 text-[8px]">Ctrl+`</kbd>
                   </button>
                 )}

@@ -2,9 +2,11 @@
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
 import type { CommitSummary } from "../../lib/api";
-import { checkoutTargetFromRef, commitHasBranch, normalizeRefLabel } from "../../lib/branchGraph";
+import { checkoutTargetFromRef, commitHasBranch } from "../../lib/branchGraph";
+import { groupRefsForCommit, remotesLookLikeGithub } from "../../lib/refDecorate";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
-import { IconClose, IconSearch } from "../Icons";
+import { dateLocale, translate, useLocale, useT, type MessageKey } from "../../i18n";
+import { IconClose, IconCloud, IconGithub, IconLaptop, IconSearch, IconTag } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "../layout/ContextMenu";
 
 const LANE_COLORS = ["#3dd68c", "#3d8bfd", "#e3b341", "#a371f7", "#f778ba", "#f85149", "#56d4dd"];
@@ -14,21 +16,51 @@ const NODE_R = 7;
 const GRAPH_PAD = 8;
 const REF_COL_W = 140;
 
-function relativeTime(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso;
-  const mins = Math.floor((Date.now() - t) / 60000);
-  if (mins < 1) return "agora";
-  if (mins < 60) return `${mins}m`;
+function relativeTime(iso: string, locale: "pt-BR" | "en"): string {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) return iso;
+  const mins = Math.floor((Date.now() - parsed) / 60000);
+  if (mins < 1) return translate(locale, "graph.time.now");
+  if (mins < 60) return translate(locale, "graph.time.m", { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return translate(locale, "graph.time.h", { n: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(t).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  if (days < 7) return translate(locale, "graph.time.d", { n: days });
+  return new Date(parsed).toLocaleDateString(dateLocale(locale), {
+    day: "2-digit",
+    month: "short",
+  });
 }
 
-function shortRef(refName: string): string {
-  return normalizeRefLabel(refName);
+function RefLocationIcons({
+  isLocal,
+  remoteName,
+  useGithub,
+  t,
+}: {
+  isLocal: boolean;
+  remoteName: string | null;
+  useGithub: boolean;
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
+}) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 opacity-90">
+      {isLocal && (
+        <span title={t("graph.ref.local")} className="inline-flex">
+          <IconLaptop className="h-2.5 w-2.5" />
+        </span>
+      )}
+      {remoteName && (
+        <span title={t("graph.ref.remote", { name: remoteName })} className="inline-flex">
+          {useGithub ? (
+            <IconGithub className="h-2.5 w-2.5" />
+          ) : (
+            <IconCloud className="h-2.5 w-2.5" />
+          )}
+        </span>
+      )}
+    </span>
+  );
 }
 
 /** Deterministic color from email/name (identicon-style). */
@@ -173,6 +205,8 @@ function Stat({ kind, n }: { kind: "add" | "mod" | "del"; n: number }) {
 
 /** GitKraken-like graph: avatar nodes, author column, search via toolbar icon. */
 export function GraphView() {
+  const t = useT();
+  const locale = useLocale();
   const {
     graph,
     filteredCommits,
@@ -425,7 +459,7 @@ export function GraphView() {
             <input
               ref={searchInputRef}
               className="h-6 min-w-0 flex-1 bg-transparent text-[12px] text-[#e8eaed] outline-none placeholder:text-[#8bb4f0]/70"
-              placeholder="Find commit"
+              placeholder={t("graph.search")}
               value={commitQuery}
               onChange={(e) => setCommitQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -506,7 +540,9 @@ export function GraphView() {
                 ⚠ {integrateLabel ?? "Conflict"}
               </span>
             ) : (
-              <span className="font-mono text-[11px] font-normal text-[#e3b341]">// WIP</span>
+              <span className="font-mono text-[11px] font-normal text-[#e3b341]">
+                {t("graph.wip")}
+              </span>
             )}
           </div>
           <div
@@ -546,7 +582,7 @@ export function GraphView() {
               <span className="text-[11px] text-[#5c6370]">Working directory clean</span>
             ) : (
               <>
-                <span className="font-mono text-[11px] text-[#e3b341]">// WIP</span>
+                <span className="font-mono text-[11px] text-[#e3b341]">{t("graph.wip")}</span>
                 <Stat kind="mod" n={modified} />
                 <Stat kind="add" n={added} />
                 <Stat kind="del" n={deleted} />
@@ -560,42 +596,68 @@ export function GraphView() {
 
         <div className="relative flex min-w-0">
           <div className="shrink-0" style={{ width: REF_COL_W }}>
-            {commits.map((commit) => (
-              <div
-                key={`ref-${commit.hash}`}
-                className="flex items-center gap-1 overflow-hidden px-1"
-                style={{ height: ROW_H }}
-              >
-                {commit.refs.slice(0, 3).map((refName) => {
-                  const label = shortRef(refName);
-                  const isLocalHead = status?.branch === label && !refName.includes("remotes/");
-                  const isSelectedTip = Boolean(selectedBranchName) && label === selectedBranchName;
-                  return (
-                    <button
-                      key={refName}
-                      type="button"
-                      title={`${label} — clique: selecionar · 2 cliques: checkout`}
-                      onClick={(e) => onRefClick(e, refName, commit.hash)}
-                      onDoubleClick={(e) => onRefDblClick(e, refName)}
-                      className={`inline-flex max-w-[128px] items-center gap-1 truncate rounded px-1.5 py-px text-[9px] font-normal transition-shadow ${
-                        isSelectedTip
-                          ? "ring-2 ring-[#3d8bfd] ring-offset-1 ring-offset-[#171a20]"
-                          : ""
-                      } ${
-                        isLocalHead
-                          ? "bg-[#238636] text-white"
-                          : refName.includes("remotes/")
-                            ? "bg-[#252830] text-[#8b909a] hover:bg-[#2f3440]"
-                            : "bg-[#238636]/20 text-[#3dd68c] hover:bg-[#238636]/35"
-                      }`}
-                    >
-                      {isLocalHead && <span className="text-[8px]">✓</span>}
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+            {commits.map((commit) => {
+              const pills = groupRefsForCommit(commit.refs, remotes).slice(0, 3);
+              const useGithub = remotesLookLikeGithub(remotes);
+              return (
+                <div
+                  key={`ref-${commit.hash}`}
+                  className="flex items-center gap-1 overflow-hidden px-1"
+                  style={{ height: ROW_H }}
+                >
+                  {pills.map((pill) => {
+                    const isSelectedTip =
+                      Boolean(selectedBranchName) &&
+                      !pill.isTag &&
+                      pill.label === selectedBranchName;
+                    const titleParts = [
+                      pill.isTag
+                        ? t("graph.ref.tag", { name: pill.label })
+                        : pill.label,
+                      pill.isLocal ? t("graph.ref.local") : null,
+                      pill.remoteName
+                        ? t("graph.ref.remote", { name: pill.remoteName })
+                        : null,
+                      t("graph.ref.hint"),
+                    ].filter(Boolean);
+                    return (
+                      <button
+                        key={pill.key}
+                        type="button"
+                        title={titleParts.join(" · ")}
+                        onClick={(e) => onRefClick(e, pill.primaryRef, commit.hash)}
+                        onDoubleClick={(e) => onRefDblClick(e, pill.primaryRef)}
+                        className={`inline-flex max-w-[128px] items-center gap-1 truncate rounded px-1.5 py-px text-[9px] font-normal transition-shadow ${
+                          isSelectedTip
+                            ? "ring-2 ring-[#3d8bfd] ring-offset-1 ring-offset-[#171a20]"
+                            : ""
+                        } ${
+                          pill.isTag
+                            ? "bg-[#1e3a5f] text-[#79b8ff] hover:bg-[#254a73]"
+                            : pill.isHead
+                              ? "bg-[#238636] text-white"
+                              : pill.isLocal
+                                ? "bg-[#238636]/20 text-[#3dd68c] hover:bg-[#238636]/35"
+                                : "bg-[#252830] text-[#8b909a] hover:bg-[#2f3440]"
+                        }`}
+                      >
+                        {pill.isHead && <span className="text-[8px]">✓</span>}
+                        {pill.isTag && <IconTag className="h-2.5 w-2.5 shrink-0 opacity-90" />}
+                        {!pill.isTag && (
+                          <RefLocationIcons
+                            isLocal={pill.isLocal}
+                            remoteName={pill.remoteName}
+                            useGithub={useGithub}
+                            t={t}
+                          />
+                        )}
+                        <span className="truncate">{pill.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
 
           <GraphColumn commits={commits} maxLane={maxLane} showAvatars={showAvatars} />
@@ -650,8 +712,8 @@ export function GraphView() {
                     </div>
                     <div className="w-16 shrink-0 text-right text-[10px] font-normal text-[#5c6370]">
                       {relativeDates
-                        ? relativeTime(commit.authoredAt)
-                        : new Date(commit.authoredAt).toLocaleDateString("pt-BR")}
+                        ? relativeTime(commit.authoredAt, locale)
+                        : new Date(commit.authoredAt).toLocaleDateString(dateLocale(locale))}
                     </div>
                     <div className="w-16 shrink-0 font-mono text-[10px] font-normal text-[#5c6370]">
                       {commit.shortHash}

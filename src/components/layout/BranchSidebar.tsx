@@ -1,9 +1,11 @@
 ﻿import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
-import { IconBranch } from "../Icons";
+import { useT } from "../../i18n";
+import { IconBranch, IconCloud, IconGithub, IconLaptop, IconTag } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { buildBranchTree, type BranchTreeNode } from "../../lib/branchTree";
+import { remotesLookLikeGithub } from "../../lib/refDecorate";
 
 type MenuState = {
   x: number;
@@ -21,8 +23,10 @@ type MenuState = {
  * - drag branch onto another = merge
  */
 export function BranchSidebar() {
+  const t = useT();
   const {
     branches,
+    tags,
     branchFilter,
     setBranchFilter,
     checkoutBranch,
@@ -35,12 +39,14 @@ export function BranchSidebar() {
     remotes,
     selectedBranchName,
     focusBranchInGraph,
+    focusTagInGraph,
   } = useAppStore();
 
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [localOpen, setLocalOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
+  const [tagsOpen, setTagsOpen] = useState(true);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -55,9 +61,17 @@ export function BranchSidebar() {
     return branches.filter((b) => b.name.toLowerCase().includes(q));
   }, [branches, branchFilter]);
 
+  const filteredTags = useMemo(() => {
+    const q = branchFilter.trim().toLowerCase();
+    if (!q) return tags;
+    return tags.filter((tag) => tag.name.toLowerCase().includes(q));
+  }, [tags, branchFilter]);
+
   const local = filtered.filter((b) => !b.isRemote);
   const remoteBranches = filtered.filter((b) => b.isRemote);
   const localTree = useMemo(() => buildBranchTree(local), [local]);
+  const useGithub = remotesLookLikeGithub(remotes);
+  const RemoteIcon = useGithub ? IconGithub : IconCloud;
 
   const toggleFolder = (key: string) => {
     setCollapsed((prev) => {
@@ -299,7 +313,8 @@ export function BranchSidebar() {
         </p>
 
         <Group
-          title="LOCAL"
+          title={t("branches.local")}
+          icon={<IconLaptop className="h-3 w-3" />}
           count={local.length}
           open={localOpen}
           onToggle={() => setLocalOpen((v) => !v)}
@@ -307,7 +322,13 @@ export function BranchSidebar() {
           {renderTree(localTree, "local", false, 0)}
         </Group>
 
-        <Group title="REMOTE" open={remoteOpen} onToggle={() => setRemoteOpen((v) => !v)}>
+        <Group
+          title={t("branches.remote")}
+          icon={<RemoteIcon className="h-3 w-3" />}
+          count={remoteBranches.length}
+          open={remoteOpen}
+          onToggle={() => setRemoteOpen((v) => !v)}
+        >
           {remotes.length === 0 ? (
             <div className="space-y-1 px-2.5 py-1.5 text-[10px] leading-snug text-[#5c6370]">
               <p>Nenhum remote no .git/config deste repo.</p>
@@ -343,7 +364,7 @@ export function BranchSidebar() {
                         className="py-1 text-[9px] text-[#5c6370]"
                         style={{ paddingLeft: rowPad(1), paddingRight: 8 }}
                       >
-                        Sem branches — faça Fetch.
+                        {t("branches.empty")}
                       </p>
                     ) : (
                       renderTree(tree, remoteKey, true, 1)
@@ -351,6 +372,34 @@ export function BranchSidebar() {
                 </div>
               );
             })
+          )}
+        </Group>
+
+        <Group
+          title={t("branches.tags")}
+          icon={<IconTag className="h-3 w-3" />}
+          count={filteredTags.length}
+          open={tagsOpen}
+          onToggle={() => setTagsOpen((v) => !v)}
+        >
+          {filteredTags.length === 0 ? (
+            <p className="px-2.5 py-1.5 text-[10px] text-[#5c6370]">{t("branches.emptyTags")}</p>
+          ) : (
+            filteredTags.map((tag) => (
+              <button
+                key={tag.name}
+                type="button"
+                onClick={() => void focusTagInGraph(tag.name)}
+                className="flex h-6 w-full items-center gap-1.5 text-left text-[11px] text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
+                style={{ paddingLeft: rowPad(0), paddingRight: 8 }}
+                title={tag.tipHash ? `${tag.name} @ ${tag.tipHash}` : tag.name}
+              >
+                <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                  <IconTag className="h-3 w-3 opacity-55" />
+                </span>
+                <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+              </button>
+            ))
           )}
         </Group>
       </div>
@@ -494,12 +543,14 @@ function BranchRow({
 
 function Group({
   title,
+  icon,
   count,
   open,
   onToggle,
   children,
 }: {
   title: string;
+  icon?: ReactNode;
   count?: number;
   open: boolean;
   onToggle: () => void;
@@ -513,8 +564,11 @@ function Group({
         className="flex w-full items-center gap-1.5 px-2 py-1.5 text-[9px] font-medium tracking-[0.08em] text-[#8b909a] hover:text-[#d8dbe2]"
       >
         <Chevron open={open} />
+        {icon && <span className="inline-flex shrink-0 opacity-80">{icon}</span>}
         <span className="flex-1 text-left uppercase">{title}</span>
-        {count !== undefined && <span className="tabular-nums text-[#6b7280]">{count}</span>}
+        {count !== undefined && (
+          <span className="tabular-nums text-[#3d8bfd]">{count}</span>
+        )}
       </button>
       {open && children}
     </div>

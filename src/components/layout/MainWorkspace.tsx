@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
+import { useT } from "../../i18n";
 import { GraphView } from "../history/GraphView";
 import { BranchesView } from "../history/BranchesView";
 import { FilesView } from "../files/FilesView";
@@ -19,6 +20,7 @@ import { TerminalPanel } from "../TerminalPanel";
  * [branches] | [graph / conflict-editor / commit-file / wd-diff + terminal] | [staging / conflict / details]
  */
 export function MainWorkspace() {
+  const t = useT();
   const {
     workspaceTab,
     setWorkspaceTab,
@@ -39,7 +41,7 @@ export function MainWorkspace() {
   if (!repo) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#8b909a]">
-        Selecione um repositório no Dashboard.
+        {t("ws.selectRepo")}
       </div>
     );
   }

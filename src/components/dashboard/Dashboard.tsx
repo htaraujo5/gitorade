@@ -1,10 +1,12 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { useT } from "../../i18n";
 import logo from "../../assets/brand/logo.png";
 import { IconRepos, IconPlus, IconStar } from "../Icons";
 
 /** Start page — brand-forward, dense repo picker (no profile duplication). */
 export function Dashboard() {
+  const t = useT();
   const {
     repositories,
     selectRepository,
@@ -63,22 +65,20 @@ export function Dashboard() {
               <div className="text-[28px] font-semibold tracking-tight text-[#f0f1f4]">
                 gitorade
               </div>
-              <p className="mt-1 max-w-md text-[13px] text-[#8b909a]">
-                Seu Git. Seu fluxo. Seu jeito. Abra um repositório e continue.
-              </p>
+              <p className="mt-1 max-w-md text-[13px] text-[#8b909a]">{t("dash.tagline")}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <ActionBtn disabled={busy} onClick={() => setCloneOpen((v) => !v)} secondary>
-              Clonar
+              {t("common.clone")}
             </ActionBtn>
             <ActionBtn disabled={busy} onClick={() => void initRepositoryDialog()} secondary>
-              Novo
+              {t("common.new")}
             </ActionBtn>
             <ActionBtn disabled={busy} onClick={() => void openRepositoryDialog()} primary>
               <IconRepos className="h-3.5 w-3.5" />
-              Abrir
+              {t("common.open")}
             </ActionBtn>
           </div>
         </div>
@@ -87,7 +87,7 @@ export function Dashboard() {
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-8 py-6">
         {(bootLoading || bootError || (health && !health.git.available)) && (
           <div className="rounded border border-[#2d3139] bg-[#1c1f26] px-4 py-3 text-[12px]">
-            {bootLoading && <p className="text-[#8b909a]">Verificando ambiente…</p>}
+            {bootLoading && <p className="text-[#8b909a]">{t("common.checkingEnv")}</p>}
             {bootError && <p className="text-[#f85149]">{bootError}</p>}
             {health && !health.git.available && (
               <p className="text-[#e3b341]">{health.git.message}</p>
@@ -126,10 +126,10 @@ export function Dashboard() {
         <div className="relative">
           <input
             className="w-full rounded border border-[#2d3139] bg-[#1c1f26] py-2.5 pl-3 pr-10 text-[13px] outline-none placeholder:text-[#5c6370] focus:border-[#3d8bfd]"
-            placeholder="Filtrar repositórios…"
+            placeholder={t("dash.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Filtrar repositórios"
+            aria-label={t("dash.searchPlaceholder")}
           />
           <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-[#2d3139] px-1.5 py-0.5 text-[10px] text-[#5c6370]">
             Ctrl+P
@@ -139,7 +139,7 @@ export function Dashboard() {
         {favorites.length > 0 && (
           <section>
             <SectionTitle icon={<IconStar className="h-3 w-3 text-[#e3b341]" />}>
-              Favoritos
+              {t("dash.favorites")}
             </SectionTitle>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {favorites.map((repo) => (
@@ -242,19 +242,18 @@ function EmptyState({
   onOpen: () => void;
   onClone: () => void;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-center justify-center rounded border border-dashed border-[#2d3139] px-6 py-14 text-center">
       <IconPlus className="mb-3 h-8 w-8 text-[#3a3f4b]" />
-      <p className="text-[13px] text-[#c8ccd4]">Nenhum repositório ainda</p>
-      <p className="mt-1 max-w-sm text-[12px] text-[#6b7280]">
-        Abra uma pasta local, clone um remote ou inicialize um novo Git.
-      </p>
+      <p className="text-[13px] text-[#c8ccd4]">{t("dash.empty")}</p>
+      <p className="mt-1 max-w-sm text-[12px] text-[#6b7280]">{t("dash.tagline")}</p>
       <div className="mt-4 flex gap-2">
         <ActionBtn disabled={busy} onClick={onOpen} primary>
-          Abrir pasta
+          {t("dash.openFolder")}
         </ActionBtn>
         <ActionBtn disabled={busy} onClick={onClone} secondary>
-          Clonar URL
+          {t("common.clone")} URL
         </ActionBtn>
       </div>
     </div>

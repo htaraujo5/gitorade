@@ -1,7 +1,10 @@
 ﻿import { useAppStore } from "../../stores/appStore";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
+import { dateLocale, useLocale, useT } from "../../i18n";
 
 export function CommitDetailsPanel() {
+  const t = useT();
+  const locale = useLocale();
   const {
     graph,
     filteredCommits,
@@ -20,7 +23,7 @@ export function CommitDetailsPanel() {
   if (!selected) {
     return (
       <aside className="flex w-[280px] shrink-0 flex-col border-l border-[#2d3139] bg-[#1c1f26] p-2.5 text-[10px] text-[#6b7280]">
-        Selecione um commit ou o WIP.
+        {t("details.select")}
       </aside>
     );
   }
@@ -50,7 +53,7 @@ export function CommitDetailsPanel() {
           className="text-[9px] text-[#3d8bfd] hover:underline"
           onClick={() => void selectCommit(null)}
         >
-          â† WIP
+          {t("details.backWip")}
         </button>
       </div>
 
@@ -67,8 +70,13 @@ export function CommitDetailsPanel() {
             <div className="truncate text-[11px] font-medium text-[#e8eaed]">
               {selected.authorName}
             </div>
+            {selected.authorEmail && (
+              <div className="truncate text-[9px] text-[#8b909a]" title={selected.authorEmail}>
+                {selected.authorEmail}
+              </div>
+            )}
             <div className="text-[9px] text-[#5c6370]">
-              {new Date(selected.authoredAt).toLocaleString("pt-BR")}
+              {new Date(selected.authoredAt).toLocaleString(dateLocale(locale))}
             </div>
             {parent && <div className="font-mono text-[9px] text-[#5c6370]">parent: {parent}</div>}
           </div>

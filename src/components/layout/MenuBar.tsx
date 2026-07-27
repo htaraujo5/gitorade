@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
+import { useT } from "../../i18n";
 
 type MenuDef = {
   id: string;
@@ -34,6 +35,7 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
     busy,
   } = useAppStore();
   const enableTerminal = usePrefsStore((s) => s.enableTerminal);
+  const t = useT();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -58,42 +60,42 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
   const menus: MenuDef[] = [
     {
       id: "file",
-      label: "Arquivo",
+      label: t("menu.file"),
       items: [
         {
-          label: "Abrir repositório…",
+          label: t("menu.openRepo"),
           shortcut: "Ctrl+P",
           action: () => void openRepositoryDialog(),
         },
         {
-          label: "Novo repositório…",
+          label: t("menu.newRepo"),
           action: () => void initRepositoryDialog(),
         },
         {
-          label: "Start",
+          label: t("menu.start"),
           action: () => openStartTab(),
         },
         {
-          label: "Credenciais",
+          label: t("menu.credentials"),
           action: () => openCredentialsTab(),
         },
         {
-          label: "Preferências",
+          label: t("menu.preferences"),
           action: () => openSettingsTab(),
         },
       ],
     },
     {
       id: "edit",
-      label: "Editar",
+      label: t("menu.edit"),
       items: [
         {
-          label: "Buscar commits…",
+          label: t("menu.searchCommits"),
           disabled: !hasRepo,
           action: () => setCommitSearchOpen(true),
         },
         {
-          label: "Commit",
+          label: t("menu.commit"),
           shortcut: "Ctrl+Enter",
           disabled: !hasRepo || busy,
           action: () => void commit(),
@@ -102,26 +104,26 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
     },
     {
       id: "view",
-      label: "Exibir",
+      label: t("menu.view"),
       items: [
         {
-          label: terminalOpen ? "Ocultar terminal" : "Mostrar terminal",
+          label: terminalOpen ? t("menu.hideTerminal") : t("menu.showTerminal"),
           shortcut: "Ctrl+`",
           disabled: !hasRepo || !enableTerminal,
           action: () => setTerminalOpen(!terminalOpen),
         },
         {
-          label: "Fetch",
+          label: t("header.fetch"),
           disabled: !hasRepo || busy,
           action: () => void fetch(),
         },
         {
-          label: "Pull",
+          label: t("header.pull"),
           disabled: !hasRepo || busy,
           action: () => void pull(),
         },
         {
-          label: "Push",
+          label: t("header.push"),
           disabled: !hasRepo || busy,
           action: () => void push(),
         },
@@ -129,10 +131,10 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
     },
     {
       id: "help",
-      label: "Ajuda",
+      label: t("menu.help"),
       items: [
         {
-          label: "Sobre o Gitorade",
+          label: t("menu.about"),
           action: () => openAboutTab(),
         },
       ],

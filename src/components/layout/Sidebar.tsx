@@ -1,5 +1,6 @@
 import { BrandMark } from "../BrandMark";
 import { useAppStore, type AppView } from "../../stores/appStore";
+import { useT, type MessageKey } from "../../i18n";
 import {
   IconAbout,
   IconCredentials,
@@ -13,39 +14,40 @@ import {
 } from "../Icons";
 import type { ReactNode } from "react";
 
-const mainNav: { id: AppView; label: string; icon: ReactNode }[] = [
-  { id: "dashboard", label: "Dashboard", icon: <IconDashboard /> },
-  { id: "repositories", label: "Repositórios", icon: <IconRepos /> },
-  { id: "favorites", label: "Favoritos", icon: <IconStar /> },
-  { id: "history", label: "Histórico", icon: <IconHistory /> },
+const mainNav: { id: AppView; labelKey: MessageKey; icon: ReactNode }[] = [
+  { id: "dashboard", labelKey: "nav.dashboard", icon: <IconDashboard /> },
+  { id: "repositories", labelKey: "nav.repositories", icon: <IconRepos /> },
+  { id: "favorites", labelKey: "nav.favorites", icon: <IconStar /> },
+  { id: "history", labelKey: "nav.history", icon: <IconHistory /> },
 ];
 
-const settingsNav: { id: AppView; label: string; icon: ReactNode }[] = [
-  { id: "credentials", label: "Credenciais", icon: <IconCredentials /> },
-  { id: "ssh", label: "SSH Keys", icon: <IconKey /> },
-  { id: "settings", label: "Preferências", icon: <IconSettings /> },
-  { id: "plugins", label: "Plugins", icon: <IconPlugins /> },
-  { id: "about", label: "Sobre", icon: <IconAbout /> },
+const settingsNav: { id: AppView; labelKey: MessageKey; icon: ReactNode }[] = [
+  { id: "credentials", labelKey: "nav.credentials", icon: <IconCredentials /> },
+  { id: "ssh", labelKey: "nav.ssh", icon: <IconKey /> },
+  { id: "settings", labelKey: "nav.preferences", icon: <IconSettings /> },
+  { id: "plugins", labelKey: "nav.plugins", icon: <IconPlugins /> },
+  { id: "about", labelKey: "nav.about", icon: <IconAbout /> },
 ];
 
 export function Sidebar() {
+  const t = useT();
   const { appView, setAppView, health } = useAppStore();
 
   return (
     <aside
-      aria-label="Navegação principal"
+      aria-label={t("nav.main")}
       className="flex h-full min-h-0 w-[220px] shrink-0 flex-col border-r border-[#2d3139] bg-[#1c1f26]"
     >
       <div className="border-b border-[#2d3139] px-3 py-3.5">
         <BrandMark compact />
       </div>
 
-      <nav className="flex-1 overflow-auto px-2 py-3 text-[12px]" aria-label="Principal">
+      <nav className="flex-1 overflow-auto px-2 py-3 text-[12px]" aria-label={t("nav.primary")}>
         <div className="space-y-0.5">
           {mainNav.map((item) => (
             <NavItem
               key={item.id}
-              label={item.label}
+              label={t(item.labelKey)}
               icon={item.icon}
               active={appView === item.id}
               onClick={() => setAppView(item.id)}
@@ -54,13 +56,13 @@ export function Sidebar() {
         </div>
 
         <div className="mb-1.5 mt-5 px-2.5 text-[9px] font-medium uppercase tracking-[0.1em] text-[#5c6370]">
-          Configurações
+          {t("nav.settingsSection")}
         </div>
         <div className="space-y-0.5">
           {settingsNav.map((item) => (
             <NavItem
               key={item.id}
-              label={item.label}
+              label={t(item.labelKey)}
               icon={item.icon}
               active={appView === item.id}
               onClick={() => setAppView(item.id)}
@@ -98,8 +100,8 @@ function NavItem({
           : "text-[#8b909a] hover:bg-[#252830] hover:text-[#d8dbe2]"
       }`}
     >
-      <span className="opacity-90">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span className="shrink-0 opacity-90">{icon}</span>
+      {label}
     </button>
   );
 }

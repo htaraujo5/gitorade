@@ -3,7 +3,7 @@ use tauri::{AppHandle, State};
 use crate::domain::{
     AppHealth, BranchInfo, CloneInput, CommitFileChange, CommitGraph, CommitInput, CommitResult,
     CommitSummary, CreateProfileInput, IntegrateResult, IntegrateState, Profile, RemoteInfo,
-    RepoStatus, Repository, StashEntry, SyncInput, UpdateProfileInput, UpstreamStatus,
+    RepoStatus, Repository, StashEntry, SyncInput, TagInfo, UpdateProfileInput, UpstreamStatus,
 };
 use crate::error::{AppError, AppResult};
 use crate::git;
@@ -365,6 +365,12 @@ pub fn get_file_at_commit(
 pub fn list_branches(db: State<'_, Database>, repository_id: String) -> AppResult<Vec<BranchInfo>> {
     let repo = require_repo(&db, &repository_id)?;
     git::list_branches(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn list_tags(db: State<'_, Database>, repository_id: String) -> AppResult<Vec<TagInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::list_tags(std::path::Path::new(&repo.path))
 }
 
 #[tauri::command]

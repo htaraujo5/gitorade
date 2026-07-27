@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import logo from "../assets/brand/logo.png";
+import { useT } from "../i18n";
 
 const FEEDBACK_REPO = "https://github.com/htaraujo5/gitorade/issues/new";
 
 export function FeedbackModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const [brief, setBrief] = useState("");
   const [details, setDetails] = useState("");
   const [email, setEmail] = useState("");
@@ -15,10 +17,10 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
     if (!canSend || busy) return;
     setBusy(true);
     const body = [
-      details.trim() || "_Sem detalhes._",
+      details.trim() || t("feedback.noDetails"),
       "",
       "---",
-      email.trim() ? `Contato: ${email.trim()}` : null,
+      email.trim() ? t("feedback.contact", { email: email.trim() }) : null,
       `Platform: ${navigator.platform}`,
     ]
       .filter(Boolean)
@@ -28,7 +30,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
       `&body=${encodeURIComponent(body)}`;
     try {
       if (!url.startsWith("https://github.com/")) {
-        throw new Error("URL de feedback inválida.");
+        throw new Error("Invalid feedback URL.");
       }
       await openUrl(url);
       onClose();
@@ -58,46 +60,41 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
           <img src={logo} alt="" className="mt-0.5 h-8 w-8 object-contain" />
           <div className="min-w-0 flex-1">
             <h2 id="feedback-title" className="text-[15px] font-semibold text-[#f0f1f4]">
-              Feedback
+              {t("feedback.title")}
             </h2>
-            <p className="mt-0.5 text-[12px] text-[#8b909a]">
-              Conte um problema ou uma ideia de recurso que você gostaria de ter.
-            </p>
+            <p className="mt-0.5 text-[12px] text-[#8b909a]">{t("feedback.desc")}</p>
           </div>
           <button
             type="button"
             className="rounded px-1.5 text-[16px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#e8eaed]"
             onClick={onClose}
-            aria-label="Fechar"
+            aria-label={t("common.close")}
           >
             ×
           </button>
         </div>
         <div className="space-y-3 px-4 py-3">
-          <Field label="Descrição breve">
+          <Field label={t("feedback.brief")}>
             <input
               autoFocus
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
-              placeholder="Qual o problema ou a ideia?"
               className="h-9 w-full rounded border border-[#3a3f4b] bg-[#12141a] px-3 text-[13px] text-[#f0f1f4] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7]"
             />
           </Field>
-          <Field label="Detalhes">
+          <Field label={t("feedback.details")}>
             <textarea
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               rows={5}
-              placeholder="Descreva o problema e como reproduzir, ou detalhe a sugestão."
               className="w-full resize-y rounded border border-[#3a3f4b] bg-[#12141a] px-3 py-2 text-[13px] text-[#f0f1f4] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7]"
             />
           </Field>
-          <Field label="E-mail (opcional)">
+          <Field label={t("feedback.email")}>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@servidor.com"
               className="h-9 w-full rounded border border-[#3a3f4b] bg-[#12141a] px-3 text-[13px] text-[#f0f1f4] outline-none placeholder:text-[#5c6370] focus:border-[#a371f7]"
             />
           </Field>
@@ -108,7 +105,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="h-8 rounded border border-[#3a3f4b] px-4 text-[12px] text-[#c8ccd4] hover:bg-[#252830]"
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             type="button"
@@ -116,7 +113,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
             onClick={() => void send()}
             className="h-8 rounded border border-[#a371f7] bg-[#a371f7]/20 px-4 text-[12px] font-medium text-[#e8eaed] hover:bg-[#a371f7]/30 disabled:opacity-40"
           >
-            Enviar
+            {t("feedback.send")}
           </button>
         </div>
       </div>

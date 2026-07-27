@@ -19,7 +19,7 @@ pub use path_guard::{
 
 pub use branches::{
     checkout_branch, checkout_branch_force, create_branch, create_branch_at, delete_branch,
-    list_branches, rename_branch, reset_to_commit, revert_commit, upstream_status,
+    list_branches, list_tags, rename_branch, reset_to_commit, revert_commit, upstream_status,
 };
 pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
 pub use integrate::{
