@@ -5,6 +5,7 @@ use std::process::Command;
 
 use crate::domain::{IntegrateResult, IntegrateState};
 use crate::error::{AppError, AppResult};
+use super::path_guard::{assert_repo_relative, reject_option_like, resolve_under_repo};
 use super::{redact_secrets, run_git, stage};
 
 /// Detect whether a merge/rebase/cherry-pick is in progress and list conflicts.
@@ -44,38 +45,29 @@ pub fn list_conflicts(path: &Path) -> AppResult<Vec<String>> {
 
 /// Merge `branch` into HEAD. Returns conflict state when merge stops for resolution.
 pub fn merge_branch(path: &Path, branch: &str) -> AppResult<IntegrateResult> {
-    let branch = branch.trim();
-    if branch.is_empty() {
-        return Err(AppError::Message("Nome da branch vazio.".into()));
-    }
+    let branch = reject_option_like(branch)?;
     ensure_clean_for_start(path)?;
 
     let result = run_git_allow_conflict(
-        &["merge", "--no-edit", "--no-ff", branch],
+        &["merge", "--no-edit", "--no-ff", "--", branch],
         Some(path),
     )?;
     to_integrate_result(path, "merge", result)
 }
 
 pub fn cherry_pick(path: &Path, commit: &str) -> AppResult<IntegrateResult> {
-    let commit = commit.trim();
-    if commit.is_empty() {
-        return Err(AppError::Message("Hash do commit vazio.".into()));
-    }
+    let commit = reject_option_like(commit)?;
     ensure_clean_for_start(path)?;
 
-    let result = run_git_allow_conflict(&["cherry-pick", "--ff", commit], Some(path))?;
+    let result = run_git_allow_conflict(&["cherry-pick", "--ff", "--", commit], Some(path))?;
     to_integrate_result(path, "cherry-pick", result)
 }
 
 pub fn rebase_onto(path: &Path, upstream: &str) -> AppResult<IntegrateResult> {
-    let upstream = upstream.trim();
-    if upstream.is_empty() {
-        return Err(AppError::Message("Upstream vazio.".into()));
-    }
+    let upstream = reject_option_like(upstream)?;
     ensure_clean_for_start(path)?;
 
-    let result = run_git_allow_conflict(&["rebase", upstream], Some(path))?;
+    let result = run_git_allow_conflict(&["rebase", "--", upstream], Some(path))?;
     to_integrate_result(path, "rebase", result)
 }
 
@@ -154,6 +146,7 @@ pub fn resolve_conflict(
     strategy: &str,
     content: Option<&str>,
 ) -> AppResult<IntegrateState> {
+    let file_path = assert_repo_relative(file_path)?;
     match strategy {
         "ours" => {
             run_git(&["checkout", "--ours", "--", file_path], Some(path))?;
@@ -167,7 +160,7 @@ pub fn resolve_conflict(
             let body = content.ok_or_else(|| {
                 AppError::Message("Conteúdo obrigatório para resolução manual.".into())
             })?;
-            let full = path.join(file_path);
+            let full = resolve_under_repo(path, file_path)?;
             if let Some(parent) = full.parent() {
                 std::fs::create_dir_all(parent)?;
             }
@@ -184,7 +177,7 @@ pub fn resolve_conflict(
 }
 
 pub fn read_file(path: &Path, file_path: &str) -> AppResult<String> {
-    let full = path.join(file_path);
+    let full = resolve_under_repo(path, file_path)?;
     let bytes = std::fs::read(&full).map_err(AppError::Io)?;
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
@@ -194,6 +187,7 @@ pub fn read_conflict_sides(
     path: &Path,
     file_path: &str,
 ) -> AppResult<crate::domain::ConflictFileSides> {
+    let file_path = assert_repo_relative(file_path)?;
     let show = |stage: &str| -> String {
         let spec = format!("{stage}:{file_path}");
         run_git(&["show", &spec], Some(path)).unwrap_or_default()

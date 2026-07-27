@@ -8,8 +8,14 @@ use crate::error::{AppError, AppResult};
 pub mod branches;
 pub mod history;
 pub mod integrate;
+pub mod path_guard;
 pub mod ssh_env;
 pub mod stash;
+
+pub use path_guard::{
+    assert_repo_relative, reject_option_like, resolve_under_repo, validate_remote_url,
+    validate_ssh_key_path,
+};
 
 pub use branches::{
     checkout_branch, checkout_branch_force, create_branch, create_branch_at, delete_branch,
@@ -210,9 +216,12 @@ pub fn stage(path: &Path, paths: &[String]) -> AppResult<()> {
     if paths.is_empty() {
         return Err(AppError::Message("Nenhum arquivo para stage.".into()));
     }
+    let validated: Vec<&str> = paths
+        .iter()
+        .map(|p| assert_repo_relative(p))
+        .collect::<AppResult<Vec<_>>>()?;
     let mut args = vec!["add", "--"];
-    let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
-    args.extend(refs);
+    args.extend(validated);
     run_git(&args, Some(path))?;
     Ok(())
 }
@@ -221,7 +230,10 @@ pub fn unstage(path: &Path, paths: &[String]) -> AppResult<()> {
     if paths.is_empty() {
         return Err(AppError::Message("Nenhum arquivo para unstage.".into()));
     }
-    let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
+    let validated: Vec<&str> = paths
+        .iter()
+        .map(|p| assert_repo_relative(p))
+        .collect::<AppResult<Vec<_>>>()?;
 
     // `git restore --staged` needs a resolvable HEAD. Before the first commit
     // (unborn branch) every staged entry is new, so removing it from the index
@@ -231,7 +243,7 @@ pub fn unstage(path: &Path, paths: &[String]) -> AppResult<()> {
     } else {
         vec!["rm", "--cached", "--quiet", "--"]
     };
-    args.extend(refs);
+    args.extend(validated);
     run_git(&args, Some(path))?;
     Ok(())
 }
@@ -242,6 +254,7 @@ fn has_head(path: &Path) -> bool {
 }
 
 pub fn diff(path: &Path, file_path: &str, staged: bool) -> AppResult<String> {
+    let file_path = assert_repo_relative(file_path)?;
     let mut args = vec!["diff", "--no-color"];
     if staged {
         args.push("--cached");
@@ -329,20 +342,87 @@ fn which_git() -> Option<String> {
 }
 
 pub fn redact_secrets(input: &str) -> String {
-    let mut out = input.to_string();
-    for pattern in [
+    let mut out = redact_url_credentials(input);
+
+    // Apply token prefix redaction repeatedly until no more matches.
+    let patterns = [
         "ghp_",
         "gho_",
         "ghu_",
         "ghs_",
         "ghr_",
+        "github_pat_",
         "glpat-",
+        "gldt-",
+        "glrt-",
         "x-access-token:",
-    ] {
-        if let Some(idx) = out.find(pattern) {
-            let end = (idx + pattern.len() + 24).min(out.len());
-            out.replace_range(idx..end, &format!("{pattern}***"));
+    ];
+    loop {
+        let mut changed = false;
+        for pattern in patterns {
+            if let Some(idx) = out.find(pattern) {
+                let start = idx;
+                let mut end = idx + pattern.len();
+                while end < out.len() {
+                    let c = out.as_bytes()[end];
+                    if c.is_ascii_alphanumeric() || c == b'_' || c == b'-' {
+                        end += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if end > idx + pattern.len() {
+                    out.replace_range(start..end, &format!("{pattern}***"));
+                    changed = true;
+                    break;
+                }
+            }
         }
+        if !changed {
+            break;
+        }
+    }
+    out
+}
+
+/// Redact `scheme://user:password@host` → `scheme://user:***@host` (all occurrences).
+fn redact_url_credentials(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = String::with_capacity(input.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        // Look for :// then user:pass@
+        if i + 3 <= bytes.len() && &bytes[i..i + 3] == b"://" {
+            out.push_str(&input[i..i + 3]);
+            i += 3;
+            let user_start = i;
+            let mut colon = None;
+            let mut at = None;
+            let mut j = i;
+            while j < bytes.len() {
+                match bytes[j] {
+                    b'@' => {
+                        at = Some(j);
+                        break;
+                    }
+                    b':' if colon.is_none() => colon = Some(j),
+                    b'/' | b'?' | b'#' | b' ' | b'\n' | b'\r' | b'\t' => break,
+                    _ => {}
+                }
+                j += 1;
+            }
+            if let (Some(c), Some(a)) = (colon, at) {
+                if c > user_start && a > c + 1 {
+                    out.push_str(&input[user_start..c]);
+                    out.push_str(":***@");
+                    i = a + 1;
+                    continue;
+                }
+            }
+            continue;
+        }
+        out.push(bytes[i] as char);
+        i += 1;
     }
     out
 }
@@ -523,17 +603,15 @@ pub fn list_remotes(path: &Path) -> AppResult<Vec<RemoteInfo>> {
 }
 
 pub fn add_remote(path: &Path, name: &str, url: &str) -> AppResult<()> {
-    let name = name.trim();
-    let url = url.trim();
-    if name.is_empty() || url.is_empty() {
-        return Err(AppError::Message("Nome e URL do remote são obrigatórios.".into()));
-    }
-    run_git(&["remote", "add", name, url], Some(path))?;
+    let name = reject_option_like(name)?;
+    let url = validate_remote_url(url)?;
+    run_git(&["remote", "add", "--", name, url], Some(path))?;
     Ok(())
 }
 
 pub fn remove_remote(path: &Path, name: &str) -> AppResult<()> {
-    run_git(&["remote", "remove", name], Some(path))?;
+    let name = reject_option_like(name)?;
+    run_git(&["remote", "remove", "--", name], Some(path))?;
     Ok(())
 }
 
@@ -583,13 +661,24 @@ pub fn push_args(remote: Option<&str>, branch: Option<&str>, set_upstream: bool)
     args
 }
 
-pub fn clone_args(url: &str, target: &str) -> Vec<String> {
-    vec![
+pub fn clone_args(url: &str, target: &str) -> AppResult<Vec<String>> {
+    let url = validate_remote_url(url)?;
+    let target = target.trim();
+    if target.is_empty() {
+        return Err(AppError::Message("Diretório de destino vazio.".into()));
+    }
+    if target.starts_with('-') {
+        return Err(AppError::Message(
+            "Diretório de destino inválido (não pode começar com '-').".into(),
+        ));
+    }
+    Ok(vec![
         "clone".to_string(),
         "--progress".to_string(),
+        "--".to_string(),
         url.to_string(),
         target.to_string(),
-    ]
+    ])
 }
 
 #[cfg(test)]
@@ -602,6 +691,20 @@ mod tests {
         let redacted = redact_secrets(raw);
         assert!(redacted.contains("ghp_***"));
         assert!(!redacted.contains("ABCDEFGHIJKLMNOPQRSTUVWXYZ1234"));
+    }
+
+    #[test]
+    fn redacts_url_password() {
+        let raw = "fatal: could not read Password for 'https://user:s3cretPass@github.com/x.git'";
+        let redacted = redact_secrets(raw);
+        assert!(redacted.contains("user:***@"));
+        assert!(!redacted.contains("s3cretPass"));
+    }
+
+    #[test]
+    fn clone_args_rejects_option_url() {
+        assert!(clone_args("--config=core.sshCommand=evil", r"C:\tmp\repo").is_err());
+        assert!(clone_args("https://github.com/a/b.git", r"C:\tmp\repo").is_ok());
     }
 
     #[test]

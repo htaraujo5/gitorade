@@ -31,6 +31,8 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Publish requires GitHub Environment "release" on the build job
+# (configure required reviewers in repo Settings → Environments).
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -115,6 +117,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.should_release == 'true'
     runs-on: windows-latest
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:

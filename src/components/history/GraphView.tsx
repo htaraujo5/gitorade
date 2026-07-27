@@ -1,8 +1,9 @@
-import { useMemo, useRef, useEffect, useState, type MouseEvent } from "react";
+﻿import { useMemo, useRef, useEffect, useState, type MouseEvent } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
 import type { CommitSummary } from "../../lib/api";
 import { checkoutTargetFromRef, commitHasBranch, normalizeRefLabel } from "../../lib/branchGraph";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconClose, IconSearch } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "../layout/ContextMenu";
 
@@ -371,7 +372,7 @@ export function GraphView() {
         label: "Cherry-pick",
         disabled: busy,
         onClick: () => {
-          if (window.confirm(`Cherry-pick ${short}?`)) {
+          if (requireDangerousConfirm(`Cherry-pick ${short}?`)) {
             void cherryPick(commit.hash);
           }
         },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { usePrefsStore } from "../../stores/prefsStore";
 
 type MenuDef = {
   id: string;
@@ -32,6 +33,7 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
     activeRepoId,
     busy,
   } = useAppStore();
+  const enableTerminal = usePrefsStore((s) => s.enableTerminal);
 
   const [openId, setOpenId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,7 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
         {
           label: terminalOpen ? "Ocultar terminal" : "Mostrar terminal",
           shortcut: "Ctrl+`",
-          disabled: !hasRepo,
+          disabled: !hasRepo || !enableTerminal,
           action: () => setTerminalOpen(!terminalOpen),
         },
         {

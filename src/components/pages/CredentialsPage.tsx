@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+﻿import { useEffect, useState, type FormEvent } from "react";
 import { useAppStore } from "../../stores/appStore";
 import type { Profile } from "../../lib/api";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconCredentials, IconKey, IconPlus } from "../Icons";
 
 type Mode = "view" | "create" | "edit";
@@ -188,7 +189,7 @@ export function CredentialsPage() {
             onAssociate={() => void associateProfile(selected.id)}
             onSsh={() => openSshTab()}
             onDelete={() => {
-              if (!window.confirm(`Remover identidade “${selected.name}”?`)) return;
+              if (!requireDangerousConfirm(`Remover identidade "${selected.name}"?`)) return;
               void deleteProfile(selected.id).then(() => {
                 setSelectedId(null);
               });

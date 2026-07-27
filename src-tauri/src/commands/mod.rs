@@ -30,11 +30,13 @@ pub fn list_profiles(db: State<'_, Database>) -> AppResult<Vec<Profile>> {
 
 #[tauri::command]
 pub fn create_profile(db: State<'_, Database>, input: CreateProfileInput) -> AppResult<Profile> {
+    validate_profile_ssh_key(input.ssh_key_path.as_deref())?;
     db.create_profile(input)
 }
 
 #[tauri::command]
 pub fn update_profile(db: State<'_, Database>, input: UpdateProfileInput) -> AppResult<Profile> {
+    validate_profile_ssh_key(input.ssh_key_path.as_deref())?;
     db.update_profile(input)
 }
 
@@ -184,7 +186,7 @@ pub async fn clone_repository(
     db: State<'_, Database>,
     input: CloneInput,
 ) -> AppResult<Repository> {
-    let args = git::clone_args(&input.url, &input.target_dir);
+    let args = git::clone_args(&input.url, &input.target_dir)?;
     crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, None, None)?;
     db.open_repository_path(&input.target_dir)
 }
@@ -200,6 +202,7 @@ pub async fn fetch_remote(
     let path = std::path::Path::new(&repo.path);
     ensure_has_remote(path)?;
     let remote = resolve_remote(path, input.remote.as_deref())?;
+    git::reject_option_like(&remote)?;
     let args = git::fetch_args(Some(&remote));
     let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
     crate::ops::run_streaming(
@@ -230,6 +233,8 @@ pub async fn pull_remote(
         .clone()
         .or_else(|| git::current_branch(path).ok().flatten())
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para pull.".into()))?;
+    git::reject_option_like(&remote)?;
+    git::reject_option_like(&branch)?;
     let args = git::pull_args_with_opts(Some(&remote), Some(&branch), input.rebase);
     let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
     crate::ops::run_streaming(
@@ -259,6 +264,8 @@ pub async fn push_remote(
         .clone()
         .or_else(|| git::current_branch(path).ok().flatten())
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para push.".into()))?;
+    git::reject_option_like(&remote)?;
+    git::reject_option_like(&branch)?;
     let args = git::push_args(Some(&remote), Some(&branch), input.set_upstream);
     let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
     crate::ops::run_streaming(
@@ -643,6 +650,20 @@ pub fn terminal_kill(
     terminals.kill(&session_id)
 }
 
+#[tauri::command]
+pub fn terminal_set_enabled(
+    terminals: State<'_, TerminalRegistry>,
+    enabled: bool,
+) -> AppResult<()> {
+    terminals.set_enabled(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn terminal_kill_all(terminals: State<'_, TerminalRegistry>) -> AppResult<()> {
+    terminals.kill_all()
+}
+
 fn require_repo(db: &Database, id: &str) -> AppResult<Repository> {
     db.get_repository(id)?
         .ok_or_else(|| AppError::Message("Repositório não encontrado.".into()))
@@ -661,12 +682,22 @@ fn resolve_ssh_key(
     if path.is_empty() {
         return None;
     }
+    if git::validate_ssh_key_path(&path).is_err() {
+        return None;
+    }
     let p = std::path::PathBuf::from(path);
     if p.is_file() {
         Some(p)
     } else {
         None
     }
+}
+
+fn validate_profile_ssh_key(path: Option<&str>) -> AppResult<()> {
+    if let Some(p) = path.map(str::trim).filter(|s| !s.is_empty()) {
+        git::validate_ssh_key_path(p)?;
+    }
+    Ok(())
 }
 
 fn resolve_identity(

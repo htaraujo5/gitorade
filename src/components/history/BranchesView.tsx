@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 
 export function BranchesView() {
   const {
@@ -142,7 +143,9 @@ export function BranchesView() {
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-merge/40 px-3 py-2 text-xs text-merge hover:bg-merge/10 disabled:opacity-40"
                   onClick={() => {
-                    if (window.confirm(`Mesclar ${selectedBranch.name} na branch atual?`)) {
+                    if (
+                      requireDangerousConfirm(`Mesclar ${selectedBranch.name} na branch atual?`)
+                    ) {
                       void mergeBranch(selectedBranch.name);
                     }
                   }}
@@ -156,7 +159,11 @@ export function BranchesView() {
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-rebase/40 px-3 py-2 text-xs text-rebase hover:bg-rebase/10 disabled:opacity-40"
                   onClick={() => {
-                    if (window.confirm(`Rebase da branch atual sobre ${selectedBranch.name}?`)) {
+                    if (
+                      requireDangerousConfirm(
+                        `Rebase da branch atual sobre ${selectedBranch.name}?`,
+                      )
+                    ) {
                       void rebaseOnto(selectedBranch.name);
                     }
                   }}
@@ -170,7 +177,7 @@ export function BranchesView() {
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-danger/40 px-3 py-2 text-xs text-danger hover:bg-danger/10 disabled:opacity-40"
                   onClick={() => {
-                    if (window.confirm(`Excluir branch ${selectedBranch.name}?`)) {
+                    if (requireDangerousConfirm(`Excluir branch ${selectedBranch.name}?`)) {
                       void deleteBranch(selectedBranch.name, false);
                     }
                   }}

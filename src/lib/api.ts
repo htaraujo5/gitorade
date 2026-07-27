@@ -536,3 +536,11 @@ export async function terminalResize(sessionId: string, cols: number, rows: numb
 export async function terminalKill(sessionId: string): Promise<void> {
   await invoke("terminal_kill", { sessionId });
 }
+
+export async function terminalSetEnabled(enabled: boolean): Promise<void> {
+  await invoke("terminal_set_enabled", { enabled });
+}
+
+export async function terminalKillAll(): Promise<void> {
+  await invoke("terminal_kill_all");
+}

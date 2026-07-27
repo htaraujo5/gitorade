@@ -1,4 +1,5 @@
-import { useAppStore } from "../../stores/appStore";
+﻿import { useAppStore } from "../../stores/appStore";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 
 export function CommitDetailsPanel() {
   const {
@@ -49,7 +50,7 @@ export function CommitDetailsPanel() {
           className="text-[9px] text-[#3d8bfd] hover:underline"
           onClick={() => void selectCommit(null)}
         >
-          ← WIP
+          â† WIP
         </button>
       </div>
 
@@ -138,7 +139,7 @@ export function CommitDetailsPanel() {
           disabled={busy}
           className="w-full rounded border border-[#2d3139] py-1 text-[10px] text-[#c8ccd4] hover:bg-[#252830] disabled:opacity-40"
           onClick={() => {
-            if (window.confirm(`Cherry-pick ${selected.shortHash}?`)) {
+            if (requireDangerousConfirm(`Cherry-pick ${selected.shortHash}?`)) {
               void cherryPick(selected.hash);
             }
           }}
@@ -159,7 +160,7 @@ function StatusLetter({ status }: { status: string }) {
   }
   if (s.startsWith("d") || s.includes("del")) {
     return (
-      <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#f85149]">−</span>
+      <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#f85149]">âˆ’</span>
     );
   }
   return <span className="w-2.5 shrink-0 text-center text-[10px] font-bold text-[#e3b341]">/</span>;

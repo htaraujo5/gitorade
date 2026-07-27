@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+﻿import { useMemo, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import type { FileChange } from "../../lib/api";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconBranch, IconStash } from "../Icons";
 
 type ViewMode = "path" | "tree";
@@ -324,7 +325,7 @@ export function StagingPanel() {
                               disabled={busy}
                               className="text-[10px] text-[#f85149] hover:underline disabled:opacity-40"
                               onClick={() => {
-                                if (window.confirm(`Remover ${entry.selector}?`)) {
+                                if (requireDangerousConfirm(`Remover ${entry.selector}?`)) {
                                   void dropStash(entry.selector);
                                 }
                               }}

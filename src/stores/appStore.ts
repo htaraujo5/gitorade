@@ -18,6 +18,7 @@ import type {
 import * as api from "../lib/api";
 import { progressEventSchema } from "../lib/api";
 import { tipCommitForBranch } from "../lib/branchGraph";
+import { requireDangerousConfirm } from "../lib/dangerousConfirm";
 import { usePrefsStore } from "./prefsStore";
 
 type WorkspaceTab = "graph" | "commits" | "changes" | "branches" | "stash" | "files";
@@ -466,6 +467,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       commitOverrideProfileId:
         repo?.defaultProfileId ?? get().commitOverrideProfileId ?? get().profiles[0]?.id ?? null,
     });
+    void api.terminalKillAll();
     try {
       // Critical path for first paint — remotes/stash can fill in after overlay closes.
       await Promise.all([get().refreshStatus(), get().refreshHistory(), get().refreshBranches()]);
@@ -673,12 +675,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       mixed: "Mixed (mantém working tree, limpa index)",
       hard: "Hard (DESCARTA alterações locais)",
     } as const;
-    const ok = window.confirm(
+    const ok = requireDangerousConfirm(
       `Reset de "${branch}" para ${commit.slice(0, 7)}?\n\nModo: ${labels[mode]}`,
     );
     if (!ok) return;
     if (mode === "hard") {
-      const again = window.confirm(
+      const again = requireDangerousConfirm(
         "Hard reset é destrutivo e não pode ser desfeito facilmente. Continuar?",
       );
       if (!again) return;
@@ -700,7 +702,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   revertCommit: async (commit) => {
     const id = get().activeRepoId;
     if (!id) return;
-    const ok = window.confirm(`Criar commit de revert para ${commit.slice(0, 7)}?`);
+    const ok = requireDangerousConfirm(`Criar commit de revert para ${commit.slice(0, 7)}?`);
     if (!ok) return;
     set({ busy: true, error: null });
     try {
@@ -742,7 +744,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = hash.trim();
     if (!target) return;
 
-    const ok = window.confirm(
+    const ok = requireDangerousConfirm(
       `Checkout no commit ${target.slice(0, 7)}?\n\nIsso deixa o HEAD detached (fora de uma branch).`,
     );
     if (!ok) return;
@@ -1365,6 +1367,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const repoId = get().activeRepoId;
     const repo = get().repositories.find((r) => r.id === repoId);
     if (!path || !repo) return;
+    const { isSafeRepoRelativePath } = await import("../lib/pathGuard");
+    if (!isSafeRepoRelativePath(path)) {
+      set({ error: "Caminho de arquivo inválido." });
+      return;
+    }
     try {
       const { openPath } = await import("@tauri-apps/plugin-opener");
       const sep = repo.path.includes("\\") ? "\\" : "/";

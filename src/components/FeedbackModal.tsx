@@ -27,10 +27,15 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
       `${FEEDBACK_REPO}?title=${encodeURIComponent(brief.trim())}` +
       `&body=${encodeURIComponent(body)}`;
     try {
+      if (!url.startsWith("https://github.com/")) {
+        throw new Error("URL de feedback inválida.");
+      }
       await openUrl(url);
       onClose();
     } catch {
-      window.open(url, "_blank");
+      if (url.startsWith("https://github.com/")) {
+        window.open(url, "_blank");
+      }
       onClose();
     } finally {
       setBusy(false);

@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::domain::{CommitFileChange, CommitGraph, CommitSummary, GraphEdge};
 use crate::error::AppResult;
+use crate::git::path_guard::{assert_repo_relative, reject_option_like};
 use crate::git::run_git;
 
 const UNIT_SEP: char = '\u{1f}';
@@ -195,46 +196,41 @@ pub fn commit_files(path: &Path, hash: &str) -> AppResult<Vec<CommitFileChange>>
     Ok(files)
 }
 
-fn validate_repo_rel_path(file_path: &str) -> AppResult<&str> {
-    let file_path = file_path.trim();
-    if file_path.is_empty() {
-        return Err(crate::error::AppError::Message("Caminho vazio.".into()));
-    }
-    if file_path.contains('\0')
-        || file_path.starts_with('/')
-        || file_path.starts_with('\\')
-        || file_path.contains("..")
-    {
-        return Err(crate::error::AppError::Message(
-            "Caminho de arquivo inválido.".into(),
-        ));
-    }
-    Ok(file_path)
-}
-
 /// Unified diff for a single file in a commit (`git show hash -- path`).
 pub fn commit_file_diff(path: &Path, hash: &str, file_path: &str) -> AppResult<String> {
     let hash = hash.trim();
-    let file_path = validate_repo_rel_path(file_path)?;
     if hash.is_empty() {
         return Ok(String::new());
     }
+    let hash = reject_option_like(hash)?;
+    let file_path = assert_repo_relative(file_path)?;
     run_git(
         &["show", "--no-color", "--format=", hash, "--", file_path],
         Some(path),
     )
 }
 
-/// File contents as of a commit (`git show hash:path`).
+/// File contents as of a commit (`git show hash:path`). No textconv (avoids filters/hooks).
 pub fn file_at_commit(path: &Path, hash: &str, file_path: &str) -> AppResult<String> {
     let hash = hash.trim();
-    let file_path = validate_repo_rel_path(file_path)?;
     if hash.is_empty() {
         return Ok(String::new());
     }
+    let hash = reject_option_like(hash)?;
+    let file_path = assert_repo_relative(file_path)?;
     // `hash:path` — colon form; path must not start with /
     let spec = format!("{hash}:{file_path}");
-    run_git(&["show", "--no-color", "--textconv", &spec], Some(path))
+    run_git(
+        &[
+            "-c",
+            "diff.external=",
+            "show",
+            "--no-color",
+            "--no-textconv",
+            &spec,
+        ],
+        Some(path),
+    )
 }
 
 #[cfg(test)]
@@ -330,7 +326,8 @@ mod tests {
 
     #[test]
     fn rejects_path_traversal() {
-        assert!(validate_repo_rel_path("../secret").is_err());
-        assert!(validate_repo_rel_path("ok/file.ts").is_ok());
+        assert!(assert_repo_relative("../secret").is_err());
+        assert!(assert_repo_relative("ok/file.ts").is_ok());
+        assert!(assert_repo_relative(r"C:\Windows\win.ini").is_err());
     }
 }

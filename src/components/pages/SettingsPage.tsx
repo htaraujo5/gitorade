@@ -194,7 +194,19 @@ export function SettingsPage({ initialSection = "general" }: { initialSection?: 
 
           {section === "terminal" && (
             <>
-              <Header title="Terminal" desc="Painel integrado (Ctrl+`)." />
+              <Header
+                title="Terminal"
+                desc="Painel integrado (Ctrl+`). Equivale a um shell completo do usuário — desative se não precisar."
+              />
+              <ToggleRow
+                label="Habilitar terminal integrado"
+                checked={prefs.enableTerminal}
+                onChange={(v) => {
+                  prefs.setPref("enableTerminal", v);
+                  void import("../../lib/api").then((api) => api.terminalSetEnabled(v));
+                  if (!v) useAppStore.getState().setTerminalOpen(false);
+                }}
+              />
               <NumberRow
                 label="Tamanho da fonte"
                 value={prefs.terminalFontSize}

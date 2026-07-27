@@ -6,6 +6,7 @@ export type AppPrefs = {
   relativeDates: boolean;
   showAvatars: boolean;
   confirmDangerous: boolean;
+  enableTerminal: boolean;
   openLastRepoOnStart: boolean;
   graphCommitLimit: number;
   statusPollSeconds: number;
@@ -23,6 +24,7 @@ const defaults: AppPrefs = {
   relativeDates: true,
   showAvatars: true,
   confirmDangerous: true,
+  enableTerminal: true,
   openLastRepoOnStart: false,
   graphCommitLimit: 150,
   statusPollSeconds: 4,

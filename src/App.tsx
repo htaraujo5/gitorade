@@ -43,6 +43,7 @@ function App() {
   const openingRepoName = useAppStore((s) => s.openingRepoName);
   const statusPollSeconds = usePrefsStore((s) => s.statusPollSeconds);
   const onboardingComplete = usePrefsStore((s) => s.onboardingComplete);
+  const enableTerminal = usePrefsStore((s) => s.enableTerminal);
   const setPref = usePrefsStore((s) => s.setPref);
 
   const [prefsReady, setPrefsReady] = useState(() => usePrefsStore.persist.hasHydrated());
@@ -66,6 +67,13 @@ function App() {
     if (!prefsReady) return;
     void bootstrap();
   }, [prefsReady, bootstrap]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
+    const enabled = usePrefsStore.getState().enableTerminal;
+    void import("./lib/api").then((api) => api.terminalSetEnabled(enabled));
+    if (!enabled) setTerminalOpen(false);
+  }, [prefsReady, setTerminalOpen]);
 
   useEffect(() => {
     if (!prefsReady || bootLoading) return;
@@ -125,6 +133,7 @@ function App() {
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "`") {
+        if (!usePrefsStore.getState().enableTerminal) return;
         e.preventDefault();
         setTerminalOpen(!terminalOpen);
         return;
@@ -204,17 +213,19 @@ function App() {
                 )}
               </div>
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-1 hover:text-[#e8eaed] ${
-                    terminalOpen ? "text-[#e8eaed]" : ""
-                  }`}
-                  onClick={() => setTerminalOpen(!terminalOpen)}
-                >
-                  <IconTerminal className="h-3.5 w-3.5" />
-                  Terminal
-                  <kbd className="rounded border border-[#2d3139] px-0.5 text-[8px]">Ctrl+`</kbd>
-                </button>
+                {enableTerminal && (
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-1 hover:text-[#e8eaed] ${
+                      terminalOpen ? "text-[#e8eaed]" : ""
+                    }`}
+                    onClick={() => setTerminalOpen(!terminalOpen)}
+                  >
+                    <IconTerminal className="h-3.5 w-3.5" />
+                    Terminal
+                    <kbd className="rounded border border-[#2d3139] px-0.5 text-[8px]">Ctrl+`</kbd>
+                  </button>
+                )}
                 <span>v{health?.appVersion ?? "0.1.0"}</span>
               </div>
             </footer>

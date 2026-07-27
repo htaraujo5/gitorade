@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
 
@@ -29,12 +30,32 @@ struct Session {
     _child: Box<dyn portable_pty::Child + Send + Sync>,
 }
 
-#[derive(Default)]
 pub struct TerminalRegistry {
     sessions: Mutex<HashMap<String, Session>>,
+    enabled: AtomicBool,
+}
+
+impl Default for TerminalRegistry {
+    fn default() -> Self {
+        Self {
+            sessions: Mutex::new(HashMap::new()),
+            enabled: AtomicBool::new(true),
+        }
+    }
 }
 
 impl TerminalRegistry {
+    pub fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::SeqCst);
+        if !enabled {
+            let _ = self.kill_all();
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::SeqCst)
+    }
+
     pub fn create(
         &self,
         app: AppHandle,
@@ -42,6 +63,11 @@ impl TerminalRegistry {
         cols: u16,
         rows: u16,
     ) -> AppResult<String> {
+        if !self.is_enabled() {
+            return Err(AppError::Message(
+                "Terminal desabilitado nas preferências.".into(),
+            ));
+        }
         let session_id = Uuid::new_v4().to_string();
         let pty_system = native_pty_system();
         let pair = pty_system
@@ -134,6 +160,11 @@ impl TerminalRegistry {
     }
 
     pub fn write(&self, session_id: &str, data: &str) -> AppResult<()> {
+        if !self.is_enabled() {
+            return Err(AppError::Message(
+                "Terminal desabilitado nas preferências.".into(),
+            ));
+        }
         let mut map = self
             .sessions
             .lock()
@@ -177,6 +208,15 @@ impl TerminalRegistry {
         map.remove(session_id);
         Ok(())
     }
+
+    pub fn kill_all(&self) -> AppResult<()> {
+        let mut map = self
+            .sessions
+            .lock()
+            .map_err(|_| AppError::Message("Lock do terminal.".into()))?;
+        map.clear();
+        Ok(())
+    }
 }
 
 struct ShellSpec {
@@ -185,7 +225,6 @@ struct ShellSpec {
 }
 
 fn default_shell() -> ShellSpec {
-    // Prefer PowerShell on Windows for a proper interactive shell.
     let candidates = [
         (
             r"C:\Program Files\PowerShell\7\pwsh.exe",

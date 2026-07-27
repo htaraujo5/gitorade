@@ -1,5 +1,6 @@
-import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
+﻿import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconBranch } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { buildBranchTree, type BranchTreeNode } from "../../lib/branchTree";
@@ -76,7 +77,7 @@ export function BranchSidebar() {
 
   const doMerge = async (source: string, target: string) => {
     if (source === target) return;
-    const ok = window.confirm(
+    const ok = requireDangerousConfirm(
       `Merge "${source}" → "${target}"?\n\nCheckout em ${target} (se preciso) e merge de ${source}.`,
     );
     if (!ok) return;
@@ -135,7 +136,7 @@ export function BranchSidebar() {
         disabled: m.isCurrent,
         onClick: () => {
           if (m.isCurrent) return;
-          if (!window.confirm(`Excluir branch "${short}"?`)) return;
+          if (!requireDangerousConfirm(`Excluir branch "${short}"?`)) return;
           void deleteBranch(m.branch, false);
         },
       });

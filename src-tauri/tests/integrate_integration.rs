@@ -100,3 +100,21 @@ fn rebase_onto_linearizes() {
     assert!(path.join("main.txt").exists());
     assert!(path.join("feat.txt").exists());
 }
+
+#[test]
+fn resolve_conflict_rejects_absolute_path() {
+    let (_tmp, path) = init_repo();
+    commit_file(&path, "f.txt", "base\n", "base");
+    let abs = if cfg!(windows) {
+        r"C:\Windows\Temp\gitorade-escape.txt"
+    } else {
+        "/tmp/gitorade-escape.txt"
+    };
+    let err = git::resolve_conflict(&path, abs, "content", Some("pwned")).unwrap_err();
+    assert!(
+        err.to_string().contains("inválido") || err.to_string().contains("repositório"),
+        "{err}"
+    );
+    let read_err = git::read_worktree_file(&path, abs).unwrap_err();
+    assert!(!read_err.to_string().is_empty());
+}

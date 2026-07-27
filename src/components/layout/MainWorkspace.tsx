@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { usePrefsStore } from "../../stores/prefsStore";
 import { GraphView } from "../history/GraphView";
 import { BranchesView } from "../history/BranchesView";
 import { FilesView } from "../files/FilesView";
@@ -34,6 +35,7 @@ export function MainWorkspace() {
   } = useAppStore();
 
   const repo = repositories.find((r) => r.id === activeRepoId);
+  const enableTerminal = usePrefsStore((s) => s.enableTerminal);
   if (!repo) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#8b909a]">
@@ -120,7 +122,7 @@ export function MainWorkspace() {
           <BranchSidebar />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{center}</div>
-            {terminalOpen && <TerminalPanel />}
+            {terminalOpen && enableTerminal && <TerminalPanel />}
           </div>
           {right}
         </div>

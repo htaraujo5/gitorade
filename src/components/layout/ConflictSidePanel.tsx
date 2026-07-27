@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 
 /**
  * Right commit panel while merge/rebase/cherry-pick has conflicts (GitKraken-style).
@@ -135,7 +136,7 @@ export function ConflictSidePanel() {
           type="button"
           disabled={busy || !inProgress}
           onClick={() => {
-            if (window.confirm(`Abortar ${opLabel.toLowerCase()}?`)) {
+            if (requireDangerousConfirm(`Abortar ${opLabel.toLowerCase()}?`)) {
               void abortIntegrate();
             }
           }}

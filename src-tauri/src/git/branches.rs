@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::domain::{BranchInfo, UpstreamStatus};
 use crate::error::{AppError, AppResult};
+use crate::git::path_guard::reject_option_like;
 use crate::git::run_git;
 
 pub fn list_branches(path: &Path) -> AppResult<Vec<BranchInfo>> {
@@ -96,23 +97,23 @@ pub fn create_branch_at(
     checkout: bool,
     start_point: Option<&str>,
 ) -> AppResult<()> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(AppError::Message("Nome da branch é obrigatório.".into()));
-    }
-    let start = start_point.map(str::trim).filter(|s| !s.is_empty());
+    let name = reject_option_like(name)?;
+    let start = match start_point {
+        Some(sp) => Some(reject_option_like(sp)?),
+        None => None,
+    };
     match (checkout, start) {
         (true, Some(sp)) => {
-            run_git(&["checkout", "-b", name, sp], Some(path))?;
+            run_git(&["checkout", "-b", name, "--", sp], Some(path))?;
         }
         (true, None) => {
             run_git(&["checkout", "-b", name], Some(path))?;
         }
         (false, Some(sp)) => {
-            run_git(&["branch", name, sp], Some(path))?;
+            run_git(&["branch", "--", name, sp], Some(path))?;
         }
         (false, None) => {
-            run_git(&["branch", name], Some(path))?;
+            run_git(&["branch", "--", name], Some(path))?;
         }
     }
     Ok(())
@@ -120,10 +121,7 @@ pub fn create_branch_at(
 
 /// Soft / mixed / hard reset of HEAD to `commit`.
 pub fn reset_to_commit(path: &Path, commit: &str, mode: &str) -> AppResult<()> {
-    let commit = commit.trim();
-    if commit.is_empty() {
-        return Err(AppError::Message("Commit obrigatório.".into()));
-    }
+    let commit = reject_option_like(commit)?;
     let flag = match mode {
         "soft" => "--soft",
         "hard" => "--hard",
@@ -134,17 +132,14 @@ pub fn reset_to_commit(path: &Path, commit: &str, mode: &str) -> AppResult<()> {
             )));
         }
     };
-    run_git(&["reset", flag, commit], Some(path))?;
+    run_git(&["reset", flag, "--", commit], Some(path))?;
     Ok(())
 }
 
 /// Create a revert commit for `commit` (no edit).
 pub fn revert_commit(path: &Path, commit: &str) -> AppResult<()> {
-    let commit = commit.trim();
-    if commit.is_empty() {
-        return Err(AppError::Message("Commit obrigatório.".into()));
-    }
-    run_git(&["revert", "--no-edit", commit], Some(path))?;
+    let commit = reject_option_like(commit)?;
+    run_git(&["revert", "--no-edit", "--", commit], Some(path))?;
     Ok(())
 }
 
@@ -157,12 +152,10 @@ pub fn checkout_branch_force(path: &Path, name: &str) -> AppResult<()> {
 }
 
 fn checkout_branch_with_opts(path: &Path, name: &str, force: bool) -> AppResult<()> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(AppError::Message("Nome da branch é obrigatório.".into()));
-    }
+    let name = reject_option_like(name)?;
 
     let do_checkout = |branch: &str| -> AppResult<()> {
+        // Do NOT put `--` before the branch: `checkout -- X` treats X as a pathspec.
         if force {
             run_git(&["checkout", "-f", branch], Some(path))?;
         } else {

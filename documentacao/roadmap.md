@@ -88,6 +88,25 @@ Aplicativo desktop Windows local-first para Git, com **múltiplas identidades** 
 
 **Aceite:** fluxos diários de integração sem sair do app. ✅
 
+### V1.1 — Security hardening
+
+- [x] `path_guard` + containment em conflict/stage/diff/history (SEC-01/02/09)
+- [x] Validação de `ssh_key_path` / sem injeção em `GIT_SSH_COMMAND` (SEC-03)
+- [x] CSP restritiva no Tauri (SEC-04)
+- [x] Guards de argv/URL em clone/remotes/refs (SEC-07)
+- [x] Askpass com token + pending map; host key `yes` (SEC-06/08)
+- [x] `redact_secrets` ampliado (SEC-11)
+- [x] Terminal desligável + kill ao trocar repo (SEC-05)
+- [x] `confirmDangerous` aplicado nas ações destrutivas (SEC-12)
+- [x] Opener allowlist GitHub HTTPS (SEC-13)
+- [x] Sem `--textconv` em `file_at_commit` (SEC-10)
+- [x] ssh-agent via `sc.exe` (SEC-14)
+- [x] CI audit job + Release environment (SEC-15)
+- [ ] Authenticode signing (SEC-16 — quando houver certificado)
+- [x] ADR 0010
+
+**Aceite:** bloqueadores Critical/High remedidos; CI + docs atualizados.
+
 ### Redesign de shell (layout mockups)
 
 - [x] Fonte de verdade: `documentacao/layout/` (ADR 0005 atualizado)
