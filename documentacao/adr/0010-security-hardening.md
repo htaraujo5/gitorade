@@ -38,7 +38,7 @@ nula, option injection em clone/refs, askpass com arquivos plaintext e
 ### WebView
 
 - CSP restritiva em `tauri.conf.json` (`script-src 'self'`, `unsafe-inline` só
-  em styles; `connect-src` para IPC Tauri).
+  em styles; `img-src` permite Gravatar; `connect-src` para IPC Tauri).
 - Opener limitado a `https://github.com/*` (+ path open para arquivos do repo).
 
 ### Produto

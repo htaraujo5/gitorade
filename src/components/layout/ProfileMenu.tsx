@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { UserAvatar } from "../UserAvatar";
 
 /** GitKraken-style profile menu: identity lives here, not in the commit form. */
 export function ProfileMenu() {
@@ -47,7 +48,7 @@ export function ProfileMenu() {
           open ? "bg-[#2a2e38]" : ""
         }`}
       >
-        <Avatar name={active?.name ?? "?"} size={18} />
+        <Avatar name={active?.name ?? "?"} email={active?.email} size={18} />
         <span className="max-w-[110px] truncate text-[11px] font-normal text-[#d8dbe2]">
           {active?.name ?? "Profile"}
         </span>
@@ -78,7 +79,7 @@ export function ProfileMenu() {
                       setOpen(false);
                     }}
                   >
-                    <Avatar name={p.name} size={22} />
+                    <Avatar name={p.name} email={p.email} size={22} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] font-medium text-[#f0f1f4]">
                         {p.name}
@@ -153,15 +154,9 @@ function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function Avatar({ name, size }: { name: string; size: number }) {
-  const letter = name.trim().slice(0, 1).toUpperCase() || "?";
+function Avatar({ name, email, size }: { name: string; email?: string | null; size: number }) {
   return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-sm bg-gradient-to-br from-[#7c6cff] to-[#c44ec0] text-[10px] font-bold text-white"
-      style={{ width: size, height: size }}
-    >
-      {letter}
-    </span>
+    <UserAvatar name={name} email={email} size={size} rounded="sm" gradientFallback />
   );
 }
 

@@ -7,7 +7,11 @@ import { groupRefsForCommit, remotesLookLikeGithub } from "../../lib/refDecorate
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { dateLocale, translate, useLocale, useT, type MessageKey } from "../../i18n";
 import { IconClose, IconCloud, IconGithub, IconLaptop, IconSearch, IconTag } from "../Icons";
+import { UserAvatar } from "../UserAvatar";
 import { ContextMenu, type ContextMenuItem } from "../layout/ContextMenu";
+
+/** Alias kept for graph call sites. */
+const AuthorAvatar = UserAvatar;
 
 const LANE_COLORS = ["#3dd68c", "#3d8bfd", "#e3b341", "#a371f7", "#f778ba", "#f85149", "#56d4dd"];
 const ROW_H = 32;
@@ -59,48 +63,6 @@ function RefLocationIcons({
           )}
         </span>
       )}
-    </span>
-  );
-}
-
-/** Deterministic color from email/name (identicon-style). */
-function authorHue(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
-  return `hsl(${hue} 48% 42%)`;
-}
-
-function authorInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-export function AuthorAvatar({
-  name,
-  email,
-  size = 18,
-}: {
-  name: string;
-  email: string;
-  size?: number;
-}) {
-  const bg = authorHue(email || name);
-  const initials = authorInitials(name || email || "?");
-  return (
-    <span
-      title={`${name} <${email}>`}
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-medium text-white"
-      style={{
-        width: size,
-        height: size,
-        background: bg,
-        fontSize: Math.max(8, Math.floor(size * 0.42)),
-      }}
-    >
-      {initials}
     </span>
   );
 }

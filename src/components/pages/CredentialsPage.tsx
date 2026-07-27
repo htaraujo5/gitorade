@@ -3,6 +3,7 @@ import { useAppStore } from "../../stores/appStore";
 import type { Profile } from "../../lib/api";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconCredentials, IconKey, IconPlus } from "../Icons";
+import { UserAvatar } from "../UserAvatar";
 
 type Mode = "view" | "create" | "edit";
 
@@ -337,14 +338,16 @@ function ProfileDetail({
   onSsh: () => void;
   onDelete: () => void;
 }) {
-  const letter = profile.name.trim().slice(0, 1).toUpperCase() || "?";
-
   return (
     <div className="mx-auto max-w-xl px-8 py-8">
       <div className="flex items-start gap-4">
-        <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-xl font-semibold text-white">
-          {letter}
-        </span>
+        <UserAvatar
+          name={profile.name}
+          email={profile.email}
+          size={56}
+          rounded="xl"
+          gradientFallback
+        />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[20px] font-semibold tracking-tight text-[#f0f1f4]">
             {profile.name}
@@ -450,7 +453,6 @@ function ProfileRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const letter = profile.name.trim().slice(0, 1).toUpperCase() || "?";
   return (
     <button
       type="button"
@@ -459,9 +461,13 @@ function ProfileRow({
         selected ? "bg-[#1e3a5f] ring-1 ring-[#3d8bfd]/40" : "hover:bg-[#252830]"
       }`}
     >
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-[#6b5cff] to-[#e040a0] text-[11px] font-semibold text-white">
-        {letter}
-      </span>
+      <UserAvatar
+        name={profile.name}
+        email={profile.email}
+        size={32}
+        rounded="md"
+        gradientFallback
+      />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-[12px] text-[#e8eaed]">{profile.name}</span>

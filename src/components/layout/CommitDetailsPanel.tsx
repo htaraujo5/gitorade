@@ -1,6 +1,7 @@
 ﻿import { useAppStore } from "../../stores/appStore";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { dateLocale, useLocale, useT } from "../../i18n";
+import { UserAvatar } from "../UserAvatar";
 
 export function CommitDetailsPanel() {
   const t = useT();
@@ -28,7 +29,6 @@ export function CommitDetailsPanel() {
     );
   }
 
-  const letter = selected.authorName.trim().slice(0, 1).toUpperCase() || "?";
   const parent = selected.parents[0]?.slice(0, 7);
 
   const modified = commitFiles.filter((f) => {
@@ -63,9 +63,12 @@ export function CommitDetailsPanel() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-gradient-to-br from-[#7c6cff] to-[#c44ec0] text-[9px] font-bold text-white">
-            {letter}
-          </span>
+          <UserAvatar
+            name={selected.authorName}
+            email={selected.authorEmail}
+            size={20}
+            rounded="sm"
+          />
           <div className="min-w-0 leading-tight">
             <div className="truncate text-[11px] font-medium text-[#e8eaed]">
               {selected.authorName}
