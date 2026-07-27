@@ -48,7 +48,12 @@ export function ProfileMenu() {
           open ? "bg-[#2a2e38]" : ""
         }`}
       >
-        <Avatar name={active?.name ?? "?"} email={active?.email} src={active?.avatarData} size={22} />
+        <Avatar
+          name={active?.name ?? "?"}
+          email={active?.email}
+          src={active?.avatarData}
+          size={22}
+        />
         <span className="max-w-[110px] truncate text-[11px] font-normal text-[#d8dbe2]">
           {active?.name ?? "Profile"}
         </span>

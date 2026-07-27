@@ -77,17 +77,13 @@ export function UserAvatar({
     );
   }
 
-  const letter = gradientFallback
-    ? name.trim().slice(0, 1).toUpperCase() || "?"
-    : initials;
+  const letter = gradientFallback ? name.trim().slice(0, 1).toUpperCase() || "?" : initials;
 
   return (
     <span
       title={tip}
       className={`inline-flex shrink-0 items-center justify-center font-medium text-white ${shape} ${
-        gradientFallback
-          ? "bg-gradient-to-br from-[#6b5cff] to-[#e040a0] font-semibold"
-          : ""
+        gradientFallback ? "bg-gradient-to-br from-[#6b5cff] to-[#e040a0] font-semibold" : ""
       } ${className}`}
       style={{
         width: size,

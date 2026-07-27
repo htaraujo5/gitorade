@@ -589,13 +589,9 @@ export function GraphView() {
                     const isSelectedTip =
                       Boolean(selectedBranchName) && pill.label === selectedBranchName;
                     const titleParts = [
-                      pill.isTag
-                        ? t("graph.ref.tag", { name: pill.label })
-                        : pill.label,
+                      pill.isTag ? t("graph.ref.tag", { name: pill.label }) : pill.label,
                       pill.isLocal ? t("graph.ref.local") : null,
-                      pill.remoteName
-                        ? t("graph.ref.remote", { name: pill.remoteName })
-                        : null,
+                      pill.remoteName ? t("graph.ref.remote", { name: pill.remoteName }) : null,
                       t("graph.ref.hint"),
                     ].filter(Boolean);
                     return (

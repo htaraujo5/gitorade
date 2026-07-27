@@ -573,9 +573,7 @@ function Group({
         <Chevron open={open} />
         {icon && <span className="inline-flex shrink-0 opacity-80">{icon}</span>}
         <span className="flex-1 text-left uppercase">{title}</span>
-        {count !== undefined && (
-          <span className="tabular-nums text-[#3d8bfd]">{count}</span>
-        )}
+        {count !== undefined && <span className="tabular-nums text-[#3d8bfd]">{count}</span>}
       </button>
       {open && children}
     </div>

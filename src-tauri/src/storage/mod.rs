@@ -394,5 +394,23 @@ fn app_data_dir() -> AppResult<PathBuf> {
     let base = dirs::data_dir().ok_or_else(|| {
         AppError::Message("Não foi possível resolver o diretório de dados do app.".into())
     })?;
-    Ok(base.join("gitorade"))
+    // Match Tauri NSIS `${BUNDLEID}` cleanup paths (`com.gitorade.desktop`).
+    let dir = base.join("com.gitorade.desktop");
+    let legacy = base.join("gitorade");
+    if legacy.exists() && !dir.exists() {
+        if fs::rename(&legacy, &dir).is_err() {
+            // Fallback: copy then remove (e.g. cross-volume).
+            fs::create_dir_all(&dir)?;
+            if let Ok(entries) = fs::read_dir(&legacy) {
+                for entry in entries.flatten() {
+                    let dest = dir.join(entry.file_name());
+                    let _ = fs::rename(entry.path(), &dest).or_else(|_| {
+                        fs::copy(entry.path(), &dest).and_then(|_| fs::remove_file(entry.path()))
+                    });
+                }
+            }
+            let _ = fs::remove_dir_all(&legacy);
+        }
+    }
+    Ok(dir)
 }

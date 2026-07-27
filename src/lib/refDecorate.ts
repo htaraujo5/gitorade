@@ -118,7 +118,9 @@ export function groupRefsForCommit(
 }
 
 /** Whether any configured remote looks like GitHub (for icon choice). */
-export function remotesLookLikeGithub(remotes: Pick<RemoteInfo, "fetchUrl" | "pushUrl">[]): boolean {
+export function remotesLookLikeGithub(
+  remotes: Pick<RemoteInfo, "fetchUrl" | "pushUrl">[],
+): boolean {
   return remotes.some((r) => {
     const url = `${r.fetchUrl ?? ""} ${r.pushUrl ?? ""}`.toLowerCase();
     return url.includes("github.com") || url.includes("github:");

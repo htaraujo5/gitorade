@@ -32,8 +32,7 @@ export function CommitDetailsPanel() {
 
   const parent = selected.parents[0]?.slice(0, 7);
   const authorAvatar = profiles.find(
-    (p) =>
-      p.email.trim().toLowerCase() === (selected.authorEmail ?? "").trim().toLowerCase(),
+    (p) => p.email.trim().toLowerCase() === (selected.authorEmail ?? "").trim().toLowerCase(),
   )?.avatarData;
 
   const modified = commitFiles.filter((f) => {
