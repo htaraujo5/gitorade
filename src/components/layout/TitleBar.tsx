@@ -1,25 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useAppStore } from "../../stores/appStore";
-import { IconBranch } from "../Icons";
+import logo from "../../assets/brand/logo.png";
 import { MenuBar } from "./MenuBar";
 
 /**
- * Fork-style chrome: menus · centered repo/branch pill · feedback + window controls.
+ * Fork-style chrome: menus · centered brand · feedback + window controls.
  */
 export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
   const [maximized, setMaximized] = useState(false);
-  const activeRepoId = useAppStore((s) => s.activeRepoId);
-  const repositories = useAppStore((s) => s.repositories);
-  const status = useAppStore((s) => s.status);
-  const activeTab = useAppStore((s) => {
-    const id = s.activeShellTabId;
-    return s.shellTabs.find((t) => t.id === id) ?? null;
-  });
-
-  const inRepo = activeTab?.kind === "repo" && Boolean(activeRepoId);
-  const repo = repositories.find((r) => r.id === activeRepoId);
-  const branch = status?.branch ?? repo?.branch ?? null;
 
   useEffect(() => {
     const win = getCurrentWindow();
@@ -45,30 +33,24 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
         <div className="h-full min-w-2 flex-1" data-tauri-drag-region />
       </div>
 
-      {/* Center — Fork-style repo / branch pill */}
+      {/* Center — logo + name, no box */}
       <div
         className="flex h-full items-center px-2"
         data-tauri-drag-region
       >
         <div
-          className="pointer-events-none flex max-w-[300px] select-none flex-col items-center justify-center rounded-md border border-[#2d3139] bg-[#12141a] px-5 py-1"
+          className="pointer-events-none flex select-none items-center gap-1.5"
           data-tauri-drag-region
         >
-          {inRepo && repo ? (
-            <>
-              <span className="max-w-full truncate text-[12px] font-semibold leading-tight text-[#e8eaed]">
-                {repo.name}
-              </span>
-              <span className="inline-flex max-w-full items-center gap-1 text-[10px] leading-tight text-[#8b909a]">
-                <IconBranch className="h-2.5 w-2.5 shrink-0 opacity-70" />
-                <span className="truncate">{branch ?? "—"}</span>
-              </span>
-            </>
-          ) : (
-            <span className="text-[12px] font-semibold tracking-wide text-[#c8ccd4]">
-              Gitorade
-            </span>
-          )}
+          <img
+            src={logo}
+            alt=""
+            className="h-4 w-4 object-contain"
+            aria-hidden
+          />
+          <span className="text-[12px] font-semibold tracking-wide text-[#e8eaed]">
+            gitorade
+          </span>
         </div>
       </div>
 
