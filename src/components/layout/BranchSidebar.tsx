@@ -385,21 +385,28 @@ export function BranchSidebar() {
           {filteredTags.length === 0 ? (
             <p className="px-2.5 py-1.5 text-[10px] text-[#5c6370]">{t("branches.emptyTags")}</p>
           ) : (
-            filteredTags.map((tag) => (
-              <button
-                key={tag.name}
-                type="button"
-                onClick={() => void focusTagInGraph(tag.name)}
-                className="flex h-6 w-full items-center gap-1.5 text-left text-[11px] text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
-                style={{ paddingLeft: rowPad(0), paddingRight: 8 }}
-                title={tag.tipHash ? `${tag.name} @ ${tag.tipHash}` : tag.name}
-              >
-                <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                  <IconTag className="h-3 w-3 opacity-55" />
-                </span>
-                <span className="min-w-0 flex-1 truncate">{tag.name}</span>
-              </button>
-            ))
+            filteredTags.map((tag) => {
+              const isSelected = selectedBranchName === tag.name;
+              return (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => void focusTagInGraph(tag.name)}
+                  className={`flex h-6 w-full items-center gap-1.5 text-left text-[11px] ${
+                    isSelected
+                      ? "bg-[#1e3a5f]/70 text-[#d8dbe2]"
+                      : "text-[#8b909a] hover:bg-[#1c1f26] hover:text-[#d8dbe2]"
+                  }`}
+                  style={{ paddingLeft: rowPad(0), paddingRight: 8 }}
+                  title={tag.tipHash ? `${tag.name} @ ${tag.tipHash}` : tag.name}
+                >
+                  <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                    <IconTag className="h-3 w-3 opacity-55" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+                </button>
+              );
+            })
           )}
         </Group>
       </div>

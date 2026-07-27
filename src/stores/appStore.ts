@@ -361,26 +361,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = name.trim();
     if (!target) return;
     set({
-      selectedBranchName: null,
+      selectedBranchName: target,
       workspaceTab: "graph",
       appView: "history",
     });
-    const fromList = get().tags.find((t) => t.name === target)?.tipHash ?? null;
     const commits = get().filteredCommits ?? get().graph?.commits ?? [];
-    const fromGraph =
-      fromList ??
-      commits.find((c) =>
-        c.refs.some((r) => {
-          const n = r.trim();
-          return (
-            (n.startsWith("tag: ") || n.includes("refs/tags/")) &&
-            n.replace(/^tag:\s*/, "").replace(/^refs\/tags\//, "") === target
-          );
-        }),
-      )?.hash ??
-      null;
-    if (fromGraph) {
-      await get().selectCommit(fromGraph);
+    const fromGraph = tipCommitForBranch(commits, target);
+    const shortTip = get().tags.find((t) => t.name === target)?.tipHash ?? null;
+    const fromShort =
+      shortTip &&
+      commits.find((c) => c.hash.startsWith(shortTip) || c.shortHash === shortTip)?.hash;
+    const tip = fromGraph ?? fromShort ?? null;
+    if (tip) {
+      await get().selectCommit(tip);
     } else {
       set({
         selectedCommitHash: null,

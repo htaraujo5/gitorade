@@ -587,9 +587,7 @@ export function GraphView() {
                 >
                   {pills.map((pill) => {
                     const isSelectedTip =
-                      Boolean(selectedBranchName) &&
-                      !pill.isTag &&
-                      pill.label === selectedBranchName;
+                      Boolean(selectedBranchName) && pill.label === selectedBranchName;
                     const titleParts = [
                       pill.isTag
                         ? t("graph.ref.tag", { name: pill.label })

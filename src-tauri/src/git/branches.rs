@@ -72,7 +72,7 @@ pub fn list_tags(path: &Path) -> AppResult<Vec<TagInfo>> {
         &[
             "for-each-ref",
             "--sort=-creatordate",
-            "--format=%(refname:short)%00%(objectname:short)",
+            "--format=%(refname:short)%00%(objectname)",
             "refs/tags",
         ],
         Some(path),
