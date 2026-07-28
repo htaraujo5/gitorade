@@ -3,10 +3,16 @@
 use std::path::Path;
 use std::process::Command;
 
-use crate::domain::{IntegrateResult, IntegrateState};
+use crate::domain::{
+    CommitFileChange, IntegrateResult, IntegrateState, MergePreview, MergePreviewCommit,
+};
 use crate::error::{AppError, AppResult};
 use super::path_guard::{assert_repo_relative, reject_option_like, resolve_under_repo};
 use super::{redact_secrets, run_git, stage};
+
+const PREVIEW_COMMIT_LIMIT: usize = 50;
+const UNIT_SEP: char = '\u{1f}';
+const RECORD_SEP: char = '\u{1e}';
 
 /// Detect whether a merge/rebase/cherry-pick is in progress and list conflicts.
 pub fn detect_state(path: &Path) -> AppResult<IntegrateState> {
@@ -41,6 +47,154 @@ pub fn list_conflicts(path: &Path) -> AppResult<Vec<String>> {
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .collect())
+}
+
+/// Read-only preview of merging `source` into `target` (no working-tree changes).
+pub fn preview_merge(path: &Path, source: &str, target: &str) -> AppResult<MergePreview> {
+    let source = reject_option_like(source)?.to_string();
+    let target = reject_option_like(target)?.to_string();
+    if source == target {
+        return Err(AppError::Message(
+            "Origem e destino do merge são iguais.".into(),
+        ));
+    }
+
+    // Ensure both refs resolve.
+    run_git(&["rev-parse", "--verify", &source], Some(path))?;
+    run_git(&["rev-parse", "--verify", &target], Some(path))?;
+
+    let merge_base = run_git(&["merge-base", &target, &source], Some(path))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let merge_base_short = merge_base.as_ref().and_then(|hash| {
+        run_git(&["rev-parse", "--short", hash], Some(path))
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    });
+
+    let range = format!("{target}..{source}");
+    let commit_count = run_git(&["rev-list", "--count", &range], Some(path))?
+        .trim()
+        .parse::<u32>()
+        .unwrap_or(0);
+
+    let pretty = format!(
+        "%H{u}%h{u}%s{u}%an{u}%aI{r}",
+        u = UNIT_SEP,
+        r = RECORD_SEP
+    );
+    let log_raw = run_git(
+        &[
+            "log",
+            &format!("--max-count={PREVIEW_COMMIT_LIMIT}"),
+            &format!("--pretty=format:{pretty}"),
+            &range,
+        ],
+        Some(path),
+    )?;
+
+    let mut commits = Vec::new();
+    for record in log_raw.split(RECORD_SEP) {
+        let record = record.trim().trim_matches('\n').trim_matches('\r');
+        if record.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = record.split(UNIT_SEP).collect();
+        if parts.len() < 5 {
+            continue;
+        }
+        commits.push(MergePreviewCommit {
+            hash: parts[0].to_string(),
+            short_hash: parts[1].to_string(),
+            subject: parts[2].to_string(),
+            author_name: parts[3].to_string(),
+            authored_at: parts[4].to_string(),
+        });
+    }
+
+    let triple_dot = format!("{target}...{source}");
+    let files = parse_name_status(&run_git(
+        &["diff", "--name-status", "--no-color", &triple_dot],
+        Some(path),
+    )?);
+    let file_count = files.len() as u32;
+
+    let (insertions, deletions) = parse_shortstat(&run_git(
+        &["diff", "--shortstat", "--no-color", &triple_dot],
+        Some(path),
+    )?);
+
+    let can_fast_forward = run_git(
+        &["merge-base", "--is-ancestor", &target, &source],
+        Some(path),
+    )
+    .is_ok();
+
+    Ok(MergePreview {
+        source,
+        target,
+        merge_base,
+        merge_base_short,
+        has_more_commits: commit_count as usize > commits.len(),
+        commits,
+        commit_count,
+        files,
+        file_count,
+        insertions,
+        deletions,
+        already_up_to_date: commit_count == 0,
+        can_fast_forward,
+    })
+}
+
+fn parse_name_status(raw: &str) -> Vec<CommitFileChange> {
+    let mut files = Vec::new();
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.split('\t');
+        let status = parts.next().unwrap_or("M").to_string();
+        let path = parts.next_back().unwrap_or("").to_string();
+        if path.is_empty() {
+            continue;
+        }
+        files.push(CommitFileChange { path, status });
+    }
+    files
+}
+
+fn parse_shortstat(raw: &str) -> (u32, u32) {
+    // e.g. " 3 files changed, 12 insertions(+), 4 deletions(-)"
+    let mut insertions = 0u32;
+    let mut deletions = 0u32;
+    let lower = raw.to_lowercase();
+    for part in lower.split(',') {
+        let part = part.trim();
+        if let Some(n) = part
+            .strip_suffix(" insertions(+)")
+            .or_else(|| part.strip_suffix(" insertion(+)"))
+        {
+            insertions = n
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+        } else if let Some(n) = part
+            .strip_suffix(" deletions(-)")
+            .or_else(|| part.strip_suffix(" deletion(-)"))
+        {
+            deletions = n
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+        }
+    }
+    (insertions, deletions)
 }
 
 /// Merge `branch` into HEAD. Returns conflict state when merge stops for resolution.

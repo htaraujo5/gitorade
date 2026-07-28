@@ -34,6 +34,26 @@ fn commit_file(path: &Path, name: &str, contents: &str, msg: &str) {
 }
 
 #[test]
+fn preview_merge_lists_commits_and_files() {
+    let (_tmp, path) = init_repo();
+    commit_file(&path, "f.txt", "base\n", "base");
+    git::create_branch(&path, "feature", true).expect("branch");
+    commit_file(&path, "feat.txt", "feat\n", "feat commit");
+    git::checkout_branch(&path, "main").expect("checkout");
+
+    let preview = git::preview_merge(&path, "feature", "main").expect("preview");
+    assert_eq!(preview.source, "feature");
+    assert_eq!(preview.target, "main");
+    assert_eq!(preview.commit_count, 1);
+    assert_eq!(preview.commits.len(), 1);
+    assert!(preview.commits[0].subject.contains("feat"));
+    assert!(preview.file_count >= 1);
+    assert!(preview.can_fast_forward);
+    assert!(!preview.already_up_to_date);
+    assert!(preview.merge_base.is_some());
+}
+
+#[test]
 fn merge_clean_succeeds() {
     let (_tmp, path) = init_repo();
     commit_file(&path, "f.txt", "base\n", "base");

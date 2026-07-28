@@ -18,6 +18,7 @@ import { BootSplash } from "./components/BootSplash";
 import { AlertModal } from "./components/AlertModal";
 import { FeedbackModal } from "./components/FeedbackModal";
 import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
+import { MergeInsightModal } from "./components/MergeInsightModal";
 import { applyMainWindow, applySetupWindow, applySplashWindow } from "./lib/windowLayout";
 
 function App() {
@@ -265,6 +266,7 @@ function App() {
       </div>
       <OperationOverlay />
       <CheckoutBranchModal />
+      <MergeInsightModal />
       {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (

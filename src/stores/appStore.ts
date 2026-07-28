@@ -9,6 +9,7 @@ import type {
   CommitSummary,
   CreateProfileInput,
   FileChange,
+  MergePreview,
   Profile,
   RemoteInfo,
   RepoStatus,
@@ -39,6 +40,16 @@ export type CheckoutDirtyMode = "keep" | "stash" | "discard";
 export type CheckoutPrompt = {
   target: string;
   changeCount: number;
+};
+
+export type MergePrompt = {
+  source: string;
+  target: string;
+  checkoutRequired: boolean;
+  changeCount: number;
+  preview: MergePreview | null;
+  loading: boolean;
+  loadError: string | null;
 };
 
 /** GitKraken-style shell tabs (repos + Start + settings pages). */
@@ -126,6 +137,7 @@ type AppState = {
   branchFilter: string;
   selectedBranchName: string | null;
   checkoutPrompt: CheckoutPrompt | null;
+  mergePrompt: MergePrompt | null;
   /** Right panel bottom: commit form or stash (GitKraken-style). */
   stagingPanelMode: "commit" | "stash";
 
@@ -159,6 +171,9 @@ type AppState = {
   checkoutCommit: (hash: string) => Promise<void>;
   confirmCheckout: (mode: CheckoutDirtyMode) => Promise<void>;
   cancelCheckoutPrompt: () => void;
+  requestMerge: (source: string, target: string) => Promise<void>;
+  cancelMergePrompt: () => void;
+  confirmMerge: () => Promise<void>;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
   mergeBranch: (name: string) => Promise<void>;
@@ -335,6 +350,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   branchFilter: "",
   selectedBranchName: null,
   checkoutPrompt: null,
+  mergePrompt: null,
   stagingPanelMode: "commit",
   conflictDraft: "",
   conflictPath: null,
@@ -512,6 +528,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       branchFilter: "",
       selectedBranchName: null,
       selectedCommitHash: null,
+      checkoutPrompt: null,
+      mergePrompt: null,
       stagingPanelMode: "commit",
       commitFiles: [],
       selectedCommitFile: null,
@@ -867,6 +885,105 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = prompt.target;
     set({ checkoutPrompt: null });
     await performCheckout(get, set, target, mode);
+  },
+
+  requestMerge: async (source, target) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const src = source.trim();
+    const tgt = target.trim();
+    if (!src || !tgt || src === tgt) return;
+
+    const current =
+      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
+    const checkoutRequired = Boolean(current && current !== tgt);
+    await get().refreshStatus();
+    const status = get().status;
+    const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
+
+    set({
+      mergePrompt: {
+        source: src,
+        target: tgt,
+        checkoutRequired,
+        changeCount,
+        preview: null,
+        loading: true,
+        loadError: null,
+      },
+      error: null,
+    });
+
+    try {
+      const preview = await api.previewMerge(id, src, tgt);
+      const prompt = get().mergePrompt;
+      if (!prompt || prompt.source !== src || prompt.target !== tgt) return;
+      set({
+        mergePrompt: {
+          ...prompt,
+          preview,
+          loading: false,
+          loadError: null,
+        },
+      });
+    } catch (err) {
+      const prompt = get().mergePrompt;
+      if (!prompt || prompt.source !== src || prompt.target !== tgt) return;
+      set({
+        mergePrompt: {
+          ...prompt,
+          preview: null,
+          loading: false,
+          loadError: errMsg(err),
+        },
+      });
+    }
+  },
+
+  cancelMergePrompt: () => set({ mergePrompt: null }),
+
+  confirmMerge: async () => {
+    const prompt = get().mergePrompt;
+    if (!prompt) return;
+    const { source, target, checkoutRequired } = prompt;
+    const id = get().activeRepoId;
+    if (!id) return;
+
+    set({ mergePrompt: null, busy: true, error: null });
+    try {
+      if (checkoutRequired) {
+        const current =
+          get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
+        if (current !== target) {
+          await api.checkoutBranch(id, target, false);
+          await Promise.all([
+            get().refreshStatus(),
+            get().refreshHistory(),
+            get().refreshBranches(),
+          ]);
+        }
+      }
+
+      const result = await api.mergeBranch(id, source);
+      set({ busy: false });
+      await get().refreshStatus();
+      await get().refreshHistory();
+      await get().refreshBranches();
+      if (!result.success) {
+        set({
+          workspaceTab: "graph",
+          selectedCommitHash: null,
+          resolvedConflictPaths: [],
+          conflictPath: null,
+          conflictDraft: "",
+          conflictOurs: "",
+          conflictTheirs: "",
+          error: result.message || "Merge com conflitos — resolva no painel à direita.",
+        });
+      }
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
   },
 
   renameBranch: async (oldName, newName) => {

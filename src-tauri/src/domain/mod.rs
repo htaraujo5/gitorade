@@ -121,6 +121,38 @@ pub struct IntegrateResult {
     pub state: IntegrateState,
 }
 
+/// Commit that would be brought in by merging `source` into `target`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergePreviewCommit {
+    pub hash: String,
+    pub short_hash: String,
+    pub subject: String,
+    pub author_name: String,
+    pub authored_at: String,
+}
+
+/// Read-only insight shown before running `git merge`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergePreview {
+    pub source: String,
+    pub target: String,
+    pub merge_base: Option<String>,
+    pub merge_base_short: Option<String>,
+    pub commits: Vec<MergePreviewCommit>,
+    pub commit_count: u32,
+    pub has_more_commits: bool,
+    pub files: Vec<CommitFileChange>,
+    pub file_count: u32,
+    pub insertions: u32,
+    pub deletions: u32,
+    /// True when there is nothing to merge (`target` already contains `source`).
+    pub already_up_to_date: bool,
+    /// True when `target` is an ancestor of `source` (fast-forward possible; we still use --no-ff).
+    pub can_fast_forward: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitInput {

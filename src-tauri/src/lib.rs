@@ -75,6 +75,7 @@ pub fn run() {
             commands::create_stash,
             commands::apply_stash,
             commands::drop_stash,
+            commands::preview_merge,
             commands::merge_branch,
             commands::cherry_pick_commit,
             commands::rebase_onto,

@@ -2,8 +2,9 @@ use tauri::{AppHandle, State};
 
 use crate::domain::{
     AppHealth, BranchInfo, CloneInput, CommitFileChange, CommitGraph, CommitInput, CommitResult,
-    CommitSummary, CreateProfileInput, IntegrateResult, IntegrateState, Profile, RemoteInfo,
-    RepoStatus, Repository, StashEntry, SyncInput, TagInfo, UpdateProfileInput, UpstreamStatus,
+    CommitSummary, CreateProfileInput, IntegrateResult, IntegrateState, MergePreview, Profile,
+    RemoteInfo, RepoStatus, Repository, StashEntry, SyncInput, TagInfo, UpdateProfileInput,
+    UpstreamStatus,
 };
 use crate::error::{AppError, AppResult};
 use crate::git;
@@ -554,6 +555,17 @@ pub fn drop_stash(
     let path = std::path::Path::new(&repo.path);
     git::drop_stash(path, &selector)?;
     git::list_stash(path)
+}
+
+#[tauri::command]
+pub fn preview_merge(
+    db: State<'_, Database>,
+    repository_id: String,
+    source: String,
+    target: String,
+) -> AppResult<MergePreview> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::preview_merge(std::path::Path::new(&repo.path), &source, &target)
 }
 
 #[tauri::command]

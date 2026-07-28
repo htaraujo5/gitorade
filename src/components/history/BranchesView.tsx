@@ -11,7 +11,7 @@ export function BranchesView() {
     checkoutBranch,
     renameBranch,
     deleteBranch,
-    mergeBranch,
+    requestMerge,
     rebaseOnto,
     status,
     busy,
@@ -143,11 +143,10 @@ export function BranchesView() {
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-merge/40 px-3 py-2 text-xs text-merge hover:bg-merge/10 disabled:opacity-40"
                   onClick={() => {
-                    if (
-                      requireDangerousConfirm(`Mesclar ${selectedBranch.name} na branch atual?`)
-                    ) {
-                      void mergeBranch(selectedBranch.name);
-                    }
+                    const current =
+                      status?.branch ?? branches.find((b) => b.isCurrent)?.name ?? null;
+                    if (!current) return;
+                    void requestMerge(selectedBranch.name, current);
                   }}
                 >
                   Merge into current

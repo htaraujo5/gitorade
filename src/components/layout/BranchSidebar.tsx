@@ -43,7 +43,7 @@ export function BranchSidebar() {
     deleteTag,
     renameBranch,
     deleteBranch,
-    mergeBranch,
+    requestMerge,
     busy,
     status,
     remotes,
@@ -127,14 +127,7 @@ export function BranchSidebar() {
 
   const doMerge = async (source: string, target: string) => {
     if (source === target) return;
-    const ok = requireDangerousConfirm(
-      `Merge "${source}" → "${target}"?\n\nCheckout em ${target} (se preciso) e merge de ${source}.`,
-    );
-    if (!ok) return;
-    if (current !== target) {
-      await checkoutBranch(target);
-    }
-    await mergeBranch(source);
+    await requestMerge(source, target);
   };
 
   const selectBranch = (name: string) => {

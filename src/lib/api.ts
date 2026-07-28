@@ -497,6 +497,43 @@ export async function dropStash(repositoryId: string, selector: string): Promise
 export type IntegrateState = z.infer<typeof integrateStateSchema>;
 export type IntegrateResult = z.infer<typeof integrateResultSchema>;
 
+export const mergePreviewCommitSchema = z.object({
+  hash: z.string(),
+  shortHash: z.string(),
+  subject: z.string(),
+  authorName: z.string(),
+  authoredAt: z.string(),
+});
+
+export const mergePreviewSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  mergeBase: z.string().nullable().optional(),
+  mergeBaseShort: z.string().nullable().optional(),
+  commits: z.array(mergePreviewCommitSchema),
+  commitCount: z.number(),
+  hasMoreCommits: z.boolean(),
+  files: z.array(commitFileChangeSchema),
+  fileCount: z.number(),
+  insertions: z.number(),
+  deletions: z.number(),
+  alreadyUpToDate: z.boolean(),
+  canFastForward: z.boolean(),
+});
+
+export type MergePreviewCommit = z.infer<typeof mergePreviewCommitSchema>;
+export type MergePreview = z.infer<typeof mergePreviewSchema>;
+
+export async function previewMerge(
+  repositoryId: string,
+  source: string,
+  target: string,
+): Promise<MergePreview> {
+  return mergePreviewSchema.parse(
+    await invoke("preview_merge", { repositoryId, source, target }),
+  );
+}
+
 export async function mergeBranch(repositoryId: string, branch: string): Promise<IntegrateResult> {
   return integrateResultSchema.parse(await invoke("merge_branch", { repositoryId, branch }));
 }
