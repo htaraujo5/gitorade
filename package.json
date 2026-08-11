@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/rebuild-icons.mjs",
-    "dist": "tauri build"
+    "dist": "tauri build",
+    "dist:mac": "bash scripts/make-dmg.sh",
+    "dist:app": "tauri build --bundles app"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -1,6 +1,6 @@
 # Gitorade
 
-Cliente Git desktop para **Windows** e **Linux** — local-first, com múltiplas identidades como diferencial.
+Cliente Git desktop para **Windows**, **macOS** e **Linux** — local-first, com múltiplas identidades como diferencial.
 
 > Seu Git. Seu fluxo. Seu jeito.
 
@@ -20,6 +20,13 @@ Cliente Git desktop para **Windows** e **Linux** — local-first, com múltiplas
 - Visual Studio 2022/2026 com “Desenvolvimento para desktop com C++”, ou Build Tools equivalentes
 
 Se `cargo` falhar com `linker link.exe not found`, instale as ferramentas C++ e abra um novo terminal.
+
+### macOS
+
+- Node.js 22+
+- Rust (stable)
+- Xcode Command Line Tools (`xcode-select --install`)
+- Git (vem com as CLT ou via Homebrew)
 
 ### Linux (Debian/Ubuntu)
 
@@ -57,6 +64,13 @@ npm run dist
 
 O instalador NSIS usa `icons/nsis/sidebar.bmp` + `header.bmp` (gere com `npm run icons` antes do `npm run dist`).
 
+### macOS
+
+- `bundle/dmg/Gitorade_*.dmg` — arraste o app para Applications
+- Atalho: `npm run dist:mac` (só o DMG)
+
+No macOS a barra de título usa o estilo **Overlay** do sistema (traffic lights nativos integrados ao chrome do app).
+
 ### Linux
 
 - `bundle/deb/gitorade_*.deb` — Debian/Ubuntu (`sudo dpkg -i …`)
@@ -69,7 +83,7 @@ Na primeira execução: splash → setup (nome/email/pasta) → dashboard.
 Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):
 
 1. Atualiza a versão (`package.json`, `Cargo.toml`, `tauri.conf.json`)
-2. Compila instaladores **Windows** (NSIS + MSI) e **Linux** (`.deb`)
+2. Compila instaladores **Windows** (NSIS + MSI), **macOS** (`.dmg` arm64 + x64) e **Linux** (`.deb`)
 3. Publica em **GitHub → Releases**
 
 **Bump de versão**
@@ -102,7 +116,8 @@ node scripts/bump-version.mjs fix      # aplica patch localmente
 | ------------------- | ---------------------------------------------------------------- |
 | `npm run tauri dev` | App desktop em modo dev                                          |
 | `npm run icons`     | Regenera logos, ícones Windows e banners NSIS                    |
-| `npm run dist`      | Build release + instaladores (Windows: MSI/NSIS · Linux: `.deb`) |
+| `npm run dist`      | Build release + instaladores (Windows: MSI/NSIS · macOS: DMG · Linux: `.deb`) |
+| `npm run dist:mac`  | Build `.app` + DMG via `hdiutil` (macOS)                                     |
 | `npm run build`     | Build do frontend                                                |
 | `npm test`          | Testes Vitest                                                    |
 | `npm run lint`      | ESLint                                                           |
@@ -110,7 +125,7 @@ node scripts/bump-version.mjs fix      # aplica patch localmente
 
 ## Site (Vercel)
 
-Landing estática em [`website/`](website/). No deploy da Vercel, defina **Root Directory** = `website` (build vazio). O botão de download resolve a release mais recente (`.exe` no Windows, `.deb` no Linux).
+Landing estática em [`website/`](website/). No deploy da Vercel, defina **Root Directory** = `website` (build vazio). O botão de download resolve a release mais recente (`.exe` no Windows, `.dmg` no macOS, `.deb` no Linux).
 
 ## Documentação
 

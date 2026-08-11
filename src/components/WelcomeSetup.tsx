@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import logo from "../assets/brand/logo.png";
 import { useAppStore } from "../stores/appStore";
 import { usePrefsStore } from "../stores/prefsStore";
+import { isMacOS } from "../lib/platform";
 import { applyMainWindow } from "../lib/windowLayout";
 
 /**
@@ -95,7 +96,9 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
   return (
     <div className="flex h-full min-h-0 bg-[#1a1c22]">
       {/* Left — branding + steps (Fork-style) */}
-      <aside className="flex w-[240px] shrink-0 flex-col bg-[#14161b] px-5 pb-5 pt-8">
+      <aside
+        className={`flex w-[240px] shrink-0 flex-col bg-[#14161b] px-5 pb-5 ${isMacOS() ? "pt-10" : "pt-8"}`}
+      >
         <div className="flex flex-col items-center text-center">
           <img src={logo} alt="" className="h-[72px] w-[72px] object-contain" aria-hidden />
           <h1 className="mt-4 text-[18px] font-semibold tracking-tight text-[#f0f1f4]">

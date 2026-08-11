@@ -1,15 +1,19 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isMacOS } from "../../lib/platform";
 import logo from "../../assets/brand/logo.png";
 import { MenuBar } from "./MenuBar";
 
 /**
  * Fork-style chrome: menus · centered brand · feedback + window controls.
+ * On macOS, native traffic lights replace the custom window buttons.
  */
 export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
+  const mac = isMacOS();
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
+    if (mac) return;
     const win = getCurrentWindow();
     let unlisten: (() => void) | undefined;
     void win.isMaximized().then(setMaximized);
@@ -21,14 +25,16 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
         unlisten = fn;
       });
     return () => unlisten?.();
-  }, []);
+  }, [mac]);
 
   const appWin = () => getCurrentWindow();
 
   return (
     <div className="grid h-10 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-[#2d3139] bg-[#1a1d24]">
       {/* Left — menus */}
-      <div className="flex h-full min-w-0 items-center overflow-hidden pl-0.5">
+      <div
+        className={`flex h-full min-w-0 items-center overflow-hidden ${mac ? "pl-[76px]" : "pl-0.5"}`}
+      >
         <MenuBar embedded />
         <div className="h-full min-w-2 flex-1" data-tauri-drag-region />
       </div>
@@ -44,41 +50,45 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
         </div>
       </div>
 
-      {/* Right — feedback + window controls */}
+      {/* Right — feedback + window controls (Win/Linux only) */}
       <div className="flex h-full items-center justify-end">
         <div className="h-full min-w-2 flex-1" data-tauri-drag-region />
         <WinBtn title="Feedback" onClick={onFeedback}>
           <IconFeedback className="h-3.5 w-3.5" />
         </WinBtn>
-        <WinBtn title="Minimizar" onClick={() => void appWin().minimize()}>
-          <svg width="10" height="1" viewBox="0 0 10 1" aria-hidden>
-            <rect width="10" height="1" fill="currentColor" />
-          </svg>
-        </WinBtn>
-        <WinBtn
-          title={maximized ? "Restaurar" : "Maximizar"}
-          onClick={() => void appWin().toggleMaximize()}
-        >
-          {maximized ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-              <path d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z" stroke="currentColor" strokeWidth="1" />
-            </svg>
-          ) : (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-              <rect x="1" y="1" width="8" height="8" stroke="currentColor" strokeWidth="1" />
-            </svg>
-          )}
-        </WinBtn>
-        <WinBtn title="Fechar" danger onClick={() => void appWin().close()}>
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-            <path
-              d="M1 1l8 8M9 1L1 9"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </WinBtn>
+        {!mac && (
+          <>
+            <WinBtn title="Minimizar" onClick={() => void appWin().minimize()}>
+              <svg width="10" height="1" viewBox="0 0 10 1" aria-hidden>
+                <rect width="10" height="1" fill="currentColor" />
+              </svg>
+            </WinBtn>
+            <WinBtn
+              title={maximized ? "Restaurar" : "Maximizar"}
+              onClick={() => void appWin().toggleMaximize()}
+            >
+              {maximized ? (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                  <path d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z" stroke="currentColor" strokeWidth="1" />
+                </svg>
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                  <rect x="1" y="1" width="8" height="8" stroke="currentColor" strokeWidth="1" />
+                </svg>
+              )}
+            </WinBtn>
+            <WinBtn title="Fechar" danger onClick={() => void appWin().close()}>
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+                <path
+                  d="M1 1l8 8M9 1L1 9"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </WinBtn>
+          </>
+        )}
       </div>
     </div>
   );

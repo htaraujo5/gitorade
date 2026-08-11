@@ -1,4 +1,5 @@
 import logo from "../assets/brand/logo.png";
+import { isMacOS } from "../lib/platform";
 
 /**
  * Boot splash (borderless, dark): animated logo + name + tagline + progress.
@@ -11,6 +12,7 @@ export function BootSplash({
   progress?: number;
 }) {
   const pct = Math.max(0.08, Math.min(1, progress));
+  const mac = isMacOS();
 
   return (
     <div
@@ -19,7 +21,10 @@ export function BootSplash({
       aria-live="polite"
       aria-label={message}
     >
-      <div className="flex min-h-0 flex-1 items-center gap-7 px-9 pb-4 pt-6">
+      {mac && <div className="h-7 shrink-0" data-tauri-drag-region />}
+      <div
+        className={`flex min-h-0 flex-1 items-center gap-7 px-9 pb-4 ${mac ? "pt-2" : "pt-6"}`}
+      >
         <div className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center">
           <span className="gk-open-ring absolute inset-0 rounded-full" />
           <img
@@ -34,7 +39,7 @@ export function BootSplash({
             Gitorade
           </div>
           <p className="mt-2 text-[13px] leading-snug text-[#8b909a]">
-            um cliente Git rápido e amigável para Windows e Linux
+            um cliente Git rápido e amigável para Windows, macOS e Linux
           </p>
         </div>
       </div>

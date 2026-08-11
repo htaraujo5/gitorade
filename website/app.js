@@ -31,12 +31,16 @@ function pickAsset(assets, platform) {
       null
     );
   }
+  if (platform === "mac") {
+    return assets.find((a) => /\.dmg$/i.test(a.name)) || null;
+  }
   return null;
 }
 
 function labelFor(platform) {
   if (platform === "linux") return "Baixar para Linux";
   if (platform === "windows") return "Baixar para Windows";
+  if (platform === "mac") return "Baixar para macOS";
   return "Ver releases";
 }
 
@@ -56,18 +60,14 @@ async function wireLatestRelease() {
 
     if (downloadBtn) downloadBtn.href = href;
     if (downloadMeta) {
-      downloadMeta.textContent = asset
-        ? `${tag} · ${platform === "linux" ? ".deb" : "instalador"}`
-        : `${tag} · releases`;
+      const kind =
+        platform === "linux" ? ".deb" : platform === "mac" ? ".dmg" : "instalador";
+      downloadMeta.textContent = asset ? `${tag} · ${kind}` : `${tag} · releases`;
     }
     if (footerRelease) footerRelease.href = data.html_url || RELEASES_LATEST;
     if (downloadHint && asset) {
       downloadHint.hidden = false;
       downloadHint.textContent = asset.name;
-    }
-    if (platform === "mac" && downloadHint) {
-      downloadHint.hidden = false;
-      downloadHint.textContent = "macOS ainda não tem build — veja as releases no GitHub.";
     }
   } catch {
     if (downloadBtn) downloadBtn.href = RELEASES_LATEST;

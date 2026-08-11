@@ -1,6 +1,6 @@
 name: Release
 
-# Gera instaladores Windows (.exe/.msi) + Linux (.deb) e publica em GitHub Releases.
+# Gera instaladores Windows (.exe/.msi) + macOS (.dmg) + Linux (.deb) e publica em GitHub Releases.
 # Versão:
 #   fix     → 1.0.x  (patch)
 #   hotfix  → 1.x.0  (minor)
@@ -122,10 +122,19 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
-            bundles: msi,nsis
+            name: windows
+            args: --bundles msi,nsis
+          - platform: macos-latest
+            name: macos-arm64
+            args: --bundles dmg --target aarch64-apple-darwin
+          - platform: macos-latest
+            name: macos-x64
+            args: --bundles dmg --target x86_64-apple-darwin
           - platform: ubuntu-22.04
-            bundles: deb
+            name: linux
+            args: --bundles deb
     runs-on: ${{ matrix.platform }}
+    name: build-${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -153,12 +162,15 @@ jobs:
         run: npm ci
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          # Cross-compile Intel + Apple Silicon from macos-latest (arm64)
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          key: ${{ matrix.platform }}
+          key: ${{ matrix.name }}
 
       - name: Build installers and publish release
         uses: tauri-apps/tauri-action@v0
@@ -177,6 +189,13 @@ jobs:
             - **NSIS** (`.exe`) — instalador recomendado
             - **MSI** — Windows Installer
 
+            ### macOS
+            - **`.dmg` aarch64** — Apple Silicon (M1/M2/M3/M4)
+            - **`.dmg` x64** — Intel
+            - Arraste o app para Applications
+            - Requer **Git** no PATH (`xcode-select --install` ou Homebrew)
+            - Build sem notarização: na 1ª abertura use clique direito → Abrir
+
             ### Linux amd64
             - **`.deb`** — Debian/Ubuntu (`sudo dpkg -i …`)
             - Requer **Git** no PATH (`sudo apt install git`)
@@ -184,4 +203,4 @@ jobs:
             Baixe os arquivos na seção **Assets** abaixo.
           releaseDraft: false
           prerelease: false
-          args: --bundles ${{ matrix.bundles }}
+          args: ${{ matrix.args }}

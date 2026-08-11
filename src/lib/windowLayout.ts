@@ -5,6 +5,7 @@ import {
   primaryMonitor,
   type Monitor,
 } from "@tauri-apps/api/window";
+import { isMacOS } from "./platform";
 
 const SPLASH_SIZE = { width: 520, height: 220 };
 const SETUP_SIZE = { width: 720, height: 460 };
@@ -19,6 +20,16 @@ async function safe(label: string, fn: () => Promise<unknown>): Promise<void> {
     await fn();
   } catch (err) {
     console.warn(`[windowLayout] ${label}:`, err);
+  }
+}
+
+/** macOS: native traffic lights via Overlay. Win/Linux: custom AppChrome controls. */
+async function applyPlatformDecorations(): Promise<void> {
+  const win = getCurrentWindow();
+  if (isMacOS()) {
+    await safe("decorations", () => win.setDecorations(true));
+  } else {
+    await safe("decorations", () => win.setDecorations(false));
   }
 }
 
@@ -48,7 +59,7 @@ async function resolveMainSize(): Promise<{ width: number; height: number }> {
 
 export async function applySplashWindow(): Promise<void> {
   const win = getCurrentWindow();
-  await safe("decorations", () => win.setDecorations(false));
+  await applyPlatformDecorations();
   await safe("resizable", () => win.setResizable(false));
   await safe("maximizable", () => win.setMaximizable(false));
   await safe("minimizable", () => win.setMinimizable(false));
@@ -60,7 +71,7 @@ export async function applySplashWindow(): Promise<void> {
 
 export async function applySetupWindow(): Promise<void> {
   const win = getCurrentWindow();
-  await safe("decorations", () => win.setDecorations(false));
+  await applyPlatformDecorations();
   await safe("resizable", () => win.setResizable(false));
   await safe("minimizable", () => win.setMinimizable(true));
   await safe("maximizable", () => win.setMaximizable(false));
@@ -75,8 +86,7 @@ export async function applyMainWindow(): Promise<void> {
   const win = getCurrentWindow();
   const size = await resolveMainSize();
 
-  // Custom AppChrome — OS title bar must stay OFF
-  await safe("decorations", () => win.setDecorations(false));
+  await applyPlatformDecorations();
   await safe("unmaximize", () => win.unmaximize());
   await safe("resizable", () => win.setResizable(true));
   await safe("maximizable", () => win.setMaximizable(true));
@@ -92,7 +102,7 @@ export async function applyMainWindow(): Promise<void> {
 
   window.setTimeout(() => {
     void (async () => {
-      await safe("decorations-retry", () => win.setDecorations(false));
+      await applyPlatformDecorations();
       await safe("unmaximize-retry", () => win.unmaximize());
       await safe("size-retry", () => win.setSize(new LogicalSize(size.width, size.height)));
       await safe("center-retry", () => win.center());
