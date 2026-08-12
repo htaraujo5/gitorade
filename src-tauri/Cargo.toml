@@ -1,6 +1,6 @@
 [package]
 name = "gitorade"
-version = "2.0.0"
+version = "2.0.1"
 description = "Gitorade — Git desktop client"
 authors = ["Helisson"]
 edition = "2021"
