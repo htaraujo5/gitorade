@@ -112,16 +112,16 @@ node scripts/bump-version.mjs fix      # aplica patch localmente
 
 ## Scripts
 
-| Comando             | Descrição                                                        |
-| ------------------- | ---------------------------------------------------------------- |
-| `npm run tauri dev` | App desktop em modo dev                                          |
-| `npm run icons`     | Regenera logos, ícones Windows e banners NSIS                    |
+| Comando             | Descrição                                                                     |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `npm run tauri dev` | App desktop em modo dev                                                       |
+| `npm run icons`     | Regenera logos, ícones Windows e banners NSIS                                 |
 | `npm run dist`      | Build release + instaladores (Windows: MSI/NSIS · macOS: DMG · Linux: `.deb`) |
-| `npm run dist:mac`  | Build `.app` + DMG via `hdiutil` (macOS)                                     |
-| `npm run build`     | Build do frontend                                                |
-| `npm test`          | Testes Vitest                                                    |
-| `npm run lint`      | ESLint                                                           |
-| `npm run format`    | Prettier                                                         |
+| `npm run dist:mac`  | Build `.app` + DMG via `hdiutil` (macOS)                                      |
+| `npm run build`     | Build do frontend                                                             |
+| `npm test`          | Testes Vitest                                                                 |
+| `npm run lint`      | ESLint                                                                        |
+| `npm run format`    | Prettier                                                                      |
 
 ## Site (Vercel)
 

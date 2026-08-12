@@ -98,7 +98,11 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
               >
                 {maximized ? (
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                    <path d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z" stroke="currentColor" strokeWidth="1" />
+                    <path
+                      d="M3 1h6v6H8V2H3V1ZM1 3h6v6H1V3Z"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    />
                   </svg>
                 ) : (
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>

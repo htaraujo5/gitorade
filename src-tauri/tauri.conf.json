@@ -35,12 +35,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "msi",
-      "nsis",
-      "deb",
-      "dmg"
-    ],
+    "targets": ["msi", "nsis", "deb", "dmg"],
     "publisher": "Gitorade",
     "copyright": "Copyright © 2026 Gitorade",
     "category": "DeveloperTool",
@@ -56,10 +51,7 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": [
-          "PortugueseBR",
-          "English"
-        ],
+        "languages": ["PortugueseBR", "English"],
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
         "headerImage": "icons/nsis/header.bmp",

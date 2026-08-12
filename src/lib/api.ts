@@ -529,9 +529,7 @@ export async function previewMerge(
   source: string,
   target: string,
 ): Promise<MergePreview> {
-  return mergePreviewSchema.parse(
-    await invoke("preview_merge", { repositoryId, source, target }),
-  );
+  return mergePreviewSchema.parse(await invoke("preview_merge", { repositoryId, source, target }));
 }
 
 export async function mergeBranch(repositoryId: string, branch: string): Promise<IntegrateResult> {

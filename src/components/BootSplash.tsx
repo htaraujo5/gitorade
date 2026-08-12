@@ -22,9 +22,7 @@ export function BootSplash({
       aria-label={message}
     >
       {mac && <div className="h-7 shrink-0" data-tauri-drag-region />}
-      <div
-        className={`flex min-h-0 flex-1 items-center gap-7 px-9 pb-4 ${mac ? "pt-2" : "pt-6"}`}
-      >
+      <div className={`flex min-h-0 flex-1 items-center gap-7 px-9 pb-4 ${mac ? "pt-2" : "pt-6"}`}>
         <div className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center">
           <span className="gk-open-ring absolute inset-0 rounded-full" />
           <img

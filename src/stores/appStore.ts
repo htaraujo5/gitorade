@@ -905,8 +905,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const tgt = target.trim();
     if (!src || !tgt || src === tgt) return;
 
-    const current =
-      get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
+    const current = get().status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? null;
     const checkoutRequired = Boolean(current && current !== tgt);
     await get().refreshStatus();
     const status = get().status;

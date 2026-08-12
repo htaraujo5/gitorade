@@ -56,11 +56,7 @@ export function MergeInsightModal() {
 
   const preview = prompt.preview;
   const canConfirm =
-    !busy &&
-    !prompt.loading &&
-    !prompt.loadError &&
-    preview != null &&
-    !preview.alreadyUpToDate;
+    !busy && !prompt.loading && !prompt.loadError && preview != null && !preview.alreadyUpToDate;
 
   return (
     <div
