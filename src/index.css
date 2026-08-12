@@ -37,6 +37,10 @@ body,
   height: 100%;
 }
 
+html {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -93,33 +97,60 @@ select {
   }
 }
 
-/* Dark-theme scrollbars (WebKit + Firefox) */
+/* Scrollbars: overlay-style on macOS, subtle dark chrome elsewhere */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3a3f4b #171a20;
+  scrollbar-color: #3a3f4b transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
 }
 
 *::-webkit-scrollbar-track {
-  background: #171a20;
+  background: transparent;
 }
 
 *::-webkit-scrollbar-thumb {
   background: #3a3f4b;
-  border: 2px solid #171a20;
-  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
   background: #4a5060;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 *::-webkit-scrollbar-corner {
-  background: #171a20;
+  background: transparent;
+}
+
+/* macOS: thinner overlay scrollbars closer to system look */
+html[data-platform="macos"] * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+html[data-platform="macos"] *::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+html[data-platform="macos"] *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+html[data-platform="macos"] *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid transparent;
+  background-clip: content-box;
 }
 
 .brand-gradient {

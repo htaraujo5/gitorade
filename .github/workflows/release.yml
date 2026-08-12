@@ -123,15 +123,21 @@ jobs:
         include:
           - platform: windows-latest
             name: windows
+            kind: tauri
             args: --bundles msi,nsis
           - platform: macos-latest
             name: macos-arm64
-            args: --bundles dmg --target aarch64-apple-darwin
+            kind: macos-dmg
+            rust_target: aarch64-apple-darwin
+            arch_label: aarch64
           - platform: macos-latest
             name: macos-x64
-            args: --bundles dmg --target x86_64-apple-darwin
+            kind: macos-dmg
+            rust_target: x86_64-apple-darwin
+            arch_label: x64
           - platform: ubuntu-22.04
             name: linux
+            kind: tauri
             args: --bundles deb
     runs-on: ${{ matrix.platform }}
     name: build-${{ matrix.name }}
@@ -164,7 +170,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           # Cross-compile Intel + Apple Silicon from macos-latest (arm64)
-          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.kind == 'macos-dmg' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -172,7 +178,45 @@ jobs:
           workspaces: src-tauri -> target
           key: ${{ matrix.name }}
 
-      - name: Build installers and publish release
+      - name: Ensure GitHub Release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          BUMP: ${{ needs.prepare.outputs.bump }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --title "Gitorade ${TAG}" \
+            --notes "## Gitorade ${TAG}
+
+          Bump: **${BUMP}** → \`${VERSION}\`
+
+          ### Windows x64
+          - **NSIS** (\`.exe\`) — instalador recomendado
+          - **MSI** — Windows Installer
+
+          ### macOS
+          - **\`.dmg\` aarch64** — Apple Silicon (M1/M2/M3/M4)
+          - **\`.dmg\` x64** — Intel
+          - Arraste o app para Applications
+          - Requer **Git** no PATH (\`xcode-select --install\` ou Homebrew)
+          - Build sem notarização: na 1ª abertura use clique direito → Abrir
+
+          ### Linux amd64
+          - **\`.deb\`** — Debian/Ubuntu (\`sudo dpkg -i …\`)
+          - Requer **Git** no PATH (\`sudo apt install git\`)
+
+          Baixe os arquivos na seção **Assets** abaixo."
+
+      # Windows / Linux — Tauri bundler + upload via tauri-action
+      - name: Build installers and publish release (Windows/Linux)
+        if: matrix.kind == 'tauri'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -204,3 +248,23 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      # macOS — build .app + pack DMG with hdiutil (Tauri's bundle_dmg.sh hangs on Finder/osascript)
+      - name: Build macOS DMG
+        if: matrix.kind == 'macos-dmg'
+        run: bash scripts/make-dmg.sh --target ${{ matrix.rust_target }}
+
+      - name: Upload macOS DMG to release
+        if: matrix.kind == 'macos-dmg'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.prepare.outputs.version }}"
+          ARCH="${{ matrix.arch_label }}"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          DMG="src-tauri/target/release/bundle/dmg/Gitorade_${VERSION}_${ARCH}.dmg"
+          test -f "$DMG"
+          ls -lh "$DMG"
+          gh release upload "$TAG" "$DMG" --clobber

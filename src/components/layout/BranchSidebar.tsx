@@ -21,6 +21,11 @@ type MenuState =
       x: number;
       y: number;
       name: string;
+    }
+  | {
+      kind: "empty";
+      x: number;
+      y: number;
     };
 
 /**
@@ -58,6 +63,8 @@ export function BranchSidebar() {
 
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
+  /** Optional start point when creating from context menu (branch/tag). */
+  const [createFrom, setCreateFrom] = useState<string | undefined>(undefined);
   const [localOpen, setLocalOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
   const [tagsOpen, setTagsOpen] = useState(true);
@@ -110,9 +117,9 @@ export function BranchSidebar() {
 
   const openCreate = (from?: string) => {
     const base = from ? `${from.replace(/^.*\//, "")}-` : "";
-    const name = window.prompt("Nome da nova branch:", base);
-    if (!name?.trim()) return;
-    void createBranch(name.trim(), true);
+    setCreateFrom(from);
+    setNewName(base);
+    setAdding(true);
   };
 
   const openCreateTag = (commit?: string | null) => {
@@ -135,6 +142,22 @@ export function BranchSidebar() {
   };
 
   const menuItems = (m: MenuState): ContextMenuItem[] => {
+    if (m.kind === "empty") {
+      return [
+        {
+          type: "item",
+          label: "Nova branch…",
+          onClick: () => openCreate(),
+        },
+        {
+          type: "item",
+          label: "Nova tag no HEAD…",
+          disabled: busy,
+          onClick: () => openCreateTag(),
+        },
+      ];
+    }
+
     if (m.kind === "tag") {
       return [
         {
@@ -145,11 +168,7 @@ export function BranchSidebar() {
         {
           type: "item",
           label: "Create branch from tag…",
-          onClick: () => {
-            const name = window.prompt("Nome da nova branch:", `${m.name}-branch`);
-            if (!name?.trim()) return;
-            void createBranch(name.trim(), true, m.name);
-          },
+          onClick: () => openCreate(m.name),
         },
         { type: "separator" },
         {
@@ -320,7 +339,17 @@ export function BranchSidebar() {
   return (
     <aside
       className="flex w-[220px] shrink-0 flex-col border-r border-[#2d3139] bg-[#171a20]"
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(e) => {
+        // Empty sidebar / group chrome: offer create branch (Tauri blocks window.prompt).
+        if ((e.target as HTMLElement).closest("button,[role='menuitem']")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({
+          kind: "empty",
+          x: e.clientX,
+          y: e.clientY,
+        });
+      }}
     >
       <div className="flex items-center gap-1 border-b border-[#2d3139] px-2 py-1.5">
         <input
@@ -333,7 +362,11 @@ export function BranchSidebar() {
           type="button"
           className="shrink-0 rounded px-1.5 py-0.5 text-[12px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3dd68c]"
           title="Nova branch"
-          onClick={() => setAdding((v) => !v)}
+          onClick={() => {
+            setCreateFrom(undefined);
+            setAdding((v) => !v);
+            if (adding) setNewName("");
+          }}
         >
           +
         </button>
@@ -345,19 +378,23 @@ export function BranchSidebar() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!newName.trim()) return;
-            void createBranch(newName.trim(), true);
+            void createBranch(newName.trim(), true, createFrom);
             setNewName("");
+            setCreateFrom(undefined);
             setAdding(false);
           }}
         >
           <input
             autoFocus
             className="min-w-0 flex-1 rounded border border-[#2d3139] bg-[#1c1f26] px-1.5 py-0.5 text-[11px] outline-none focus:border-[#3d8bfd]"
-            placeholder="feat/minha-branch"
+            placeholder={createFrom ? `a partir de ${createFrom}` : "feat/minha-branch"}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onBlur={() => {
-              if (!newName.trim()) setAdding(false);
+              if (!newName.trim()) {
+                setAdding(false);
+                setCreateFrom(undefined);
+              }
             }}
           />
           <button
@@ -612,13 +649,20 @@ function BranchRow({
   return (
     <button
       type="button"
-      disabled={busy}
-      draggable={!isRemote}
-      onClick={onSelect}
-      onDoubleClick={onCheckout}
-      onContextMenu={onContextMenu}
+      draggable={!isRemote && !busy}
+      onClick={() => {
+        if (!busy) onSelect();
+      }}
+      onDoubleClick={() => {
+        if (!busy) onCheckout();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu(e);
+      }}
       onDragStart={(e) => {
-        if (isRemote) {
+        if (isRemote || busy) {
           e.preventDefault();
           return;
         }
@@ -628,20 +672,22 @@ function BranchRow({
       }}
       onDragEnd={() => onDragEnd?.()}
       onDragOver={(e) => {
-        if (isRemote) return;
+        if (isRemote || busy) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         onDragOver?.();
       }}
       onDragLeave={() => onDragLeave?.()}
       onDrop={(e) => {
-        if (isRemote) return;
+        if (isRemote || busy) return;
         e.preventDefault();
         const source = e.dataTransfer.getData("text/gitorade-branch");
         if (source && source !== name) onDrop?.(source);
       }}
       title={name}
       className={`flex h-6 w-full items-center gap-1.5 text-left text-[11px] font-normal ${
+        busy ? "cursor-wait opacity-60" : ""
+      } ${
         dragOver
           ? "bg-[#1e3a5f] text-[#d8dbe2] ring-1 ring-inset ring-[#3d8bfd]"
           : isCurrent

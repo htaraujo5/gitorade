@@ -120,6 +120,8 @@ type AppState = {
   commitFileViewMode: "diff" | "file";
   commitFiles: { status: string; path: string }[];
   busy: boolean;
+  /** Shown by BusyOverlay during local git ops (checkout, etc.). */
+  busyLabel: string | null;
   openingRepoName: string | null;
   notice: string | null;
   error: string | null;
@@ -259,7 +261,13 @@ async function performCheckout(
 ): Promise<void> {
   const id = get().activeRepoId;
   if (!id) return;
-  set({ busy: true, error: null, checkoutPrompt: null });
+  const short = target.includes("/") ? target.replace(/^.*\//, "") : target.slice(0, 12);
+  set({
+    busy: true,
+    busyLabel: `Checkout ${short}…`,
+    error: null,
+    checkoutPrompt: null,
+  });
   try {
     if (mode === "stash") {
       await api.createStash(id, `gitorade: checkout → ${target}`, true);
@@ -283,11 +291,12 @@ async function performCheckout(
 
     const status = get().status;
     if (status?.headDetached) {
-      const short = status.headShort ?? target.slice(0, 7);
+      const tipShort = status.headShort ?? target.slice(0, 7);
       set({
         busy: false,
+        busyLabel: null,
         selectedBranchName: "HEAD",
-        notice: `HEAD detached em ${short}`,
+        notice: `HEAD detached em ${tipShort}`,
       });
       const commits = get().filteredCommits ?? get().graph?.commits ?? [];
       const tip =
@@ -303,12 +312,13 @@ async function performCheckout(
       const current = status?.branch ?? get().branches.find((b) => b.isCurrent)?.name ?? target;
       set({
         busy: false,
+        busyLabel: null,
         selectedBranchName: current,
       });
       await get().focusBranchInGraph(current);
     }
   } catch (err) {
-    set({ busy: false, error: errMsg(err) });
+    set({ busy: false, busyLabel: null, error: errMsg(err) });
   }
 }
 
@@ -335,6 +345,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   commitFileViewMode: "file",
   commitFiles: [],
   busy: false,
+  busyLabel: null,
   openingRepoName: null,
   notice: null,
   error: null,
@@ -740,13 +751,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   createBranch: async (name, checkout = true, startPoint) => {
     const id = get().activeRepoId;
     if (!id) return;
-    set({ busy: true, error: null });
+    set({ busy: true, busyLabel: `Criando branch ${name}…`, error: null });
     try {
       const branches = await api.createBranch(id, name, checkout, startPoint);
-      set({ branches, busy: false, selectedBranchName: name });
+      set({ branches, busy: false, busyLabel: null, selectedBranchName: name });
       await Promise.all([get().refreshStatus(), get().refreshHistory()]);
     } catch (err) {
-      set({ busy: false, error: errMsg(err) });
+      set({ busy: false, busyLabel: null, error: errMsg(err) });
     }
   },
 

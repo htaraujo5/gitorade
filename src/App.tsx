@@ -7,6 +7,7 @@ import { CredentialsPage } from "./components/pages/CredentialsPage";
 import { RepoListPage } from "./components/pages/AppPages";
 import { AboutPage, PluginsPage, SettingsPage, SshKeysPage } from "./components/pages/SettingsPage";
 import { OperationOverlay } from "./components/OperationOverlay";
+import { BusyOverlay } from "./components/BusyOverlay";
 import { useAppStore } from "./stores/appStore";
 import { usePrefsStore } from "./stores/prefsStore";
 import { useT } from "./i18n";
@@ -20,6 +21,8 @@ import { FeedbackModal } from "./components/FeedbackModal";
 import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
 import { MergeInsightModal } from "./components/MergeInsightModal";
 import { applyMainWindow, applySetupWindow, applySplashWindow } from "./lib/windowLayout";
+import { applyPlatformDataset, isMacOS } from "./lib/platform";
+import { useNativeAppMenu } from "./lib/nativeMenu";
 
 function App() {
   const t = useT();
@@ -54,6 +57,12 @@ function App() {
   const [setupDone, setSetupDone] = useState(false);
   const [splashProgress, setSplashProgress] = useState(0.15);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  useNativeAppMenu(isMacOS());
+
+  useEffect(() => {
+    applyPlatformDataset();
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language === "en" ? "en" : "pt-BR";
@@ -155,13 +164,14 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [commit, openRepositoryDialog, setTerminalOpen, terminalOpen, needsOnboarding, booting]);
 
-  // Desktop app: never show the WebView/browser native context menu.
+  // Desktop app: block the WebView/browser native context menu, but don't
+  // capture-phase-stop custom app menus (branches, graph, etc.).
   useEffect(() => {
     const blockNativeMenu = (e: Event) => {
       e.preventDefault();
     };
-    document.addEventListener("contextmenu", blockNativeMenu, true);
-    return () => document.removeEventListener("contextmenu", blockNativeMenu, true);
+    document.addEventListener("contextmenu", blockNativeMenu);
+    return () => document.removeEventListener("contextmenu", blockNativeMenu);
   }, []);
 
   if (booting) {
@@ -265,6 +275,7 @@ function App() {
         )}
       </div>
       <OperationOverlay />
+      <BusyOverlay />
       <CheckoutBranchModal />
       <MergeInsightModal />
       {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}

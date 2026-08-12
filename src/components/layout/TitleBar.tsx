@@ -35,7 +35,7 @@ export function TitleBar({ onFeedback }: { onFeedback: () => void }) {
       <div
         className={`flex h-full min-w-0 items-center overflow-hidden ${mac ? "pl-[76px]" : "pl-0.5"}`}
       >
-        <MenuBar embedded />
+        {!mac && <MenuBar embedded />}
         <div className="h-full min-w-2 flex-1" data-tauri-drag-region />
       </div>
 

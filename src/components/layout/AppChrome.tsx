@@ -51,7 +51,7 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
 
   return (
     <header className="shrink-0 border-b border-[#2d3139] bg-[#1a1d24]">
-      {/* Title row */}
+      {/* Title row — on macOS menus live in the system menu bar */}
       <div
         className="grid h-9 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
         data-tauri-drag-region
@@ -61,7 +61,8 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
           /* menus must not drag the window */
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <MenuBar embedded />
+          {!mac && <MenuBar embedded />}
+          {mac && <div className="h-full min-w-8 flex-1" data-tauri-drag-region />}
         </div>
 
         <div className="flex h-full items-center px-3" data-tauri-drag-region>
@@ -118,7 +119,11 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
       </div>
 
       {/* Tab row — same chrome, lighter divider */}
-      <div className="flex h-8 items-stretch border-t border-[#2d3139]/80 bg-[#161920]">
+      <div
+        className={`flex h-8 items-stretch border-t border-[#2d3139]/80 bg-[#161920] ${
+          mac ? "pl-[76px]" : ""
+        }`}
+      >
         <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto pl-1">
           {shellTabs.map((tab) => (
             <ShellTabChip

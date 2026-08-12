@@ -5,3 +5,9 @@ export function isMacOS(): boolean {
   const ua = navigator.userAgent || "";
   return platform === "MacIntel" || platform === "MacPPC" || /Mac OS X|Macintosh/.test(ua);
 }
+
+/** Tag <html> for platform-specific CSS (scrollbars, etc.). */
+export function applyPlatformDataset(): void {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.platform = isMacOS() ? "macos" : "other";
+}
