@@ -51,7 +51,7 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
 
   return (
     <header className="shrink-0 border-b border-[#2d3139] bg-[#1a1d24]">
-      {/* Title row — on macOS menus live in the system menu bar */}
+      {/* Title row — brand · feedback + profile (+ window controls on Win/Linux) */}
       <div
         className="grid h-9 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
         data-tauri-drag-region
@@ -76,12 +76,15 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
         </div>
 
         <div
-          className="flex h-full items-center justify-end"
+          className="flex h-full items-center justify-end gap-0.5 pr-1"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <WinBtn title="Feedback" onClick={onFeedback}>
             <IconFeedback className="h-3.5 w-3.5" />
           </WinBtn>
+          <div className="flex h-full items-center px-0.5">
+            <ProfileMenu />
+          </div>
           {!mac && (
             <>
               <WinBtn title="Minimizar" onClick={() => void appWin().minimize()}>
@@ -118,12 +121,8 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
         </div>
       </div>
 
-      {/* Tab row — same chrome, lighter divider */}
-      <div
-        className={`flex h-8 items-stretch border-t border-[#2d3139]/80 bg-[#161920] ${
-          mac ? "pl-[76px]" : ""
-        }`}
-      >
+      {/* Tab row — flush left under the title bar */}
+      <div className="flex h-8 items-stretch border-t border-[#2d3139]/80 bg-[#161920]">
         <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto pl-1">
           {shellTabs.map((tab) => (
             <ShellTabChip
@@ -150,7 +149,6 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
           <IconBtn title="Preferências" onClick={() => openSettingsTab()}>
             <IconSettings className="h-3.5 w-3.5" />
           </IconBtn>
-          <ProfileMenu />
         </div>
       </div>
     </header>

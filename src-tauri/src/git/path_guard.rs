@@ -112,10 +112,13 @@ pub fn validate_ssh_key_path(path: &str) -> AppResult<&str> {
     if path.contains('\0') || path.chars().any(|c| c.is_control()) {
         return Err(AppError::Message("Caminho da chave SSH inválido.".into()));
     }
-    for ch in path.chars() {
+    let bytes = path.as_bytes();
+    let windows_drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+    for (i, ch) in path.char_indices() {
         let allowed = ch.is_ascii_alphanumeric()
             || matches!(ch, '/' | '\\' | '.' | '_' | '-' | ' ' | '~')
-            || (ch == ':' && cfg!(windows));
+            // Allow `C:` drive prefix on any host (tests + cross-platform configs).
+            || (ch == ':' && windows_drive && i == 1);
         if !allowed {
             return Err(AppError::Message(
                 "Caminho da chave SSH contém caracteres não permitidos.".into(),
