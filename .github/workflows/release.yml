@@ -113,6 +113,43 @@ jobs:
           git push origin "HEAD:${{ github.ref_name }}"
           git push origin "${TAG}"
 
+      - name: Create GitHub Release
+        if: steps.decide.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.bump.outputs.tag }}
+          BUMP: ${{ steps.decide.outputs.bump }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --title "Gitorade ${TAG}" \
+            --notes "## Gitorade ${TAG}
+
+          Bump: **${BUMP}** → \`${VERSION}\`
+
+          ### Windows x64
+          - **NSIS** (\`.exe\`) — instalador recomendado
+          - **MSI** — Windows Installer
+
+          ### macOS
+          - **\`.dmg\` aarch64** — Apple Silicon (M1/M2/M3/M4)
+          - **\`.dmg\` x64** — Intel
+          - Arraste o app para Applications
+          - Requer **Git** no PATH (\`xcode-select --install\` ou Homebrew)
+          - Build sem notarização: na 1ª abertura use clique direito → Abrir
+
+          ### Linux amd64
+          - **\`.deb\`** — Debian/Ubuntu (\`sudo dpkg -i …\`)
+          - Requer **Git** no PATH (\`sudo apt install git\`)
+
+          Baixe os arquivos na seção **Assets** abaixo."
+
   build:
     needs: prepare
     if: needs.prepare.outputs.should_release == 'true'
@@ -177,41 +214,23 @@ jobs:
           workspaces: src-tauri -> target
           key: ${{ matrix.name }}
 
-      - name: Ensure GitHub Release exists
+      - name: Wait for GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare.outputs.tag }}
-          BUMP: ${{ needs.prepare.outputs.bump }}
-          VERSION: ${{ needs.prepare.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists"
-            exit 0
-          fi
-          gh release create "$TAG" \
-            --title "Gitorade ${TAG}" \
-            --notes "## Gitorade ${TAG}
-
-          Bump: **${BUMP}** → \`${VERSION}\`
-
-          ### Windows x64
-          - **NSIS** (\`.exe\`) — instalador recomendado
-          - **MSI** — Windows Installer
-
-          ### macOS
-          - **\`.dmg\` aarch64** — Apple Silicon (M1/M2/M3/M4)
-          - **\`.dmg\` x64** — Intel
-          - Arraste o app para Applications
-          - Requer **Git** no PATH (\`xcode-select --install\` ou Homebrew)
-          - Build sem notarização: na 1ª abertura use clique direito → Abrir
-
-          ### Linux amd64
-          - **\`.deb\`** — Debian/Ubuntu (\`sudo dpkg -i …\`)
-          - Requer **Git** no PATH (\`sudo apt install git\`)
-
-          Baixe os arquivos na seção **Assets** abaixo."
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Release $TAG is ready"
+              exit 0
+            fi
+            echo "Waiting for release $TAG ($i/10)…"
+            sleep 3
+          done
+          echo "Release $TAG not found after wait" >&2
+          exit 1
 
       # Windows / Linux — Tauri bundler + upload via tauri-action
       - name: Build installers and publish release (Windows/Linux)
