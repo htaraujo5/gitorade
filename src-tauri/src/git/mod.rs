@@ -7,6 +7,7 @@ use crate::error::{AppError, AppResult};
 
 pub mod branches;
 pub mod history;
+pub mod inspect;
 pub mod integrate;
 pub mod path_guard;
 pub mod ssh_env;
@@ -23,6 +24,7 @@ pub use branches::{
     revert_commit, upstream_status,
 };
 pub use history::{commit_file_diff, commit_files, commit_graph, file_at_commit, search_commits};
+pub use inspect::{file_blame, file_history};
 pub use integrate::{
     abort_integrate, cherry_pick, continue_integrate, detect_state as detect_integrate_state,
     list_conflicts, merge_branch, preview_merge, read_conflict_sides,
@@ -64,7 +66,7 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> AppResult<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim_end_matches('\0').trim().to_string())
 }
 
-fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
+pub(crate) fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8>> {
     let mut cmd = Command::new("git");
     crate::process_util::hide_console(&mut cmd);
     apply_local_git_env(&mut cmd);
@@ -349,8 +351,20 @@ pub fn commit(
     author_name: &str,
     author_email: &str,
 ) -> AppResult<CommitResult> {
+    commit_with_opts(path, message, author_name, author_email, false)
+}
+
+/// Commit staged changes. With `amend`, rewrites HEAD (staged changes optional;
+/// an empty message keeps the previous one). The original author is preserved on amend.
+pub fn commit_with_opts(
+    path: &Path,
+    message: &str,
+    author_name: &str,
+    author_email: &str,
+    amend: bool,
+) -> AppResult<CommitResult> {
     let message = message.trim();
-    if message.is_empty() {
+    if message.is_empty() && !amend {
         return Err(AppError::Message("Mensagem de commit vazia.".into()));
     }
     if author_name.trim().is_empty() || author_email.trim().is_empty() {
@@ -359,21 +373,51 @@ pub fn commit(
         ));
     }
 
-    let status = status(path)?;
-    if status.staged.is_empty() {
-        return Err(AppError::Message(
-            "Nenhum arquivo staged. Faça stage antes do commit.".into(),
-        ));
+    if amend {
+        if !has_head(path) {
+            return Err(AppError::Message(
+                "Ainda não há commit para fazer amend.".into(),
+            ));
+        }
+        let st = status(path)?;
+        if st.in_progress.is_some() {
+            return Err(AppError::Message(
+                "Finalize ou aborte o merge/rebase/cherry-pick antes do amend.".into(),
+            ));
+        }
+    } else {
+        let status = status(path)?;
+        if status.staged.is_empty() {
+            return Err(AppError::Message(
+                "Nenhum arquivo staged. Faça stage antes do commit.".into(),
+            ));
+        }
+    }
+
+    let mut args: Vec<&str> = vec!["commit"];
+    if amend {
+        args.push("--amend");
+        if message.is_empty() {
+            args.push("--no-edit");
+        }
+    }
+    if !message.is_empty() {
+        args.push("-m");
+        args.push(message);
     }
 
     let mut cmd = Command::new("git");
     crate::process_util::hide_console(&mut cmd);
+    apply_local_git_env(&mut cmd);
     cmd.current_dir(path)
-        .env("GIT_AUTHOR_NAME", author_name)
-        .env("GIT_AUTHOR_EMAIL", author_email)
         .env("GIT_COMMITTER_NAME", author_name)
-        .env("GIT_COMMITTER_EMAIL", author_email)
-        .args(["commit", "-m", message]);
+        .env("GIT_COMMITTER_EMAIL", author_email);
+    if !amend {
+        // GIT_AUTHOR_* would override the original author that `--amend` keeps.
+        cmd.env("GIT_AUTHOR_NAME", author_name)
+            .env("GIT_AUTHOR_EMAIL", author_email);
+    }
+    cmd.args(&args);
 
     let output = cmd.output().map_err(AppError::Io)?;
     if !output.status.success() {
@@ -382,12 +426,84 @@ pub fn commit(
     }
 
     let hash = run_git(&["rev-parse", "--short", "HEAD"], Some(path))?;
+    let final_message = if message.is_empty() {
+        run_git(&["log", "-1", "--format=%B"], Some(path))?
+    } else {
+        message.to_string()
+    };
+    let (author_name, author_email) = if amend {
+        let raw = run_git(&["log", "-1", "--format=%an%x1f%ae"], Some(path))?;
+        let (n, e) = raw.trim().split_once('\x1f').unwrap_or((author_name, author_email));
+        (n.to_string(), e.to_string())
+    } else {
+        (author_name.to_string(), author_email.to_string())
+    };
     Ok(CommitResult {
         hash,
-        message: message.to_string(),
-        author_name: author_name.to_string(),
-        author_email: author_email.to_string(),
+        message: final_message,
+        author_name,
+        author_email,
     })
+}
+
+/// Undo HEAD keeping its changes staged (`git reset --soft HEAD~1`).
+/// Returns the full message of the undone commit so the UI can restore it.
+pub fn undo_last_commit(path: &Path) -> AppResult<String> {
+    if !has_head(path) {
+        return Err(AppError::Message("Não há commit para desfazer.".into()));
+    }
+    if run_git(&["rev-parse", "--verify", "--quiet", "HEAD~1"], Some(path)).is_err() {
+        return Err(AppError::Message(
+            "O primeiro commit do repositório não pode ser desfeito por aqui.".into(),
+        ));
+    }
+    let st = status(path)?;
+    if st.in_progress.is_some() {
+        return Err(AppError::Message(
+            "Finalize ou aborte o merge/rebase/cherry-pick antes de desfazer o commit.".into(),
+        ));
+    }
+    let message = run_git(&["log", "-1", "--format=%B"], Some(path))?;
+    run_git(&["reset", "--soft", "HEAD~1"], Some(path))?;
+    Ok(message)
+}
+
+/// Last commit message on HEAD (empty when there is no commit yet).
+pub fn head_message(path: &Path) -> AppResult<String> {
+    if !has_head(path) {
+        return Ok(String::new());
+    }
+    run_git(&["log", "-1", "--format=%B"], Some(path))
+}
+
+/// Append a pattern to the repository root `.gitignore` (no-op if already present).
+pub fn add_to_gitignore(path: &Path, pattern: &str) -> AppResult<()> {
+    let pattern = pattern.trim();
+    if pattern.is_empty() {
+        return Err(AppError::Message("Padrão vazio.".into()));
+    }
+    if pattern.contains('\n') || pattern.contains('\r') || pattern.contains('\0') {
+        return Err(AppError::Message("Padrão inválido.".into()));
+    }
+    let probe = pattern.trim_start_matches('/').trim_start_matches('!');
+    let probe = probe.trim_start_matches("**/");
+    if probe.split(['/', '\\']).any(|seg| seg == "..") {
+        return Err(AppError::Message("Padrão inválido.".into()));
+    }
+
+    let file = path.join(".gitignore");
+    let existing = std::fs::read_to_string(&file).unwrap_or_default();
+    if existing.lines().any(|l| l.trim() == pattern) {
+        return Ok(());
+    }
+    let mut next = existing;
+    if !next.is_empty() && !next.ends_with('\n') {
+        next.push('\n');
+    }
+    next.push_str(pattern);
+    next.push('\n');
+    std::fs::write(&file, next)?;
+    Ok(())
 }
 
 fn which_git() -> Option<String> {
@@ -694,6 +810,25 @@ pub fn remove_remote(path: &Path, name: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn rename_remote(path: &Path, old: &str, new: &str) -> AppResult<()> {
+    let old = reject_option_like(old)?;
+    let new = reject_option_like(new)?;
+    if new.contains(char::is_whitespace) || new.contains('/') {
+        return Err(AppError::Message(
+            "Nome de remote inválido (sem espaços ou '/').".into(),
+        ));
+    }
+    run_git(&["remote", "rename", "--", old, new], Some(path))?;
+    Ok(())
+}
+
+pub fn set_remote_url(path: &Path, name: &str, url: &str) -> AppResult<()> {
+    let name = reject_option_like(name)?;
+    let url = validate_remote_url(url)?;
+    run_git(&["remote", "set-url", "--", name, url], Some(path))?;
+    Ok(())
+}
+
 /// Args builders for streaming operations (executed by the ops module).
 pub fn fetch_args(remote: Option<&str>) -> Vec<String> {
     let mut args = vec![
@@ -732,9 +867,21 @@ pub fn pull_args_with_opts(
 }
 
 pub fn push_args(remote: Option<&str>, branch: Option<&str>, set_upstream: bool) -> Vec<String> {
+    push_args_with_opts(remote, branch, set_upstream, false)
+}
+
+pub fn push_args_with_opts(
+    remote: Option<&str>,
+    branch: Option<&str>,
+    set_upstream: bool,
+    force_with_lease: bool,
+) -> Vec<String> {
     let mut args = vec!["push".to_string(), "--progress".to_string()];
     if set_upstream {
         args.push("--set-upstream".to_string());
+    }
+    if force_with_lease {
+        args.push("--force-with-lease".to_string());
     }
     if let Some(r) = remote {
         args.push(r.to_string());
@@ -743,6 +890,40 @@ pub fn push_args(remote: Option<&str>, branch: Option<&str>, set_upstream: bool)
         }
     }
     args
+}
+
+/// `git push <remote> refs/tags/<tag>` or `git push <remote> --tags` when `tag` is None.
+pub fn push_tags_args(remote: &str, tag: Option<&str>) -> AppResult<Vec<String>> {
+    let remote = reject_option_like(remote)?;
+    let mut args = vec!["push".to_string(), "--progress".to_string()];
+    match tag {
+        Some(t) => {
+            let t = reject_option_like(t)?;
+            args.push(remote.to_string());
+            args.push(format!("refs/tags/{t}"));
+        }
+        None => {
+            args.push("--tags".to_string());
+            args.push(remote.to_string());
+        }
+    }
+    Ok(args)
+}
+
+/// `git push <remote> --delete <refspec>` (branch name or `refs/tags/<tag>`).
+pub fn delete_remote_ref_args(remote: &str, refspec: &str) -> AppResult<Vec<String>> {
+    let remote = reject_option_like(remote)?;
+    let refspec = reject_option_like(refspec)?;
+    if refspec.contains(':') || refspec.contains(char::is_whitespace) {
+        return Err(AppError::Message("Referência inválida.".into()));
+    }
+    Ok(vec![
+        "push".to_string(),
+        "--progress".to_string(),
+        remote.to_string(),
+        "--delete".to_string(),
+        refspec.to_string(),
+    ])
 }
 
 pub fn clone_args(url: &str, target: &str) -> AppResult<Vec<String>> {
@@ -783,6 +964,53 @@ mod tests {
         let redacted = redact_secrets(raw);
         assert!(redacted.contains("user:***@"));
         assert!(!redacted.contains("s3cretPass"));
+    }
+
+    #[test]
+    fn push_args_force_with_lease() {
+        let args = push_args_with_opts(Some("origin"), Some("main"), false, true);
+        assert!(args.contains(&"--force-with-lease".to_string()));
+        assert!(!args.iter().any(|a| a == "--force"));
+    }
+
+    #[test]
+    fn remote_ref_args_are_guarded() {
+        assert!(push_tags_args("origin", Some("v1.0.0")).is_ok());
+        assert!(push_tags_args("--mirror", None).is_err());
+        assert!(delete_remote_ref_args("origin", "feat/x").is_ok());
+        assert!(delete_remote_ref_args("origin", "a:b").is_err());
+        assert!(delete_remote_ref_args("origin", "--all").is_err());
+    }
+
+    #[test]
+    fn amend_keeps_author_and_undo_restores_message() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+        run_git(&["init", "-q"], Some(repo)).unwrap();
+        std::fs::write(repo.join("a.txt"), "one\n").unwrap();
+        stage(repo, &["a.txt".to_string()]).unwrap();
+        commit_with_opts(repo, "first", "Alice", "alice@x.io", false).unwrap();
+
+        std::fs::write(repo.join("a.txt"), "two\n").unwrap();
+        stage(repo, &["a.txt".to_string()]).unwrap();
+        commit_with_opts(repo, "second", "Alice", "alice@x.io", false).unwrap();
+
+        let amended = commit_with_opts(repo, "", "Bob", "bob@x.io", true).unwrap();
+        assert_eq!(amended.message.trim(), "second");
+        assert_eq!(amended.author_name, "Alice");
+        let committer = run_git(&["log", "-1", "--format=%cn"], Some(repo)).unwrap();
+        assert_eq!(committer.trim(), "Bob");
+
+        let undone = undo_last_commit(repo).unwrap();
+        assert_eq!(undone.trim(), "second");
+        assert_eq!(head_message(repo).unwrap().trim(), "first");
+        assert!(undo_last_commit(repo).is_err(), "root commit must not be undone");
+
+        add_to_gitignore(repo, "*.log").unwrap();
+        add_to_gitignore(repo, "*.log").unwrap();
+        let ignore = std::fs::read_to_string(repo.join(".gitignore")).unwrap();
+        assert_eq!(ignore.matches("*.log").count(), 1);
+        assert!(add_to_gitignore(repo, "../outside").is_err());
     }
 
     #[test]

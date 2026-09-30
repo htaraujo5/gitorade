@@ -253,8 +253,74 @@ export async function commitChanges(input: {
   profileId?: string | null;
   authorName?: string | null;
   authorEmail?: string | null;
+  amend?: boolean;
 }): Promise<CommitResult> {
   return commitResultSchema.parse(await invoke("commit_changes", { input }));
+}
+
+export const undoCommitResultSchema = z.object({
+  message: z.string(),
+  status: repoStatusSchema,
+});
+
+export type UndoCommitResult = z.infer<typeof undoCommitResultSchema>;
+
+export async function undoLastCommit(repositoryId: string): Promise<UndoCommitResult> {
+  return undoCommitResultSchema.parse(await invoke("undo_last_commit", { repositoryId }));
+}
+
+export async function getHeadMessage(repositoryId: string): Promise<string> {
+  return z.string().parse(await invoke("get_head_message", { repositoryId }));
+}
+
+export async function addToGitignore(repositoryId: string, pattern: string): Promise<RepoStatus> {
+  return repoStatusSchema.parse(await invoke("add_to_gitignore", { repositoryId, pattern }));
+}
+
+export const blameLineSchema = z.object({
+  line: z.number(),
+  hash: z.string(),
+  shortHash: z.string(),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authoredAt: z.string(),
+  summary: z.string(),
+  content: z.string(),
+});
+
+export type BlameLine = z.infer<typeof blameLineSchema>;
+
+export async function getFileBlame(
+  repositoryId: string,
+  path: string,
+  rev?: string | null,
+): Promise<BlameLine[]> {
+  return z
+    .array(blameLineSchema)
+    .parse(await invoke("get_file_blame", { repositoryId, path, rev: rev ?? null }));
+}
+
+export const fileHistoryEntrySchema = z.object({
+  hash: z.string(),
+  shortHash: z.string(),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authoredAt: z.string(),
+  subject: z.string(),
+  path: z.string(),
+  status: z.string(),
+});
+
+export type FileHistoryEntry = z.infer<typeof fileHistoryEntrySchema>;
+
+export async function getFileHistory(
+  repositoryId: string,
+  path: string,
+  limit = 200,
+): Promise<FileHistoryEntry[]> {
+  return z
+    .array(fileHistoryEntrySchema)
+    .parse(await invoke("get_file_history", { repositoryId, path, limit }));
 }
 
 export async function initRepository(path: string, bare = false): Promise<Repository> {
@@ -277,6 +343,26 @@ export async function removeRemote(repositoryId: string, name: string): Promise<
   return z.array(remoteInfoSchema).parse(await invoke("remove_remote", { repositoryId, name }));
 }
 
+export async function renameRemote(
+  repositoryId: string,
+  oldName: string,
+  newName: string,
+): Promise<RemoteInfo[]> {
+  return z
+    .array(remoteInfoSchema)
+    .parse(await invoke("rename_remote", { repositoryId, oldName, newName }));
+}
+
+export async function setRemoteUrl(
+  repositoryId: string,
+  name: string,
+  url: string,
+): Promise<RemoteInfo[]> {
+  return z
+    .array(remoteInfoSchema)
+    .parse(await invoke("set_remote_url", { repositoryId, name, url }));
+}
+
 export async function cancelOperation(operationId: string): Promise<void> {
   await invoke("cancel_operation", { operationId });
 }
@@ -296,8 +382,68 @@ export type SyncInput = {
   branch?: string | null;
   setUpstream?: boolean;
   rebase?: boolean;
+  force?: boolean;
   profileId?: string | null;
 };
+
+export type RemoteRefInput = {
+  repositoryId: string;
+  operationId: string;
+  remote?: string | null;
+  name?: string | null;
+  profileId?: string | null;
+};
+
+export async function pushTags(input: RemoteRefInput): Promise<string> {
+  return z.string().parse(await invoke("push_tags", { input }));
+}
+
+export async function deleteRemoteBranch(input: RemoteRefInput): Promise<BranchInfo[]> {
+  return z.array(branchInfoSchema).parse(await invoke("delete_remote_branch", { input }));
+}
+
+export async function deleteRemoteTag(input: RemoteRefInput): Promise<string> {
+  return z.string().parse(await invoke("delete_remote_tag", { input }));
+}
+
+export const updateInfoSchema = z.object({
+  currentVersion: z.string(),
+  latestVersion: z.string(),
+  available: z.boolean(),
+  notes: z.string(),
+  releaseUrl: z.string(),
+  publishedAt: z.string().nullable().optional(),
+  assetName: z.string().nullable().optional(),
+  assetUrl: z.string().nullable().optional(),
+  assetSize: z.number().nullable().optional(),
+});
+
+export type UpdateInfo = z.infer<typeof updateInfoSchema>;
+
+export const updateProgressSchema = z.object({
+  downloaded: z.number(),
+  total: z.number().nullable().optional(),
+  stage: z.enum(["download", "install"]),
+});
+
+export type UpdateProgress = z.infer<typeof updateProgressSchema>;
+
+export async function checkForUpdate(): Promise<UpdateInfo> {
+  return updateInfoSchema.parse(await invoke("check_for_update"));
+}
+
+/** Resolves to "restart" | "exit" | "manual". */
+export async function installUpdate(): Promise<string> {
+  return z.string().parse(await invoke("install_update"));
+}
+
+export async function relaunchApp(): Promise<void> {
+  await invoke("relaunch_app");
+}
+
+export async function exitApp(): Promise<void> {
+  await invoke("exit_app");
+}
 
 export async function fetchRemote(input: SyncInput): Promise<RepoStatus> {
   return repoStatusSchema.parse(await invoke("fetch_remote", { input }));

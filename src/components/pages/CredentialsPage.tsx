@@ -4,6 +4,7 @@ import { useAppStore } from "../../stores/appStore";
 import type { Profile } from "../../lib/api";
 import { fileToAvatarDataUrl } from "../../lib/avatarImage";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
+import { alertDialog } from "../../stores/dialogStore";
 import { IconCredentials, IconKey, IconPlus } from "../Icons";
 import { UserAvatar } from "../UserAvatar";
 
@@ -199,8 +200,12 @@ export function CredentialsPage() {
             onEdit={() => startEdit(selected)}
             onAssociate={() => void associateProfile(selected.id)}
             onSsh={() => openSshTab()}
-            onDelete={() => {
-              if (!requireDangerousConfirm(`Remover identidade "${selected.name}"?`)) return;
+            onDelete={async () => {
+              const ok = await requireDangerousConfirm(`Remover identidade "${selected.name}"?`, {
+                title: "Remover identidade",
+                confirmLabel: "Remover",
+              });
+              if (!ok) return;
               void deleteProfile(selected.id).then(() => {
                 setSelectedId(null);
               });
@@ -256,7 +261,11 @@ function ProfileForm({
     try {
       onAvatarData(await fileToAvatarDataUrl(file));
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : String(err));
+      void alertDialog({
+        title: "Imagem inválida",
+        message: err instanceof Error ? err.message : String(err),
+        tone: "error",
+      });
     }
   };
 

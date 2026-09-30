@@ -1,8 +1,10 @@
-﻿import { useMemo, useState, type ReactNode } from "react";
+﻿import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import * as api from "../../lib/api";
 import type { FileChange } from "../../lib/api";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
 import { IconBranch, IconStash } from "../Icons";
+import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 
 type ViewMode = "path" | "tree";
 
@@ -49,11 +51,15 @@ export function StagingPanel() {
     createStash,
     applyStash,
     dropStash,
+    addToGitignore,
+    openFileInspector,
+    openWorkingFile,
   } = useAppStore();
 
   const [description, setDescription] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("path");
   const [amend, setAmend] = useState(false);
+  const [fileMenu, setFileMenu] = useState<{ x: number; y: number; file: FileChange } | null>(null);
   const [pushAfter, setPushAfter] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(true);
   const [stashMessage, setStashMessage] = useState("");
@@ -76,22 +82,126 @@ export function StagingPanel() {
     !repo ||
     busy ||
     !activeProfile ||
-    (staged.length > 0 && !commitMessage.trim()) ||
-    (staged.length === 0 && unstaged.length === 0);
+    (!amend &&
+      ((staged.length > 0 && !commitMessage.trim()) ||
+        (staged.length === 0 && unstaged.length === 0)));
 
   const canStashPush = total > 0 && !busy;
 
+  const toggleAmend = async (checked: boolean) => {
+    setAmend(checked);
+    if (!checked || !activeRepoId || commitMessage.trim() || description.trim()) return;
+    try {
+      const previous = (await api.getHeadMessage(activeRepoId)).trim();
+      const [summary, ...rest] = previous.split("\n");
+      setCommitMessage(summary ?? "");
+      setDescription(rest.join("\n").trim());
+    } catch {
+      // Without HEAD there's nothing to prefill; the backend rejects the amend itself.
+    }
+  };
+
   const runCommit = async () => {
-    if (staged.length === 0) {
+    if (staged.length === 0 && !amend) {
       void stage(unstaged.map((f) => f.path));
       return;
     }
+    const rewritesPushed = amend && Boolean(status?.upstream) && (status?.ahead ?? 0) === 0;
     const summary = commitMessage.trim();
     const body = description.trim();
     if (body) setCommitMessage(`${summary}\n\n${body}`);
     setDescription("");
-    await commit();
-    if (pushAfter) void push();
+    await commit({ amend });
+    setAmend(false);
+    if (pushAfter) void push({ force: rewritesPushed });
+  };
+
+  const openFileMenu = (file: FileChange, e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFileMenu({ x: e.clientX, y: e.clientY, file });
+  };
+
+  const fileMenuItems = (file: FileChange): ContextMenuItem[] => {
+    const slash = file.path.lastIndexOf("/");
+    const dir = slash >= 0 ? file.path.slice(0, slash) : "";
+    const base = slash >= 0 ? file.path.slice(slash + 1) : file.path;
+    const dot = base.lastIndexOf(".");
+    const ext = dot > 0 ? base.slice(dot) : "";
+    const untracked = file.status === "untracked";
+    const items: ContextMenuItem[] = [
+      file.staged
+        ? {
+            type: "item",
+            label: "Unstage",
+            disabled: busy,
+            onClick: () => void unstage([file.path]),
+          }
+        : { type: "item", label: "Stage", disabled: busy, onClick: () => void stage([file.path]) },
+      {
+        type: "item",
+        label: "Descartar alterações…",
+        danger: true,
+        disabled: busy,
+        onClick: () => void discardPaths([file.path]),
+      },
+      { type: "separator" },
+      {
+        type: "item",
+        label: "Histórico do arquivo",
+        disabled: untracked,
+        onClick: () => openFileInspector(file.path, { mode: "history" }),
+      },
+      {
+        type: "item",
+        label: "Blame",
+        disabled: untracked || file.status === "added",
+        onClick: () => openFileInspector(file.path, { mode: "blame" }),
+      },
+    ];
+    // .gitignore has no effect on files git already tracks.
+    if (untracked) {
+      items.push(
+        { type: "separator" },
+        {
+          type: "item",
+          label: `Ignorar ${base}`,
+          disabled: busy,
+          onClick: () => void addToGitignore(`/${file.path}`),
+        },
+      );
+      if (ext) {
+        items.push({
+          type: "item",
+          label: `Ignorar todos *${ext}`,
+          disabled: busy,
+          onClick: () => void addToGitignore(`*${ext}`),
+        });
+      }
+      if (dir) {
+        items.push({
+          type: "item",
+          label: `Ignorar pasta ${dir}/`,
+          disabled: busy,
+          onClick: () => void addToGitignore(`/${dir}/`),
+        });
+      }
+    }
+    items.push(
+      { type: "separator" },
+      {
+        type: "item",
+        label: "Abrir arquivo",
+        disabled: file.status === "deleted",
+        onClick: () => void openWorkingFile(file.path),
+      },
+      {
+        type: "item",
+        label: "Copiar caminho",
+        onClick: () => void navigator.clipboard.writeText(file.path),
+      },
+    );
+    return items;
   };
 
   return (
@@ -135,6 +245,7 @@ export function StagingPanel() {
           onDiscard={(p) => void discardPaths([p])}
           onDiscardAll={() => void discardPaths(unstaged.map((f) => f.path))}
           onSelect={(f) => void selectFile(f)}
+          onContextMenu={openFileMenu}
           selected={selectedFile}
           disabled={busy}
           allAccent="success"
@@ -150,6 +261,7 @@ export function StagingPanel() {
           onDiscard={(p) => void discardPaths([p])}
           onDiscardAll={() => void discardPaths(staged.map((f) => f.path))}
           onSelect={(f) => void selectFile(f)}
+          onContextMenu={openFileMenu}
           selected={selectedFile}
           disabled={busy}
           allAccent="muted"
@@ -157,6 +269,15 @@ export function StagingPanel() {
         />
         {remotes.length === 0 && <RemoteQuickAdd busy={busy} onAdd={addRemote} />}
       </div>
+
+      {fileMenu && (
+        <ContextMenu
+          x={fileMenu.x}
+          y={fileMenu.y}
+          items={fileMenuItems(fileMenu.file)}
+          onClose={() => setFileMenu(null)}
+        />
+      )}
 
       <div className="shrink-0 border-t border-[#2d3139] bg-[#171a20] p-2">
         <div className="overflow-hidden rounded-md border border-[#2d3139] bg-[#1c1f26]">
@@ -186,7 +307,8 @@ export function StagingPanel() {
                   <input
                     type="checkbox"
                     checked={amend}
-                    onChange={(e) => setAmend(e.target.checked)}
+                    disabled={!repo || busy}
+                    onChange={(e) => void toggleAmend(e.target.checked)}
                     className="h-3 w-3 rounded border-[#2d3139]"
                   />
                   Amend previous commit
@@ -246,9 +368,11 @@ export function StagingPanel() {
                   className="flex w-full items-center justify-center gap-1.5 rounded border border-[#238636] bg-[#238636]/15 py-2 text-[12px] font-medium text-[#3dd68c] hover:bg-[#238636]/25 disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   <IconBranch className="h-3.5 w-3.5" />
-                  {staged.length === 0
-                    ? "Stage Changes to Commit"
-                    : `Commit to ${status?.branch ?? "HEAD"}`}
+                  {amend
+                    ? `Amend ${status?.headShort ?? "HEAD"}`
+                    : staged.length === 0
+                      ? "Stage Changes to Commit"
+                      : `Commit to ${status?.branch ?? "HEAD"}`}
                 </button>
 
                 {!activeProfile && (
@@ -257,8 +381,10 @@ export function StagingPanel() {
                   </p>
                 )}
                 {amend && (
-                  <p className="text-[10px] text-[#e3b341]">
-                    Amend em breve — cria commit novo por agora.
+                  <p className="text-[10px] leading-snug text-[#8b909a]">
+                    Substitui o último commit com os arquivos staged e a mensagem acima (vazia
+                    mantém a atual).
+                    {pushAfter ? " O push será feito com --force-with-lease." : ""}
                   </p>
                 )}
               </>
@@ -345,8 +471,13 @@ export function StagingPanel() {
                               type="button"
                               disabled={busy}
                               className="text-[10px] text-[#f85149] hover:underline disabled:opacity-40"
-                              onClick={() => {
-                                if (requireDangerousConfirm(`Remover ${entry.selector}?`)) {
+                              onClick={async () => {
+                                if (
+                                  await requireDangerousConfirm(`Remover ${entry.selector}?`, {
+                                    title: "Drop stash",
+                                    confirmLabel: "Remover",
+                                  })
+                                ) {
                                   void dropStash(entry.selector);
                                 }
                               }}
@@ -427,6 +558,7 @@ function FileSection({
   onDiscard,
   onDiscardAll,
   onSelect,
+  onContextMenu,
   selected,
   disabled,
   allAccent,
@@ -441,6 +573,7 @@ function FileSection({
   onDiscard?: (path: string) => void;
   onDiscardAll?: () => void;
   onSelect: (f: FileChange) => void;
+  onContextMenu: (f: FileChange, e: MouseEvent) => void;
   selected: { path: string; staged: boolean } | null;
   disabled: boolean;
   allAccent: "success" | "muted";
@@ -504,10 +637,7 @@ function FileSection({
                   className={`group flex h-6 items-center gap-1 px-1.5 ${
                     isSel ? "bg-[#1e3a5f]" : "hover:bg-[#252830]"
                   }`}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
+                  onContextMenu={(e) => onContextMenu(file, e)}
                 >
                   <button
                     type="button"

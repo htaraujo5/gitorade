@@ -1,9 +1,10 @@
 use tauri::{AppHandle, State};
 
 use crate::domain::{
-    AppHealth, BranchInfo, CloneInput, CommitFileChange, CommitGraph, CommitInput, CommitResult,
-    CommitSummary, CreateProfileInput, IntegrateResult, IntegrateState, MergePreview, Profile,
-    RemoteInfo, RepoStatus, Repository, StashEntry, SyncInput, TagInfo, UpdateProfileInput,
+    AppHealth, BlameLine, BranchInfo, CloneInput, CommitFileChange, CommitGraph, CommitInput,
+    CommitResult, CommitSummary, CreateProfileInput, FileHistoryEntry, IntegrateResult,
+    IntegrateState, MergePreview, Profile, RemoteInfo, RemoteRefInput, RepoStatus, Repository,
+    StashEntry, SyncInput, TagInfo, UndoCommitResult, UpdateInfo, UpdateProfileInput,
     UpstreamStatus,
 };
 use crate::error::{AppError, AppResult};
@@ -144,7 +145,67 @@ pub fn commit_changes(db: State<'_, Database>, input: CommitInput) -> AppResult<
     let repo = require_repo(&db, &input.repository_id)?;
 
     let (name, email) = resolve_identity(&db, &repo, &input)?;
-    git::commit(std::path::Path::new(&repo.path), &input.message, &name, &email)
+    git::commit_with_opts(
+        std::path::Path::new(&repo.path),
+        &input.message,
+        &name,
+        &email,
+        input.amend,
+    )
+}
+
+#[tauri::command]
+pub fn undo_last_commit(
+    db: State<'_, Database>,
+    repository_id: String,
+) -> AppResult<UndoCommitResult> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    let message = git::undo_last_commit(path)?;
+    Ok(UndoCommitResult {
+        message,
+        status: git::status(path)?,
+    })
+}
+
+#[tauri::command]
+pub fn get_head_message(db: State<'_, Database>, repository_id: String) -> AppResult<String> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::head_message(std::path::Path::new(&repo.path))
+}
+
+#[tauri::command]
+pub fn add_to_gitignore(
+    db: State<'_, Database>,
+    repository_id: String,
+    pattern: String,
+) -> AppResult<RepoStatus> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::add_to_gitignore(path, &pattern)?;
+    git::status(path)
+}
+
+#[tauri::command]
+pub fn get_file_blame(
+    db: State<'_, Database>,
+    repository_id: String,
+    path: String,
+    rev: Option<String>,
+) -> AppResult<Vec<BlameLine>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::file_blame(std::path::Path::new(&repo.path), &path, rev.as_deref())
+}
+
+#[tauri::command]
+pub fn get_file_history(
+    db: State<'_, Database>,
+    repository_id: String,
+    path: String,
+    limit: Option<usize>,
+) -> AppResult<Vec<FileHistoryEntry>> {
+    let repo = require_repo(&db, &repository_id)?;
+    git::file_history(std::path::Path::new(&repo.path), &path, limit.unwrap_or(200))
 }
 
 #[tauri::command]
@@ -181,6 +242,32 @@ pub fn remove_remote(
     let repo = require_repo(&db, &repository_id)?;
     let path = std::path::Path::new(&repo.path);
     git::remove_remote(path, &name)?;
+    git::list_remotes(path)
+}
+
+#[tauri::command]
+pub fn rename_remote(
+    db: State<'_, Database>,
+    repository_id: String,
+    old_name: String,
+    new_name: String,
+) -> AppResult<Vec<RemoteInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::rename_remote(path, &old_name, &new_name)?;
+    git::list_remotes(path)
+}
+
+#[tauri::command]
+pub fn set_remote_url(
+    db: State<'_, Database>,
+    repository_id: String,
+    name: String,
+    url: String,
+) -> AppResult<Vec<RemoteInfo>> {
+    let repo = require_repo(&db, &repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    git::set_remote_url(path, &name, &url)?;
     git::list_remotes(path)
 }
 
@@ -288,7 +375,7 @@ pub async fn push_remote(
         .ok_or_else(|| AppError::Message("Branch atual não encontrada para push.".into()))?;
     git::reject_option_like(&remote)?;
     git::reject_option_like(&branch)?;
-    let args = git::push_args(Some(&remote), Some(&branch), input.set_upstream);
+    let args = git::push_args_with_opts(Some(&remote), Some(&branch), input.set_upstream, input.force);
     let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
     crate::ops::run_streaming(
         &app,
@@ -298,6 +385,77 @@ pub async fn push_remote(
         Some(path),
         key.as_deref(),
     )
+}
+
+#[tauri::command]
+pub async fn push_tags(
+    app: AppHandle,
+    registry: State<'_, OperationRegistry>,
+    db: State<'_, Database>,
+    input: RemoteRefInput,
+) -> AppResult<String> {
+    let repo = require_repo(&db, &input.repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    ensure_has_remote(path)?;
+    let remote = resolve_remote(path, input.remote.as_deref())?;
+    let tag = input.name.as_deref().map(str::trim).filter(|t| !t.is_empty());
+    let args = git::push_tags_args(&remote, tag)?;
+    let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path), key.as_deref())
+}
+
+/// `name` is the remote-tracking ref (e.g. `origin/feat/x`); the remote is its first segment.
+#[tauri::command]
+pub async fn delete_remote_branch(
+    app: AppHandle,
+    registry: State<'_, OperationRegistry>,
+    db: State<'_, Database>,
+    input: RemoteRefInput,
+) -> AppResult<Vec<BranchInfo>> {
+    let repo = require_repo(&db, &input.repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    ensure_has_remote(path)?;
+    let full = input
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .ok_or_else(|| AppError::Message("Informe a branch remota.".into()))?;
+    let remotes = git::list_remotes(path)?;
+    let (remote, branch) = match full.split_once('/') {
+        Some((r, b)) if remotes.iter().any(|x| x.name == r) => (r.to_string(), b.to_string()),
+        _ => (resolve_remote(path, input.remote.as_deref())?, full.to_string()),
+    };
+    if branch.is_empty() || branch == "HEAD" {
+        return Err(AppError::Message("Branch remota inválida.".into()));
+    }
+    let args = git::delete_remote_ref_args(&remote, &branch)?;
+    let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path), key.as_deref())?;
+    git::list_branches(path)
+}
+
+#[tauri::command]
+pub async fn delete_remote_tag(
+    app: AppHandle,
+    registry: State<'_, OperationRegistry>,
+    db: State<'_, Database>,
+    input: RemoteRefInput,
+) -> AppResult<String> {
+    let repo = require_repo(&db, &input.repository_id)?;
+    let path = std::path::Path::new(&repo.path);
+    ensure_has_remote(path)?;
+    let remote = resolve_remote(path, input.remote.as_deref())?;
+    let tag = input
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| AppError::Message("Informe a tag.".into()))?;
+    git::reject_option_like(tag)?;
+    let args = git::delete_remote_ref_args(&remote, &format!("refs/tags/{tag}"))?;
+    let key = resolve_ssh_key(&db, &repo, input.profile_id.as_deref());
+    crate::ops::run_streaming(&app, &registry, &input.operation_id, &args, Some(path), key.as_deref())
 }
 
 fn ensure_has_remote(path: &std::path::Path) -> AppResult<()> {
@@ -728,6 +886,30 @@ pub fn terminal_set_enabled(
 #[tauri::command]
 pub fn terminal_kill_all(terminals: State<'_, TerminalRegistry>) -> AppResult<()> {
     terminals.kill_all()
+}
+
+#[tauri::command]
+pub async fn check_for_update() -> AppResult<UpdateInfo> {
+    tauri::async_runtime::spawn_blocking(crate::updater::check)
+        .await
+        .map_err(|err| AppError::Message(format!("Falha ao verificar atualização: {err}")))?
+}
+
+#[tauri::command]
+pub async fn install_update(app: AppHandle) -> AppResult<String> {
+    tauri::async_runtime::spawn_blocking(move || crate::updater::install(&app))
+        .await
+        .map_err(|err| AppError::Message(format!("Falha ao instalar atualização: {err}")))?
+}
+
+#[tauri::command]
+pub fn relaunch_app(app: AppHandle) {
+    app.restart();
+}
+
+#[tauri::command]
+pub fn exit_app(app: AppHandle) {
+    app.exit(0);
 }
 
 fn require_repo(db: &Database, id: &str) -> AppResult<Repository> {

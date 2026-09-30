@@ -65,9 +65,13 @@ function writeVersions(next) {
   cargo = cargo.replace(/^version\s*=\s*"[^"]+"/m, `version = "${next}"`);
   writeFileSync(cargoPath, cargo);
 
-  const tauri = JSON.parse(readFileSync(tauriPath, "utf8"));
-  tauri.version = next;
-  writeFileSync(tauriPath, `${JSON.stringify(tauri, null, 2)}\n`);
+  // In-place edit keeps Prettier's formatting (JSON.stringify expands inline arrays).
+  let tauri = readFileSync(tauriPath, "utf8");
+  if (!/^ {2}"version":\s*"[^"]+"/m.test(tauri)) {
+    throw new Error(`No top-level "version" in ${tauriPath}`);
+  }
+  tauri = tauri.replace(/^( {2}"version":\s*)"[^"]+"/m, `$1"${next}"`);
+  writeFileSync(tauriPath, tauri);
 }
 
 /**

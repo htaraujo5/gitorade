@@ -21,7 +21,23 @@ import * as api from "../lib/api";
 import { progressEventSchema } from "../lib/api";
 import { tipCommitForBranch } from "../lib/branchGraph";
 import { requireDangerousConfirm } from "../lib/dangerousConfirm";
+import { validateRefName } from "../lib/refName";
 import { usePrefsStore } from "./prefsStore";
+import { confirmDialog, promptDialog, promptText } from "./dialogStore";
+
+function validateRemoteName(value: string): string | null {
+  const v = value.trim();
+  if (!v) return "Informe um nome.";
+  if (/[\s/]/.test(v) || v.startsWith("-")) return "Sem espaços, '/' ou '-' no início.";
+  return null;
+}
+
+function validateRemoteUrl(value: string): string | null {
+  const v = value.trim().toLowerCase();
+  if (!v) return "Informe a URL.";
+  const ok = ["https://", "http://", "ssh://", "git://", "git@"].some((p) => v.startsWith(p));
+  return ok ? null : "Use https://, ssh://, git:// ou git@host:caminho.";
+}
 
 type WorkspaceTab = "graph" | "commits" | "changes" | "branches" | "stash" | "files";
 type AppView =
@@ -83,7 +99,14 @@ type SelectedFile = {
   staged: boolean;
 };
 
-type OperationKind = "clone" | "fetch" | "pull" | "push";
+type OperationKind = "clone" | "fetch" | "pull" | "push" | "tags" | "delete";
+
+export type FileInspector = {
+  path: string;
+  /** Commit to blame at; null = working tree. */
+  rev: string | null;
+  mode: "history" | "blame";
+};
 
 type ActiveOperation = {
   id: string;
@@ -201,6 +224,22 @@ type AppState = {
   clearConflictView: () => void;
   terminalOpen: boolean;
   setTerminalOpen: (open: boolean) => void;
+  fileInspector: FileInspector | null;
+  openFileInspector: (
+    path: string,
+    opts?: { rev?: string | null; mode?: FileInspector["mode"] },
+  ) => void;
+  closeFileInspector: () => void;
+  promptCreateBranch: (startPoint?: string, suggested?: string) => Promise<void>;
+  promptCreateTag: (commit?: string | null) => Promise<void>;
+  promptAddRemote: () => Promise<void>;
+  promptEditRemote: (name: string) => Promise<void>;
+  promptRenameRemote: (name: string) => Promise<void>;
+  deleteRemoteBranch: (name: string) => Promise<void>;
+  pushTags: (opts: { tag?: string }) => Promise<void>;
+  deleteRemoteTag: (name: string) => Promise<void>;
+  undoLastCommit: () => Promise<void>;
+  addToGitignore: (pattern: string) => Promise<void>;
   createStash: (message?: string) => Promise<void>;
   applyStash: (selector: string, pop?: boolean) => Promise<void>;
   dropStash: (selector: string) => Promise<void>;
@@ -231,14 +270,15 @@ type AppState = {
   setCommitFileViewMode: (mode: "diff" | "file") => void;
   navigateCommitFile: (dir: -1 | 1) => Promise<void>;
   openCommitFileInWorkingDir: () => Promise<void>;
+  openWorkingFile: (path: string) => Promise<void>;
   createProfile: (input: CreateProfileInput, opts?: { stay?: boolean }) => Promise<Profile>;
   updateProfile: (input: CreateProfileInput & { id: string }) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
   associateProfile: (profileId: string | null) => Promise<void>;
-  commit: () => Promise<void>;
-  fetch: () => Promise<void>;
+  commit: (opts?: { amend?: boolean }) => Promise<void>;
+  fetch: (opts?: { remote?: string }) => Promise<void>;
   pull: (opts?: { rebase?: boolean }) => Promise<void>;
-  push: (opts?: { setUpstream?: boolean }) => Promise<void>;
+  push: (opts?: { setUpstream?: boolean; force?: boolean }) => Promise<void>;
   cancelOperation: () => Promise<void>;
   dismissOperation: () => void;
   clearNotice: () => void;
@@ -251,6 +291,90 @@ function newOperationId(): string {
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+const NO_REMOTE_ERROR =
+  "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.";
+
+/** Per-repo UI state kept while the repo tab is in the background (instant tab switching). */
+const SNAPSHOT_KEYS = [
+  "status",
+  "remotes",
+  "graph",
+  "branches",
+  "tags",
+  "stash",
+  "selectedCommitHash",
+  "commitFiles",
+  "selectedCommitFile",
+  "commitFileContent",
+  "commitFileViewMode",
+  "diffText",
+  "selectedFile",
+  "selectedBranchName",
+  "workspaceTab",
+  "stagingPanelMode",
+  "commitMessage",
+  "commitOverrideProfileId",
+  "lastCommit",
+  "branchFilter",
+  "conflictDraft",
+  "conflictPath",
+  "conflictOurs",
+  "conflictTheirs",
+  "resolvedConflictPaths",
+] as const satisfies readonly (keyof AppState)[];
+
+type RepoSnapshot = Pick<AppState, (typeof SNAPSHOT_KEYS)[number]>;
+
+const repoSnapshots = new Map<string, RepoSnapshot>();
+
+function takeSnapshot(state: AppState): RepoSnapshot {
+  return Object.fromEntries(SNAPSHOT_KEYS.map((k) => [k, state[k]])) as RepoSnapshot;
+}
+
+function pushRejectedHint(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("[rejected]") ||
+    lower.includes("non-fast-forward") ||
+    lower.includes("fetch first") ||
+    lower.includes("stale info")
+  ) {
+    return `${message}\n\nDica: faça Pull para integrar as mudanças do remote. Se você reescreveu o histórico (amend/rebase/undo), use "Force push (with lease)" no menu do commit.`;
+  }
+  return message;
+}
+
+type SetState = (partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)) => void;
+
+/** Runs a streaming remote git op with the progress overlay. Returns null on failure. */
+async function runRemoteOperation<T>(
+  set: SetState,
+  kind: OperationKind,
+  label: string,
+  fn: (operationId: string) => Promise<T>,
+  mapError: (message: string) => string = (m) => m,
+): Promise<T | null> {
+  const operationId = newOperationId();
+  set({
+    operation: {
+      id: operationId,
+      kind,
+      label,
+      percent: null,
+      lines: [],
+      done: false,
+      success: null,
+    },
+    error: null,
+  });
+  try {
+    return await fn(operationId);
+  } catch (err) {
+    set({ error: mapError(errMsg(err)) });
+    return null;
+  }
 }
 
 async function performCheckout(
@@ -369,8 +493,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   conflictTheirs: "",
   resolvedConflictPaths: [],
   terminalOpen: false,
+  fileInspector: null,
 
   clearNotice: () => set({ notice: null, error: null }),
+  openFileInspector: (path, opts) =>
+    set({
+      fileInspector: {
+        path,
+        rev: opts?.rev ?? null,
+        mode: opts?.mode ?? "history",
+      },
+    }),
+  closeFileInspector: () => set({ fileInspector: null }),
   dismissOperation: () => set({ operation: null }),
   setCommitQuery: (query) => set({ commitQuery: query }),
   setCommitSearchOpen: (open) => set({ commitSearchOpen: open }),
@@ -517,6 +651,51 @@ export const useAppStore = create<AppState>((set, get) => ({
       tabs.push({ id: tabId, kind: "repo", repoId: id, title });
     }
 
+    const prevId = get().activeRepoId;
+    const refreshInBackground = () => {
+      void Promise.all([
+        get().refreshStatus(),
+        get().refreshHistory(),
+        get().refreshBranches(),
+        get().refreshRemotes(),
+        get().refreshStash(),
+      ]);
+    };
+
+    // Already loaded: just navigate (no loading overlay).
+    if (prevId === id && get().graph !== null) {
+      set({ appView: "history", shellTabs: tabs, activeShellTabId: tabId });
+      refreshInBackground();
+      return;
+    }
+
+    if (prevId && prevId !== id && get().graph !== null) {
+      repoSnapshots.set(prevId, takeSnapshot(get()));
+    }
+
+    // Previously opened in this session: restore instantly and refresh silently.
+    const cached = repoSnapshots.get(id);
+    if (cached) {
+      set({
+        ...cached,
+        activeRepoId: id,
+        appView: "history",
+        shellTabs: tabs,
+        activeShellTabId: tabId,
+        openingRepoName: null,
+        error: null,
+        filteredCommits: null,
+        commitQuery: "",
+        commitSearchOpen: false,
+        checkoutPrompt: null,
+        mergePrompt: null,
+        fileInspector: null,
+      });
+      void api.terminalKillAll();
+      refreshInBackground();
+      return;
+    }
+
     set({
       openingRepoName: title,
       activeRepoId: id,
@@ -545,6 +724,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       commitFiles: [],
       selectedCommitFile: null,
       commitFileContent: "",
+      fileInspector: null,
       commitOverrideProfileId:
         repo?.defaultProfileId ?? get().commitOverrideProfileId ?? get().profiles[0]?.id ?? null,
     });
@@ -642,6 +822,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   removeRepository: async (id) => {
     await api.removeRepository(id);
+    repoSnapshots.delete(id);
     const repositories = get().repositories.filter((r) => r.id !== id);
     set({ repositories });
     if (get().activeRepoId === id) {
@@ -661,8 +842,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const remotes = await api.listRemotes(id);
+      if (get().activeRepoId !== id) return;
       set({ remotes });
     } catch (err) {
+      if (get().activeRepoId !== id) return;
       set({ remotes: [], error: `Não foi possível ler remotes: ${errMsg(err)}` });
     }
   },
@@ -676,8 +859,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const limit = usePrefsStore.getState().graphCommitLimit;
       const graph = await api.getCommitGraph(id, limit);
+      if (get().activeRepoId !== id) return;
       set({ graph, filteredCommits: null });
     } catch (err) {
+      if (get().activeRepoId !== id) return;
       set({ error: errMsg(err) });
     }
   },
@@ -714,8 +899,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const [branches, tags] = await Promise.all([api.listBranches(id), api.listTags(id)]);
+      if (get().activeRepoId !== id) return;
       set({ branches, tags });
     } catch (err) {
+      if (get().activeRepoId !== id) return;
       set({ error: errMsg(err) });
     }
   },
@@ -728,8 +915,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const tags = await api.listTags(id);
+      if (get().activeRepoId !== id) return;
       set({ tags });
     } catch {
+      if (get().activeRepoId !== id) return;
       set({ tags: [] });
     }
   },
@@ -742,8 +931,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const stash = await api.listStash(id);
+      if (get().activeRepoId !== id) return;
       set({ stash });
     } catch {
+      if (get().activeRepoId !== id) return;
       set({ stash: [] });
     }
   },
@@ -778,7 +969,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteTag: async (name) => {
     const id = get().activeRepoId;
     if (!id) return;
-    const ok = requireDangerousConfirm(`Excluir tag local "${name}"?`);
+    const ok = await requireDangerousConfirm(`Excluir tag local "${name}"?`, {
+      title: "Excluir tag",
+      confirmLabel: "Excluir",
+    });
     if (!ok) return;
     set({ busy: true, error: null });
     try {
@@ -803,16 +997,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       mixed: "Mixed (mantém working tree, limpa index)",
       hard: "Hard (DESCARTA alterações locais)",
     } as const;
-    const ok = requireDangerousConfirm(
-      `Reset de "${branch}" para ${commit.slice(0, 7)}?\n\nModo: ${labels[mode]}`,
+    const ok = await requireDangerousConfirm(
+      mode === "hard"
+        ? `Reset de "${branch}" para ${commit.slice(0, 7)}?\n\nModo: ${labels[mode]}\n\nHard reset é destrutivo e não pode ser desfeito facilmente.`
+        : `Reset de "${branch}" para ${commit.slice(0, 7)}?\n\nModo: ${labels[mode]}`,
+      {
+        title: `Reset (${mode})`,
+        confirmLabel: "Reset",
+        force: mode === "hard",
+      },
     );
     if (!ok) return;
-    if (mode === "hard") {
-      const again = requireDangerousConfirm(
-        "Hard reset é destrutivo e não pode ser desfeito facilmente. Continuar?",
-      );
-      if (!again) return;
-    }
     set({ busy: true, error: null });
     try {
       const status = await api.resetToCommit(id, commit, mode);
@@ -830,7 +1025,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   revertCommit: async (commit) => {
     const id = get().activeRepoId;
     if (!id) return;
-    const ok = requireDangerousConfirm(`Criar commit de revert para ${commit.slice(0, 7)}?`);
+    const ok = await requireDangerousConfirm(`Criar commit de revert para ${commit.slice(0, 7)}?`, {
+      title: "Revert",
+      confirmLabel: "Revert",
+    });
     if (!ok) return;
     set({ busy: true, error: null });
     try {
@@ -872,8 +1070,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = hash.trim();
     if (!target) return;
 
-    const ok = requireDangerousConfirm(
+    const ok = await requireDangerousConfirm(
       `Checkout no commit ${target.slice(0, 7)}?\n\nIsso deixa o HEAD detached (fora de uma branch).`,
+      { title: "Checkout de commit", confirmLabel: "Checkout" },
     );
     if (!ok) return;
 
@@ -1012,10 +1211,278 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteBranch: async (name, force = false) => {
     const id = get().activeRepoId;
     if (!id) return;
-    set({ busy: true, error: null });
+    if (!force) {
+      const ok = await requireDangerousConfirm(`Excluir a branch local "${name}"?`, {
+        title: "Excluir branch",
+        confirmLabel: "Excluir",
+      });
+      if (!ok) return;
+    }
+    set({ busy: true, busyLabel: `Excluindo ${name}…`, error: null });
     try {
       const branches = await api.deleteBranch(id, name, force);
-      set({ branches, busy: false });
+      set({
+        branches,
+        busy: false,
+        busyLabel: null,
+        selectedBranchName: get().selectedBranchName === name ? null : get().selectedBranchName,
+      });
+      await get().refreshHistory();
+    } catch (err) {
+      const msg = errMsg(err);
+      set({ busy: false, busyLabel: null });
+      if (!force && msg.startsWith("NOT_MERGED:")) {
+        const again = await confirmDialog({
+          title: "Branch não mergeada",
+          message: `${msg.replace(/^NOT_MERGED:\s*/, "")}\n\nExcluir mesmo assim? Esses commits podem ser perdidos.`,
+          confirmLabel: "Forçar exclusão",
+          danger: true,
+        });
+        if (again) await get().deleteBranch(name, true);
+        return;
+      }
+      set({ error: msg });
+    }
+  },
+
+  deleteRemoteBranch: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const ok = await requireDangerousConfirm(
+      `Excluir a branch "${name}" do servidor remoto?\n\nIsso afeta todos que usam esse remote.`,
+      { title: "Excluir branch remota", confirmLabel: "Excluir do remote", force: true },
+    );
+    if (!ok) return;
+    const branches = await runRemoteOperation(set, "delete", `Excluindo ${name} do remote`, (op) =>
+      api.deleteRemoteBranch({
+        repositoryId: id,
+        operationId: op,
+        name,
+        profileId: get().commitOverrideProfileId,
+      }),
+    );
+    if (!branches) return;
+    set({
+      branches,
+      selectedBranchName: get().selectedBranchName === name ? null : get().selectedBranchName,
+    });
+    await get().refreshHistory();
+  },
+
+  pushTags: async ({ tag }) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    await get().refreshRemotes();
+    if (get().remotes.length === 0) {
+      set({ error: NO_REMOTE_ERROR });
+      return;
+    }
+    const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
+    await runRemoteOperation(
+      set,
+      "tags",
+      tag ? `Push da tag ${tag} (${remote})` : `Push de todas as tags (${remote})`,
+      (op) =>
+        api.pushTags({
+          repositoryId: id,
+          operationId: op,
+          remote,
+          name: tag ?? null,
+          profileId: get().commitOverrideProfileId,
+        }),
+    );
+  },
+
+  deleteRemoteTag: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    await get().refreshRemotes();
+    const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
+    if (!remote) {
+      set({ error: NO_REMOTE_ERROR });
+      return;
+    }
+    const ok = await requireDangerousConfirm(
+      `Excluir a tag "${name}" de ${remote}?\n\nA tag local continua existindo.`,
+      { title: "Excluir tag remota", confirmLabel: "Excluir do remote", force: true },
+    );
+    if (!ok) return;
+    await runRemoteOperation(set, "delete", `Excluindo tag ${name} de ${remote}`, (op) =>
+      api.deleteRemoteTag({
+        repositoryId: id,
+        operationId: op,
+        remote,
+        name,
+        profileId: get().commitOverrideProfileId,
+      }),
+    );
+  },
+
+  undoLastCommit: async () => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    await get().refreshStatus();
+    const status = get().status;
+    const pushed = Boolean(status?.upstream) && (status?.ahead ?? 0) === 0;
+    const ok = await confirmDialog({
+      title: "Desfazer último commit",
+      message: pushed
+        ? "O último commit já foi enviado ao remote. Desfazer vai exigir force push depois.\n\nAs alterações do commit voltam para a área de stage."
+        : "As alterações do commit voltam para a área de stage e a mensagem volta para o campo de commit.",
+      confirmLabel: "Desfazer commit",
+      danger: pushed,
+    });
+    if (!ok) return;
+    set({ busy: true, busyLabel: "Desfazendo commit…", error: null });
+    try {
+      const result = await api.undoLastCommit(id);
+      set({
+        status: result.status,
+        busy: false,
+        busyLabel: null,
+        commitMessage: result.message.trim(),
+        stagingPanelMode: "commit",
+        workspaceTab: "graph",
+        selectedCommitHash: null,
+        commitFiles: [],
+        selectedCommitFile: null,
+      });
+      await Promise.all([get().refreshHistory(), get().refreshBranches()]);
+    } catch (err) {
+      set({ busy: false, busyLabel: null, error: errMsg(err) });
+    }
+  },
+
+  addToGitignore: async (pattern) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    set({ busy: true, error: null });
+    try {
+      const status = await api.addToGitignore(id, pattern);
+      const selected = get().selectedFile;
+      const stillListed =
+        selected &&
+        [...status.staged, ...status.unstaged].some(
+          (f) => f.path === selected.path && f.staged === selected.staged,
+        );
+      set({
+        status,
+        busy: false,
+        selectedFile: stillListed ? selected : null,
+        diffText: stillListed ? get().diffText : "",
+      });
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  promptCreateBranch: async (startPoint, suggested) => {
+    const name = await promptText({
+      title: "Nova branch",
+      label: "Nome da branch",
+      message: startPoint ? `A partir de ${startPoint.slice(0, 40)}` : "A partir do HEAD atual",
+      defaultValue: suggested ?? "",
+      placeholder: "feat/minha-branch",
+      confirmLabel: "Criar e fazer checkout",
+      validate: validateRefName,
+    });
+    if (!name) return;
+    await get().createBranch(name, true, startPoint);
+  },
+
+  promptCreateTag: async (commit) => {
+    const values = await promptDialog({
+      title: "Nova tag",
+      message: commit ? `No commit ${commit.slice(0, 7)}` : "No HEAD atual",
+      confirmLabel: "Criar tag",
+      fields: [
+        {
+          name: "name",
+          label: "Nome da tag",
+          defaultValue: "v",
+          placeholder: "v1.0.0",
+          required: true,
+          validate: validateRefName,
+        },
+        {
+          name: "message",
+          label: "Mensagem (opcional)",
+          placeholder: "Release 1.0.0",
+          hint: "Com mensagem cria uma tag anotada; vazio cria uma tag leve.",
+          multiline: true,
+        },
+      ],
+    });
+    if (!values) return;
+    const name = values.name.trim();
+    if (!name) return;
+    await get().createTag(name, commit ?? undefined, values.message.trim() || undefined);
+  },
+
+  promptAddRemote: async () => {
+    const hasOrigin = get().remotes.some((r) => r.name === "origin");
+    const values = await promptDialog({
+      title: "Adicionar remote",
+      confirmLabel: "Adicionar",
+      fields: [
+        {
+          name: "name",
+          label: "Nome",
+          defaultValue: hasOrigin ? "" : "origin",
+          placeholder: "origin",
+          required: true,
+          validate: validateRemoteName,
+        },
+        {
+          name: "url",
+          label: "URL",
+          placeholder: "git@github.com:usuario/repo.git",
+          required: true,
+          validate: validateRemoteUrl,
+        },
+      ],
+    });
+    if (!values) return;
+    await get().addRemote(values.name.trim(), values.url.trim());
+  },
+
+  promptEditRemote: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const current = get().remotes.find((r) => r.name === name);
+    const url = await promptText({
+      title: `Editar URL de ${name}`,
+      label: "URL",
+      defaultValue: current?.fetchUrl ?? current?.pushUrl ?? "",
+      confirmLabel: "Salvar",
+      validate: validateRemoteUrl,
+    });
+    if (!url) return;
+    set({ busy: true, error: null });
+    try {
+      const remotes = await api.setRemoteUrl(id, name, url);
+      set({ remotes, busy: false });
+    } catch (err) {
+      set({ busy: false, error: errMsg(err) });
+    }
+  },
+
+  promptRenameRemote: async (name) => {
+    const id = get().activeRepoId;
+    if (!id) return;
+    const next = await promptText({
+      title: `Renomear remote ${name}`,
+      label: "Novo nome",
+      defaultValue: name,
+      confirmLabel: "Renomear",
+      validate: validateRemoteName,
+    });
+    if (!next || next === name) return;
+    set({ busy: true, error: null });
+    try {
+      const remotes = await api.renameRemote(id, name, next);
+      set({ remotes, busy: false });
+      await get().refreshBranches();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -1288,10 +1755,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeRemote: async (name) => {
     const id = get().activeRepoId;
     if (!id) return;
+    const ok = await requireDangerousConfirm(
+      `Remover o remote "${name}"?\n\nAs branches remotas dele somem da lista (nada é apagado no servidor).`,
+      { title: "Remover remote", confirmLabel: "Remover" },
+    );
+    if (!ok) return;
     set({ busy: true, error: null });
     try {
       const remotes = await api.removeRemote(id, name);
       set({ remotes, busy: false });
+      await get().refreshBranches();
     } catch (err) {
       set({ busy: false, error: errMsg(err) });
     }
@@ -1305,8 +1778,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const status = await api.getRepoStatus(id);
+      if (get().activeRepoId !== id) return;
       set({ status });
     } catch (err) {
+      if (get().activeRepoId !== id) return;
       set({ error: errMsg(err) });
     }
   },
@@ -1339,8 +1814,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const id = get().activeRepoId;
     if (!id || paths.length === 0) return;
     const label = paths.length === 1 ? paths[0] : `${paths.length} arquivos`;
-    const ok = requireDangerousConfirm(
+    const ok = await requireDangerousConfirm(
       `Descartar alterações em ${label}?\n\nIsso não pode ser desfeito.`,
+      { title: "Descartar alterações", confirmLabel: "Descartar" },
     );
     if (!ok) return;
     set({ busy: true, error: null });
@@ -1365,12 +1841,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const status = get().status;
     const count = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0);
     if (count === 0) return;
-    const ok = requireDangerousConfirm(
+    const ok = await requireDangerousConfirm(
       `Descartar TODAS as ${count} alterações locais?\n\nArquivos modificados voltam ao último commit; arquivos novos são apagados. Não dá para desfazer.`,
+      { title: "Descartar tudo", confirmLabel: "Descartar tudo", force: true },
     );
     if (!ok) return;
-    const again = requireDangerousConfirm("Confirma descartar tudo de verdade?");
-    if (!again) return;
     set({ busy: true, error: null });
     try {
       const next = await api.discardAllChanges(id);
@@ -1508,11 +1983,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       next = [{ ...START_TAB }, ...next];
     }
     const wasActive = get().activeShellTabId === id;
+    const closedRepoId = tabs[idx].kind === "repo" ? tabs[idx].repoId : undefined;
     set({ shellTabs: next });
     if (wasActive) {
       const focus = next[Math.min(idx, next.length - 1)] ?? next[0];
       void get().activateShellTab(focus.id);
     }
+    if (closedRepoId) repoSnapshots.delete(closedRepoId);
   },
 
   setAppView: (view) => {
@@ -1582,8 +2059,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     try {
       const commitFiles = await api.getCommitFiles(id, hash);
+      if (get().activeRepoId !== id || get().selectedCommitHash !== hash) return;
       set({ commitFiles });
     } catch (err) {
+      if (get().activeRepoId !== id || get().selectedCommitHash !== hash) return;
       set({ commitFiles: [], error: errMsg(err) });
     }
   },
@@ -1640,6 +2119,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   openCommitFileInWorkingDir: async () => {
     const path = get().selectedCommitFile;
+    if (path) await get().openWorkingFile(path);
+  },
+
+  openWorkingFile: async (path) => {
     const repoId = get().activeRepoId;
     const repo = get().repositories.find((r) => r.id === repoId);
     if (!path || !repo) return;
@@ -1712,9 +2195,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  commit: async () => {
+  commit: async (opts) => {
     const repoId = get().activeRepoId;
     const message = get().commitMessage;
+    const amend = Boolean(opts?.amend);
     if (!repoId) return;
 
     const profiles = get().profiles;
@@ -1739,7 +2223,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ commitOverrideProfileId: profile.id });
     }
 
-    set({ busy: true, error: null });
+    if (amend) {
+      const status = get().status;
+      const pushed = Boolean(status?.upstream) && (status?.ahead ?? 0) === 0;
+      if (pushed) {
+        const ok = await confirmDialog({
+          title: "Amend de commit já enviado",
+          message:
+            "O último commit já está no remote. Depois do amend será preciso usar Force push (with lease).",
+          confirmLabel: "Fazer amend",
+          danger: true,
+        });
+        if (!ok) return;
+      }
+    }
+
+    set({ busy: true, busyLabel: amend ? "Amend…" : null, error: null });
     try {
       const result = await api.commitChanges({
         repositoryId: repoId,
@@ -1747,33 +2246,37 @@ export const useAppStore = create<AppState>((set, get) => ({
         profileId: profile.id,
         authorName: profile.name,
         authorEmail: profile.email,
+        amend,
       });
       set({
         busy: false,
+        busyLabel: null,
         commitMessage: "",
         lastCommit: result,
       });
-      await Promise.all([get().refreshStatus(), get().refreshHistory()]);
+      await Promise.all([get().refreshStatus(), get().refreshHistory(), get().refreshBranches()]);
       set({ selectedFile: null, diffText: "" });
     } catch (err) {
-      set({ busy: false, error: errMsg(err) });
+      set({ busy: false, busyLabel: null, error: errMsg(err) });
     }
   },
 
-  fetch: async () => {
+  fetch: async (opts) => {
     const id = get().activeRepoId;
     if (!id) return;
     await get().refreshRemotes();
     if (get().remotes.length === 0) {
       set({
-        error:
-          "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.",
+        error: NO_REMOTE_ERROR,
         workspaceTab: "graph",
         selectedCommitHash: null,
       });
       return;
     }
-    const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
+    const remote =
+      (opts?.remote && get().remotes.find((r) => r.name === opts.remote)?.name) ||
+      get().remotes.find((r) => r.name === "origin")?.name ||
+      get().remotes[0]?.name;
     const operationId = newOperationId();
     set({
       operation: {
@@ -1811,8 +2314,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().refreshRemotes();
     if (get().remotes.length === 0) {
       set({
-        error:
-          "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.",
+        error: NO_REMOTE_ERROR,
         workspaceTab: "graph",
         selectedCommitHash: null,
       });
@@ -1858,8 +2360,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().refreshRemotes();
     if (get().remotes.length === 0) {
       set({
-        error:
-          "Sem remote. No painel direito (WIP), use o campo “URL do origin” e clique Add — depois tente de novo.",
+        error: NO_REMOTE_ERROR,
         workspaceTab: "graph",
         selectedCommitHash: null,
       });
@@ -1869,38 +2370,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     const branch = get().status?.branch ?? repo?.branch ?? null;
     const remote = get().remotes.find((r) => r.name === "origin")?.name ?? get().remotes[0]?.name;
     const setUpstream = opts?.setUpstream ?? true;
-    const operationId = newOperationId();
-    set({
-      operation: {
-        id: operationId,
-        kind: "push",
-        label: setUpstream
-          ? `Push -u (${remote}${branch ? `/${branch}` : ""})`
-          : `Push (${remote}${branch ? `/${branch}` : ""})`,
-        percent: null,
-        lines: [],
-        done: false,
-        success: null,
-      },
-      error: null,
-    });
-    try {
-      await api.pushRemote({
-        repositoryId: id,
-        operationId,
-        remote,
-        branch,
-        setUpstream,
-        profileId: get().commitOverrideProfileId,
-      });
-      await Promise.all([
-        get().refreshRepositories(),
-        get().refreshBranches(),
-        get().refreshStatus(),
-      ]);
-    } catch (err) {
-      set({ error: errMsg(err) });
+    const force = Boolean(opts?.force);
+    if (force) {
+      const ok = await requireDangerousConfirm(
+        `Force push de "${branch ?? "HEAD"}" para ${remote}?\n\n--force-with-lease só sobrescreve o remote se ninguém tiver enviado commits novos desde o seu último fetch.`,
+        { title: "Force push", confirmLabel: "Force push", force: true },
+      );
+      if (!ok) return;
     }
+    const target = `${remote}${branch ? `/${branch}` : ""}`;
+    const label = force
+      ? `Force push (${target})`
+      : setUpstream
+        ? `Push -u (${target})`
+        : `Push (${target})`;
+    const result = await runRemoteOperation(
+      set,
+      "push",
+      label,
+      (operationId) =>
+        api.pushRemote({
+          repositoryId: id,
+          operationId,
+          remote,
+          branch,
+          setUpstream,
+          force,
+          profileId: get().commitOverrideProfileId,
+        }),
+      pushRejectedHint,
+    );
+    if (result === null) return;
+    await Promise.all([
+      get().refreshRepositories(),
+      get().refreshBranches(),
+      get().refreshStatus(),
+      get().refreshHistory(),
+    ]);
   },
 
   cancelOperation: async () => {

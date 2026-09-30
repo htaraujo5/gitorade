@@ -135,8 +135,13 @@ export function ConflictSidePanel() {
         <button
           type="button"
           disabled={busy || !inProgress}
-          onClick={() => {
-            if (requireDangerousConfirm(`Abortar ${opLabel.toLowerCase()}?`)) {
+          onClick={async () => {
+            if (
+              await requireDangerousConfirm(`Abortar ${opLabel.toLowerCase()}?`, {
+                title: `Abortar ${opLabel}`,
+                confirmLabel: "Abortar",
+              })
+            ) {
               void abortIntegrate();
             }
           }}

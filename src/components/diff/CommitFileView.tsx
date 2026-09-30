@@ -23,6 +23,7 @@ export function CommitFileView() {
     selectCommitFile,
     navigateCommitFile,
     openCommitFileInWorkingDir,
+    openFileInspector,
     busy,
   } = useAppStore();
 
@@ -30,6 +31,7 @@ export function CommitFileView() {
   const commits = filteredCommits ?? graph?.commits ?? [];
   const selected = commits.find((c) => c.hash === selectedCommitHash);
   const fileIdx = commitFiles.findIndex((f) => f.path === selectedCommitFile);
+  const currentFileStatus = (commitFiles[fileIdx]?.status ?? "").toLowerCase();
   const pathParts = (selectedCommitFile ?? "").split(/[/\\]/).filter(Boolean);
 
   const rows = useMemo(() => parseUnifiedDiff(diffText), [diffText]);
@@ -91,10 +93,19 @@ export function CommitFileView() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <GhostBtn title="Blame (em breve)" disabled>
+          <GhostBtn
+            title="Blame do arquivo neste commit"
+            disabled={currentFileStatus.startsWith("d")}
+            onClick={() =>
+              openFileInspector(selectedCommitFile, { rev: selected.hash, mode: "blame" })
+            }
+          >
             Blame
           </GhostBtn>
-          <GhostBtn title="History (em breve)" disabled>
+          <GhostBtn
+            title="Histórico do arquivo"
+            onClick={() => openFileInspector(selectedCommitFile, { mode: "history" })}
+          >
             History
           </GhostBtn>
           <GhostBtn

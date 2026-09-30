@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore } from "../../stores/prefsStore";
+import { useUpdateStore } from "../../stores/updateStore";
 import { useT } from "../../i18n";
 
 type MenuDef = {
   id: string;
   label: string;
-  items: {
-    label: string;
-    shortcut?: string;
-    action?: () => void;
-    danger?: boolean;
-    disabled?: boolean;
-  }[];
+  items: (
+    | {
+        label: string;
+        shortcut?: string;
+        action?: () => void;
+        danger?: boolean;
+        disabled?: boolean;
+        separator?: false;
+      }
+    | { separator: true; label: string }
+  )[];
 };
 
 /** Native-app style menu bar (Arquivo / Editar / Exibir / Ajuda). */
@@ -33,7 +38,13 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
     setCommitSearchOpen,
     activeRepoId,
     busy,
+    undoLastCommit,
+    pushTags,
+    promptCreateBranch,
+    promptCreateTag,
+    promptAddRemote,
   } = useAppStore();
+  const checkForUpdates = useUpdateStore((s) => s.checkNow);
   const enableTerminal = usePrefsStore((s) => s.enableTerminal);
   const t = useT();
 
@@ -130,9 +141,52 @@ export function MenuBar({ embedded = false }: { embedded?: boolean }) {
       ],
     },
     {
+      id: "git",
+      label: t("menu.git"),
+      items: [
+        {
+          label: t("menu.newBranch"),
+          disabled: !hasRepo || busy,
+          action: () => void promptCreateBranch(),
+        },
+        {
+          label: t("menu.newTag"),
+          disabled: !hasRepo || busy,
+          action: () => void promptCreateTag(),
+        },
+        { separator: true, label: "sep-commit" },
+        {
+          label: t("menu.undoCommit"),
+          disabled: !hasRepo || busy,
+          action: () => void undoLastCommit(),
+        },
+        { separator: true, label: "sep-remote" },
+        {
+          label: t("menu.forcePush"),
+          danger: true,
+          disabled: !hasRepo || busy,
+          action: () => void push({ setUpstream: false, force: true }),
+        },
+        {
+          label: t("menu.pushTags"),
+          disabled: !hasRepo || busy,
+          action: () => void pushTags({}),
+        },
+        {
+          label: t("menu.addRemote"),
+          disabled: !hasRepo || busy,
+          action: () => void promptAddRemote(),
+        },
+      ],
+    },
+    {
       id: "help",
       label: t("menu.help"),
       items: [
+        {
+          label: t("menu.checkUpdates"),
+          action: () => void checkForUpdates(),
+        },
         {
           label: t("menu.about"),
           action: () => openAboutTab(),
@@ -205,27 +259,33 @@ function MenuButton({
           role="menu"
           className="absolute left-0 top-full z-50 min-w-[220px] overflow-hidden rounded-md border border-[#3a3f4b] bg-[#252830] py-1 shadow-2xl shadow-black/50"
         >
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              disabled={item.disabled}
-              className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-[11px] disabled:opacity-35 ${
-                item.danger
-                  ? "text-[#f85149] hover:bg-[#3a2228]"
-                  : "text-[#d0d4dc] hover:bg-[#2f3440]"
-              }`}
-              onClick={() => {
-                if (item.disabled) return;
-                item.action?.();
-                onClose();
-              }}
-            >
-              <span>{item.label}</span>
-              {item.shortcut && <span className="text-[10px] text-[#6b7280]">{item.shortcut}</span>}
-            </button>
-          ))}
+          {items.map((item) =>
+            item.separator ? (
+              <div key={item.label} className="my-1 border-t border-[#3a3f4b]" />
+            ) : (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                disabled={item.disabled}
+                className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-[11px] disabled:opacity-35 ${
+                  item.danger
+                    ? "text-[#f85149] hover:bg-[#3a2228]"
+                    : "text-[#d0d4dc] hover:bg-[#2f3440]"
+                }`}
+                onClick={() => {
+                  if (item.disabled) return;
+                  item.action?.();
+                  onClose();
+                }}
+              >
+                <span>{item.label}</span>
+                {item.shortcut && (
+                  <span className="text-[10px] text-[#6b7280]">{item.shortcut}</span>
+                )}
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>

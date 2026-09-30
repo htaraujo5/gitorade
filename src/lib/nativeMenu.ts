@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { useAppStore } from "../stores/appStore";
 import { usePrefsStore } from "../stores/prefsStore";
+import { useUpdateStore } from "../stores/updateStore";
 import { translate, useLocale } from "../i18n";
 import { isMacOS } from "./platform";
 
@@ -113,6 +114,38 @@ export function useNativeAppMenu(enabled: boolean): void {
         ],
       });
 
+      const git = await Submenu.new({
+        text: t("menu.git"),
+        items: [
+          await item("menu-new-branch", t("menu.newBranch"), {
+            enabled: hasRepo && !busy,
+            action: () => void store().promptCreateBranch(),
+          }),
+          await item("menu-new-tag", t("menu.newTag"), {
+            enabled: hasRepo && !busy,
+            action: () => void store().promptCreateTag(),
+          }),
+          await PredefinedMenuItem.new({ item: "Separator" }),
+          await item("menu-undo-commit", t("menu.undoCommit"), {
+            enabled: hasRepo && !busy,
+            action: () => void store().undoLastCommit(),
+          }),
+          await PredefinedMenuItem.new({ item: "Separator" }),
+          await item("menu-force-push", t("menu.forcePush"), {
+            enabled: hasRepo && !busy,
+            action: () => void store().push({ setUpstream: false, force: true }),
+          }),
+          await item("menu-push-tags", t("menu.pushTags"), {
+            enabled: hasRepo && !busy,
+            action: () => void store().pushTags({}),
+          }),
+          await item("menu-add-remote", t("menu.addRemote"), {
+            enabled: hasRepo && !busy,
+            action: () => void store().promptAddRemote(),
+          }),
+        ],
+      });
+
       const windowMenu = await Submenu.new({
         text: locale === "en" ? "Window" : "Janela",
         items: [
@@ -126,13 +159,16 @@ export function useNativeAppMenu(enabled: boolean): void {
       const help = await Submenu.new({
         text: t("menu.help"),
         items: [
+          await item("menu-check-updates", t("menu.checkUpdates"), {
+            action: () => void useUpdateStore.getState().checkNow(),
+          }),
           await item("menu-about", t("menu.about"), {
             action: () => store().openAboutTab(),
           }),
         ],
       });
 
-      const menu = await Menu.new({ items: [file, edit, view, windowMenu, help] });
+      const menu = await Menu.new({ items: [file, edit, view, git, windowMenu, help] });
       if (cancelled) return;
       await menu.setAsAppMenu();
       try {

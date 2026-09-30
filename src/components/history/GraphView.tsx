@@ -190,11 +190,12 @@ export function GraphView() {
     focusBranchInGraph,
     checkoutBranch,
     checkoutCommit,
-    createBranch,
-    createTag,
+    promptCreateBranch,
+    promptCreateTag,
     cherryPick,
     resetToCommit,
     revertCommit,
+    undoLastCommit,
     pull,
     push,
     remotes,
@@ -314,6 +315,10 @@ export function GraphView() {
   const commitMenuItems = (commit: CommitSummary): ContextMenuItem[] => {
     const short = commit.shortHash || commit.hash.slice(0, 7);
     const branchLabel = currentBranch === "HEAD" ? "HEAD" : currentBranch;
+    const headShort = status?.headShort ?? null;
+    const isHead = Boolean(
+      headShort && (commit.shortHash === headShort || commit.hash.startsWith(headShort)),
+    );
     return [
       {
         type: "item",
@@ -339,7 +344,25 @@ export function GraphView() {
         disabled: busy || !hasRemote,
         onClick: () => void push({ setUpstream: true }),
       },
+      {
+        type: "item",
+        label: "Force push (with lease)…",
+        disabled: busy || !hasRemote || currentBranch === "HEAD",
+        danger: true,
+        onClick: () => void push({ setUpstream: false, force: true }),
+      },
       { type: "separator" },
+      ...(isHead
+        ? ([
+            {
+              type: "item",
+              label: "Undo last commit…",
+              disabled: busy || commit.parents.length === 0,
+              onClick: () => void undoLastCommit(),
+            },
+            { type: "separator" },
+          ] satisfies ContextMenuItem[])
+        : []),
       {
         type: "item",
         label: "Checkout this commit",
@@ -350,25 +373,13 @@ export function GraphView() {
         type: "item",
         label: "Create branch here…",
         disabled: busy,
-        onClick: () => {
-          const name = window.prompt(`Nova branch a partir de ${short}:`, `from-${short}`);
-          if (!name?.trim()) return;
-          void createBranch(name.trim(), true, commit.hash);
-        },
+        onClick: () => void promptCreateBranch(commit.hash, `from-${short}`),
       },
       {
         type: "item",
         label: "Create tag here…",
         disabled: busy,
-        onClick: () => {
-          const name = window.prompt(`Nova tag neste commit (${short}):`, "v");
-          if (!name?.trim()) return;
-          const message = window.prompt(
-            "Mensagem da tag anotada (deixe vazio para tag leve):",
-            name.trim(),
-          );
-          void createTag(name.trim(), commit.hash, message?.trim() || undefined);
-        },
+        onClick: () => void promptCreateTag(commit.hash),
       },
       { type: "separator" },
       {
@@ -400,8 +411,13 @@ export function GraphView() {
         type: "item",
         label: "Cherry-pick",
         disabled: busy,
-        onClick: () => {
-          if (requireDangerousConfirm(`Cherry-pick ${short}?`)) {
+        onClick: async () => {
+          if (
+            await requireDangerousConfirm(`Aplicar ${short} na branch atual?`, {
+              title: "Cherry-pick",
+              confirmLabel: "Cherry-pick",
+            })
+          ) {
             void cherryPick(commit.hash);
           }
         },

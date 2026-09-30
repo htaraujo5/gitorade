@@ -11,6 +11,7 @@ import {
   IconSearch,
   IconStash,
   IconTerminal,
+  IconUndo,
 } from "../Icons";
 
 /**
@@ -40,6 +41,7 @@ export function RepoToolbar() {
     setCommitSearchOpen,
     openStagingStash,
     setStagingPanelMode,
+    undoLastCommit,
   } = useAppStore();
 
   const repo = repositories.find((r) => r.id === activeRepoId);
@@ -135,6 +137,12 @@ export function RepoToolbar() {
           role="toolbar"
           aria-label="Ações Git"
         >
+          <Tool
+            label="Undo"
+            icon={<IconUndo className="h-5 w-5" />}
+            disabled={disabled || !status?.headShort || Boolean(status?.inProgress)}
+            onClick={() => void undoLastCommit()}
+          />
           <Tool
             label="Commit"
             icon={<IconCommit className="h-5 w-5" />}

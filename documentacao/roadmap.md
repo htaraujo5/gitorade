@@ -116,6 +116,19 @@ Aplicativo desktop Windows local-first para Git, com **múltiplas identidades** 
 - [x] Changes em 3 colunas; Credenciais full-page
 - [x] Graph com painel de detalhes do commit (`get_commit_files`)
 
+### V2.1 — Git do dia a dia + atualização
+
+- [x] Amend do último commit (mantém autor original; aviso quando já foi enviado)
+- [x] Desfazer último commit (`reset --soft`, mensagem volta para o campo de commit)
+- [x] Force push com `--force-with-lease` + dica quando o push é rejeitado
+- [x] Push de tag / todas as tags, excluir tag remota, excluir branch remota
+- [x] Remotes: adicionar, editar URL, renomear, remover, fetch por remote
+- [x] Blame e histórico por arquivo (`log --follow`, com diff por commit)
+- [x] Menu de contexto nos arquivos do staging (stage, descartar, ignorar no `.gitignore`, abrir, copiar caminho)
+- [x] Diálogos próprios no lugar de `window.alert/confirm/prompt`
+- [x] Troca de abas de repositório instantânea (cache por repo + refresh em segundo plano)
+- [x] Atualização in-app a partir das GitHub Releases (`.deb` / NSIS / DMG, verificação sha256)
+
 ### V2
 
 Automação (hooks/scripts), performance tuning e plugins — ver `escopo.md`.

@@ -104,11 +104,36 @@ Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):
 
 O CI (`.github/workflows/ci.yml`) só valida lint/testes/`cargo check` — **não** gera instalador (isso evita o Actions quebrar em build longo a cada PR).
 
+> Não faça o bump manualmente antes do push: o workflow já aplica o bump a partir do prefixo
+> do commit. Rodar o script localmente **e** dar push com `feat:` pula uma versão.
+
 ```bash
 node scripts/bump-version.mjs print    # versão atual
 node scripts/bump-version.mjs detect   # bump sugerido pelo git log
 node scripts/bump-version.mjs fix      # aplica patch localmente
 ```
+
+### Atualização dentro do app (2.1+)
+
+O Gitorade consulta a release mais recente do GitHub (`/releases/latest`) ao iniciar
+(desligável em **Preferências → Sobre**) e em **Ajuda → Verificar atualizações**. Ao aceitar:
+
+| SO      | O que acontece                                                                              |
+| ------- | ------------------------------------------------------------------------------------------- |
+| Linux   | baixa o `_amd64.deb` e instala com `pkexec apt-get install` (pede a senha), depois reinicia |
+| Windows | baixa o `-setup.exe` (NSIS), abre o instalador e fecha o app                                |
+| macOS   | baixa o `.dmg` da arquitetura e abre para arrastar para Applications                        |
+
+- O download só é aceito de `github.com/htaraujo5/gitorade/releases/download/…` e é verificado
+  pelo `sha256` que o GitHub publica para cada asset.
+- No Linux a instalação automática só roda se o app veio do `.deb` (binário em `/usr`); caso
+  contrário o modal mostra o comando `sudo apt install …` com o arquivo baixado.
+- Builds de desenvolvimento (`npm run tauri dev`) não se atualizam.
+- Os nomes de asset que o updater procura são os gerados pelo `release.yml`
+  (`Gitorade_<versão>_x64-setup.exe`, `Gitorade_<versão>_amd64.deb`,
+  `Gitorade_<versão>_{aarch64,x64}.dmg`) — mantenha-os se mexer no workflow.
+
+Quem está na 2.0.x precisa instalar a 2.1 manualmente uma vez; a partir dela o app avisa sozinho.
 
 ## Scripts
 

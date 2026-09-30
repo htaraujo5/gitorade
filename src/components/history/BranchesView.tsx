@@ -1,6 +1,8 @@
 ﻿import { useMemo, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
+import { validateRefName } from "../../lib/refName";
+import { promptText } from "../../stores/dialogStore";
 
 export function BranchesView() {
   const {
@@ -11,6 +13,7 @@ export function BranchesView() {
     checkoutBranch,
     renameBranch,
     deleteBranch,
+    deleteRemoteBranch,
     requestMerge,
     rebaseOnto,
     status,
@@ -157,10 +160,11 @@ export function BranchesView() {
                   type="button"
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-rebase/40 px-3 py-2 text-xs text-rebase hover:bg-rebase/10 disabled:opacity-40"
-                  onClick={() => {
+                  onClick={async () => {
                     if (
-                      requireDangerousConfirm(
+                      await requireDangerousConfirm(
                         `Rebase da branch atual sobre ${selectedBranch.name}?`,
+                        { title: "Rebase", confirmLabel: "Rebase" },
                       )
                     ) {
                       void rebaseOnto(selectedBranch.name);
@@ -175,13 +179,19 @@ export function BranchesView() {
                   type="button"
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-danger/40 px-3 py-2 text-xs text-danger hover:bg-danger/10 disabled:opacity-40"
-                  onClick={() => {
-                    if (requireDangerousConfirm(`Excluir branch ${selectedBranch.name}?`)) {
-                      void deleteBranch(selectedBranch.name, false);
-                    }
-                  }}
+                  onClick={() => void deleteBranch(selectedBranch.name, false)}
                 >
                   Excluir
+                </button>
+              )}
+              {selectedBranch.isRemote && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-[var(--radius-sm)] border border-danger/40 px-3 py-2 text-xs text-danger hover:bg-danger/10 disabled:opacity-40"
+                  onClick={() => void deleteRemoteBranch(selectedBranch.name)}
+                >
+                  Excluir do remote
                 </button>
               )}
               {!selectedBranch.isRemote && (
@@ -189,8 +199,14 @@ export function BranchesView() {
                   type="button"
                   disabled={busy}
                   className="rounded-[var(--radius-sm)] border border-border px-3 py-2 text-xs hover:bg-surface disabled:opacity-40"
-                  onClick={() => {
-                    const next = window.prompt("Novo nome", selectedBranch.name);
+                  onClick={async () => {
+                    const next = await promptText({
+                      title: "Renomear branch",
+                      label: "Novo nome",
+                      defaultValue: selectedBranch.name,
+                      confirmLabel: "Renomear",
+                      validate: validateRefName,
+                    });
                     if (next && next !== selectedBranch.name) {
                       void renameBranch(selectedBranch.name, next);
                     }

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { usePrefsStore, type AppPrefs } from "../../stores/prefsStore";
+import { useUpdateStore } from "../../stores/updateStore";
 import { useT, type MessageKey } from "../../i18n";
 import logo from "../../assets/brand/logo.png";
 import {
@@ -416,6 +417,63 @@ function PluginsSection() {
   );
 }
 
+function UpdatesCard() {
+  const t = useT();
+  const autoCheck = usePrefsStore((s) => s.autoCheckUpdates);
+  const skipped = usePrefsStore((s) => s.skippedUpdateVersion);
+  const setPref = usePrefsStore((s) => s.setPref);
+  const { info, phase, lastCheckedAt, checkNow } = useUpdateStore();
+  const checking = phase === "checking";
+
+  return (
+    <>
+      <InfoCard title={t("settings.updates.title")}>
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            {info?.available ? (
+              <p className="text-[#3dd68c]">
+                {t("settings.updates.available", { version: info.latestVersion })}
+              </p>
+            ) : info ? (
+              <p>{t("settings.updates.upToDate")}</p>
+            ) : (
+              <p className="text-[#8b909a]">{t("settings.updates.desc")}</p>
+            )}
+            {lastCheckedAt && (
+              <p className="mt-0.5 text-[10px] text-[#6b7280]">
+                {t("settings.updates.lastChecked", {
+                  time: new Date(lastCheckedAt).toLocaleTimeString(),
+                })}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={checking}
+            onClick={() => void checkNow()}
+            className="shrink-0 rounded border border-[#a371f7] bg-[#a371f7]/15 px-3 py-1 text-[11px] font-medium text-[#e8eaed] hover:bg-[#a371f7]/25 disabled:opacity-40"
+          >
+            {checking ? t("settings.updates.checking") : t("settings.updates.check")}
+          </button>
+        </div>
+      </InfoCard>
+      <ToggleRow
+        label={t("settings.updates.auto")}
+        hint={
+          skipped
+            ? t("settings.updates.autoHintSkipped", { version: skipped })
+            : t("settings.updates.autoHint")
+        }
+        checked={autoCheck}
+        onChange={(v) => {
+          setPref("autoCheckUpdates", v);
+          if (v && skipped) setPref("skippedUpdateVersion", "");
+        }}
+      />
+    </>
+  );
+}
+
 function AboutSection() {
   const t = useT();
   const health = useAppStore((s) => s.health);
@@ -432,6 +490,7 @@ function AboutSection() {
         <p>{t("settings.about.version", { version: health?.appVersion ?? "0.1.0" })}</p>
         <p className="mt-2 text-[12px] text-[#8b909a]">{t("settings.about.desc")}</p>
       </InfoCard>
+      <UpdatesCard />
     </>
   );
 }

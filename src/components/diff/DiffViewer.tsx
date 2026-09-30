@@ -93,7 +93,7 @@ function ModeBtn({
   );
 }
 
-function UnifiedView({ rows }: { rows: ReturnType<typeof parseUnifiedDiff> }) {
+export function UnifiedView({ rows }: { rows: ReturnType<typeof parseUnifiedDiff> }) {
   return (
     <pre className="p-0 font-mono text-[12px] leading-5" aria-label="Diff unificado">
       {rows.map((row, i) => (

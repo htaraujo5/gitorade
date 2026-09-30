@@ -161,6 +161,9 @@ pub struct CommitInput {
     pub profile_id: Option<String>,
     pub author_name: Option<String>,
     pub author_email: Option<String>,
+    /// Rewrite HEAD (`git commit --amend`) instead of creating a new commit.
+    #[serde(default)]
+    pub amend: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,8 +203,71 @@ pub struct SyncInput {
     /// When true, `git pull --rebase` instead of `--ff-only`.
     #[serde(default)]
     pub rebase: bool,
+    /// Push only: `--force-with-lease`.
+    #[serde(default)]
+    pub force: bool,
     /// Optional profile whose `sshKeyPath` should be used for this sync.
     pub profile_id: Option<String>,
+}
+
+/// Remote ref operations (push tags, delete remote branch/tag).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteRefInput {
+    pub repository_id: String,
+    pub operation_id: String,
+    pub remote: Option<String>,
+    /// Branch or tag name. For `push_tags`, None pushes every tag.
+    pub name: Option<String>,
+    pub profile_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoCommitResult {
+    pub message: String,
+    pub status: RepoStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameLine {
+    pub line: u32,
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub authored_at: String,
+    pub summary: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileHistoryEntry {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub authored_at: String,
+    pub subject: String,
+    /// Path of the file at this commit (differs from the current path after renames).
+    pub path: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub available: bool,
+    pub notes: String,
+    pub release_url: String,
+    pub published_at: Option<String>,
+    pub asset_name: Option<String>,
+    pub asset_url: Option<String>,
+    pub asset_size: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

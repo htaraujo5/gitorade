@@ -20,6 +20,10 @@ import { AlertModal } from "./components/AlertModal";
 import { FeedbackModal } from "./components/FeedbackModal";
 import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
 import { MergeInsightModal } from "./components/MergeInsightModal";
+import { DialogHost } from "./components/DialogHost";
+import { FileInspectorModal } from "./components/FileInspectorModal";
+import { UpdateModal } from "./components/UpdateModal";
+import { useUpdateStore } from "./stores/updateStore";
 import { applyMainWindow, applySetupWindow, applySplashWindow } from "./lib/windowLayout";
 import { applyPlatformDataset, isMacOS } from "./lib/platform";
 import { useNativeAppMenu } from "./lib/nativeMenu";
@@ -130,6 +134,12 @@ function App() {
     } else if (!bootError) {
       void applyMainWindow();
     }
+  }, [booting, needsOnboarding, bootError]);
+
+  useEffect(() => {
+    if (booting || needsOnboarding || bootError) return;
+    const timer = window.setTimeout(() => void useUpdateStore.getState().checkOnStartup(), 4000);
+    return () => window.clearTimeout(timer);
   }, [booting, needsOnboarding, bootError]);
 
   useEffect(() => {
@@ -278,6 +288,8 @@ function App() {
       <BusyOverlay />
       <CheckoutBranchModal />
       <MergeInsightModal />
+      <FileInspectorModal />
+      <UpdateModal />
       {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (
@@ -290,6 +302,7 @@ function App() {
           {notice}
         </AlertModal>
       )}
+      <DialogHost />
     </div>
   );
 }

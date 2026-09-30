@@ -7,6 +7,7 @@ mod ops;
 mod process_util;
 mod storage;
 mod terminal;
+mod updater;
 mod watcher;
 
 use ops::OperationRegistry;
@@ -46,15 +47,29 @@ pub fn run() {
             commands::discard_all_changes,
             commands::get_file_diff,
             commands::commit_changes,
+            commands::undo_last_commit,
+            commands::get_head_message,
+            commands::add_to_gitignore,
+            commands::get_file_blame,
+            commands::get_file_history,
             commands::init_repository,
             commands::list_remotes,
             commands::add_remote,
             commands::remove_remote,
+            commands::rename_remote,
+            commands::set_remote_url,
             commands::cancel_operation,
             commands::clone_repository,
             commands::fetch_remote,
             commands::pull_remote,
             commands::push_remote,
+            commands::push_tags,
+            commands::delete_remote_branch,
+            commands::delete_remote_tag,
+            commands::check_for_update,
+            commands::install_update,
+            commands::relaunch_app,
+            commands::exit_app,
             commands::get_commit_graph,
             commands::search_commits,
             commands::get_commit_files,

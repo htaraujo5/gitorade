@@ -294,7 +294,9 @@ pub fn rename_branch(path: &Path, old: &str, new: &str) -> AppResult<()> {
     if old.is_empty() || new.is_empty() {
         return Err(AppError::Message("Nomes de branch são obrigatórios.".into()));
     }
-    run_git(&["branch", "-m", old, new], Some(path))?;
+    let old = reject_option_like(old)?;
+    let new = reject_option_like(new)?;
+    run_git(&["branch", "-m", "--", old, new], Some(path))?;
     Ok(())
 }
 
@@ -303,14 +305,20 @@ pub fn delete_branch(path: &Path, name: &str, force: bool) -> AppResult<()> {
     if name.is_empty() {
         return Err(AppError::Message("Nome da branch é obrigatório.".into()));
     }
-    if name.contains('/') {
-        // remote delete: git push remote --delete branch — deferred; only local for now
-        return Err(AppError::Message(
-            "Exclusão de branch remota ainda não suportada nesta versão.".into(),
-        ));
+    let name = reject_option_like(name)?;
+    let local_full = format!("refs/heads/{name}");
+    if run_git(&["show-ref", "--verify", "--quiet", &local_full], Some(path)).is_err() {
+        return Err(AppError::Message(format!(
+            "Branch local \"{name}\" não encontrada. Para branches remotas use \"Excluir do remote\"."
+        )));
     }
     let flag = if force { "-D" } else { "-d" };
-    run_git(&["branch", flag, name], Some(path))?;
+    run_git(&["branch", flag, "--", name], Some(path)).map_err(|err| match err {
+        AppError::Message(msg) if msg.contains("not fully merged") => AppError::Message(format!(
+            "NOT_MERGED: A branch \"{name}\" tem commits que não foram mergeados."
+        )),
+        other => other,
+    })?;
     Ok(())
 }
 

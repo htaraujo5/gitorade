@@ -1,6 +1,7 @@
 ﻿import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
-import { requireDangerousConfirm } from "../../lib/dangerousConfirm";
+import { promptText } from "../../stores/dialogStore";
+import { validateRefName } from "../../lib/refName";
 import { useT } from "../../i18n";
 import { IconBranch, IconCloud, IconGithub, IconLaptop, IconTag } from "../Icons";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
@@ -21,6 +22,13 @@ type MenuState =
       x: number;
       y: number;
       name: string;
+    }
+  | {
+      kind: "remote";
+      x: number;
+      y: number;
+      name: string;
+      url: string | null;
     }
   | {
       kind: "empty";
@@ -44,10 +52,19 @@ export function BranchSidebar() {
     setBranchFilter,
     checkoutBranch,
     createBranch,
-    createTag,
+    promptCreateBranch,
+    promptCreateTag,
     deleteTag,
+    pushTags,
+    deleteRemoteTag,
     renameBranch,
     deleteBranch,
+    deleteRemoteBranch,
+    promptAddRemote,
+    promptEditRemote,
+    promptRenameRemote,
+    removeRemote,
+    fetch,
     requestMerge,
     busy,
     status,
@@ -122,15 +139,8 @@ export function BranchSidebar() {
     setAdding(true);
   };
 
-  const openCreateTag = (commit?: string | null) => {
-    const name = window.prompt("Nome da nova tag:", "v");
-    if (!name?.trim()) return;
-    const message = window.prompt(
-      "Mensagem da tag anotada (deixe vazio para tag leve):",
-      name.trim(),
-    );
-    void createTag(name.trim(), commit ?? undefined, message?.trim() || undefined);
-  };
+  const openCreateTag = (commit?: string | null) => void promptCreateTag(commit);
+  const defaultRemote = remotes.find((r) => r.name === "origin")?.name ?? remotes[0]?.name ?? null;
 
   const doMerge = async (source: string, target: string) => {
     if (source === target) return;
@@ -155,6 +165,50 @@ export function BranchSidebar() {
           disabled: busy,
           onClick: () => openCreateTag(),
         },
+        {
+          type: "item",
+          label: "Adicionar remote…",
+          disabled: busy,
+          onClick: () => void promptAddRemote(),
+        },
+      ];
+    }
+
+    if (m.kind === "remote") {
+      return [
+        {
+          type: "item",
+          label: `Fetch ${m.name}`,
+          disabled: busy,
+          onClick: () => void fetch({ remote: m.name }),
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Editar URL…",
+          disabled: busy,
+          onClick: () => void promptEditRemote(m.name),
+        },
+        {
+          type: "item",
+          label: `Renomear ${m.name}…`,
+          disabled: busy,
+          onClick: () => void promptRenameRemote(m.name),
+        },
+        {
+          type: "item",
+          label: `Remover ${m.name}…`,
+          danger: true,
+          disabled: busy,
+          onClick: () => void removeRemote(m.name),
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Copiar URL",
+          disabled: !m.url,
+          onClick: () => void navigator.clipboard.writeText(m.url ?? ""),
+        },
       ];
     }
 
@@ -169,6 +223,20 @@ export function BranchSidebar() {
           type: "item",
           label: "Create branch from tag…",
           onClick: () => openCreate(m.name),
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: defaultRemote ? `Push tag para ${defaultRemote}` : "Push tag (sem remote)",
+          disabled: busy || !defaultRemote,
+          onClick: () => void pushTags({ tag: m.name }),
+        },
+        {
+          type: "item",
+          label: defaultRemote ? `Excluir tag de ${defaultRemote}…` : "Excluir tag remota",
+          danger: true,
+          disabled: busy || !defaultRemote,
+          onClick: () => void deleteRemoteTag(m.name),
         },
         { type: "separator" },
         {
@@ -216,24 +284,38 @@ export function BranchSidebar() {
       items.push({ type: "separator" });
       items.push({
         type: "item",
-        label: `Rename ${short}…`,
+        label: `Rename ${m.branch}…`,
         disabled: busy,
-        onClick: () => {
-          const next = window.prompt("Novo nome:", short);
-          if (!next?.trim() || next.trim() === short) return;
-          void renameBranch(m.branch, next.trim());
+        onClick: async () => {
+          const next = await promptText({
+            title: "Renomear branch",
+            label: "Novo nome",
+            defaultValue: m.branch,
+            confirmLabel: "Renomear",
+            validate: validateRefName,
+          });
+          if (!next || next === m.branch) return;
+          void renameBranch(m.branch, next);
         },
       });
       items.push({
         type: "item",
-        label: `Delete ${short}…`,
+        label: `Delete ${m.branch}…`,
         danger: true,
-        disabled: m.isCurrent,
+        disabled: m.isCurrent || busy,
         onClick: () => {
           if (m.isCurrent) return;
-          if (!requireDangerousConfirm(`Excluir branch "${short}"?`)) return;
           void deleteBranch(m.branch, false);
         },
+      });
+    } else {
+      items.push({ type: "separator" });
+      items.push({
+        type: "item",
+        label: `Delete ${m.branch} from remote…`,
+        danger: true,
+        disabled: busy,
+        onClick: () => void deleteRemoteBranch(m.branch),
       });
     }
 
@@ -423,14 +505,9 @@ export function BranchSidebar() {
             <button
               type="button"
               onClick={focusDetachedHead}
-              onDoubleClick={() => {
-                const name = window.prompt(
-                  "Criar branch a partir deste HEAD detached:",
-                  detachedShort ? `wip-${detachedShort}` : "wip",
-                );
-                if (!name?.trim()) return;
-                void createBranch(name.trim(), true);
-              }}
+              onDoubleClick={() =>
+                void promptCreateBranch(undefined, detachedShort ? `wip-${detachedShort}` : "wip")
+              }
               className={`flex h-7 w-full items-center gap-1.5 text-left text-[11px] ${
                 selectedBranchName === "HEAD" || !current
                   ? "bg-[#5c4012]/80 text-[#e3b341]"
@@ -459,11 +536,25 @@ export function BranchSidebar() {
           count={remoteBranches.length}
           open={remoteOpen}
           onToggle={() => setRemoteOpen((v) => !v)}
+          action={
+            <button
+              type="button"
+              className="rounded px-1 text-[11px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3dd68c]"
+              title="Adicionar remote"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                void promptAddRemote();
+              }}
+            >
+              +
+            </button>
+          }
         >
           {remotes.length === 0 ? (
             <div className="space-y-1 px-2.5 py-1.5 text-[10px] leading-snug text-[#5c6370]">
               <p>Nenhum remote no .git/config deste repo.</p>
-              <p>Adicione um remote via Fetch/Pull ou git remote add.</p>
+              <p>Clique em + para adicionar um remote.</p>
             </div>
           ) : (
             remotes.map((r) => {
@@ -479,9 +570,20 @@ export function BranchSidebar() {
                   <button
                     type="button"
                     onClick={() => toggleFolder(remoteKey)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMenu({
+                        kind: "remote",
+                        x: e.clientX,
+                        y: e.clientY,
+                        name: r.name,
+                        url: r.fetchUrl ?? r.pushUrl ?? null,
+                      });
+                    }}
                     className="flex h-6 w-full items-center gap-1 text-left text-[11px] text-[#c8ccd4] hover:bg-[#1c1f26]"
                     style={{ paddingLeft: rowPad(0), paddingRight: 8 }}
-                    title={r.name}
+                    title={`${r.name} · ${r.fetchUrl ?? r.pushUrl ?? ""}\nClique direito: gerenciar remote`}
                   >
                     <Chevron open={remoteOpenRow} />
                     <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
@@ -513,18 +615,34 @@ export function BranchSidebar() {
           open={tagsOpen}
           onToggle={() => setTagsOpen((v) => !v)}
           action={
-            <button
-              type="button"
-              className="rounded px-1 text-[11px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3dd68c]"
-              title="Nova tag no HEAD"
-              disabled={busy}
-              onClick={(e) => {
-                e.stopPropagation();
-                openCreateTag();
-              }}
-            >
-              +
-            </button>
+            <span className="flex items-center">
+              {tags.length > 0 && defaultRemote && (
+                <button
+                  type="button"
+                  className="rounded px-1 text-[11px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3d8bfd]"
+                  title={`Push de todas as tags para ${defaultRemote}`}
+                  disabled={busy}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void pushTags({});
+                  }}
+                >
+                  ⇡
+                </button>
+              )}
+              <button
+                type="button"
+                className="rounded px-1 text-[11px] leading-none text-[#6b7280] hover:bg-[#252830] hover:text-[#3dd68c]"
+                title="Nova tag no HEAD"
+                disabled={busy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openCreateTag();
+                }}
+              >
+                +
+              </button>
+            </span>
           }
         >
           {filteredTags.length === 0 ? (

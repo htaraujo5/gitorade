@@ -154,8 +154,13 @@ export function CommitDetailsPanel() {
           type="button"
           disabled={busy}
           className="w-full rounded border border-[#2d3139] py-1 text-[10px] text-[#c8ccd4] hover:bg-[#252830] disabled:opacity-40"
-          onClick={() => {
-            if (requireDangerousConfirm(`Cherry-pick ${selected.shortHash}?`)) {
+          onClick={async () => {
+            if (
+              await requireDangerousConfirm(`Aplicar ${selected.shortHash} na branch atual?`, {
+                title: "Cherry-pick",
+                confirmLabel: "Cherry-pick",
+              })
+            ) {
               void cherryPick(selected.hash);
             }
           }}
