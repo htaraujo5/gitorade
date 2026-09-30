@@ -129,9 +129,13 @@ jobs:
           fi
           gh release create "$TAG" \
             --title "Gitorade ${TAG}" \
+            --generate-notes \
             --notes "## Gitorade ${TAG}
 
           Bump: **${BUMP}** → \`${VERSION}\`
+
+          Quem já usa o Gitorade 2.0.5+ recebe o aviso de atualização dentro do app
+          (Ajuda → Verificar atualizações).
 
           ### Windows x64
           - **NSIS** (\`.exe\`) — instalador recomendado

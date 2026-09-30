@@ -113,7 +113,7 @@ node scripts/bump-version.mjs detect   # bump sugerido pelo git log
 node scripts/bump-version.mjs fix      # aplica patch localmente
 ```
 
-### Atualização dentro do app (2.1+)
+### Atualização dentro do app (2.0.5+)
 
 O Gitorade consulta a release mais recente do GitHub (`/releases/latest`) ao iniciar
 (desligável em **Preferências → Sobre**) e em **Ajuda → Verificar atualizações**. Ao aceitar:
@@ -133,7 +133,8 @@ O Gitorade consulta a release mais recente do GitHub (`/releases/latest`) ao ini
   (`Gitorade_<versão>_x64-setup.exe`, `Gitorade_<versão>_amd64.deb`,
   `Gitorade_<versão>_{aarch64,x64}.dmg`) — mantenha-os se mexer no workflow.
 
-Quem está na 2.0.x precisa instalar a 2.1 manualmente uma vez; a partir dela o app avisa sozinho.
+Quem está na 2.0.4 ou anterior precisa instalar a 2.0.5 manualmente uma vez; a partir dela o app
+avisa sozinho.
 
 ## Scripts
 

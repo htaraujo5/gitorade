@@ -116,7 +116,7 @@ Aplicativo desktop Windows local-first para Git, com **múltiplas identidades** 
 - [x] Changes em 3 colunas; Credenciais full-page
 - [x] Graph com painel de detalhes do commit (`get_commit_files`)
 
-### V2.1 — Git do dia a dia + atualização
+### V2.0.5 — Git do dia a dia + atualização
 
 - [x] Amend do último commit (mantém autor original; aviso quando já foi enviado)
 - [x] Desfazer último commit (`reset --soft`, mensagem volta para o campo de commit)
