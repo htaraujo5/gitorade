@@ -1,0 +1,76 @@
+name: gitorade
+title: Gitorade
+base: core22
+adopt-info: gitorade
+summary: Cliente Git desktop com múltiplas identidades por repositório
+description: |
+  Gitorade é um cliente Git desktop local-first focado em múltiplas identidades
+  (nome/email/SSH) por repositório, com override no nível do commit.
+
+  - Grafo de commits, branches, tags, stash e remotes
+  - Stage/unstage, diff lado a lado, amend e desfazer commit
+  - Merge, rebase, cherry-pick e resolução de conflitos
+  - Blame e histórico por arquivo
+  - Fetch/pull/push com progresso, force push com lease
+
+  Para usar suas chaves SSH (~/.ssh), conecte a interface uma vez:
+
+      sudo snap connect gitorade:ssh-keys
+website: https://github.com/htaraujo5/gitorade
+source-code: https://github.com/htaraujo5/gitorade
+issues: https://github.com/htaraujo5/gitorade/issues
+icon: src-tauri/icons/128x128@2x.png
+grade: stable
+confinement: strict
+
+layout:
+  /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/webkit2gtk-4.1:
+    bind: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/webkit2gtk-4.1
+
+apps:
+  gitorade:
+    command: usr/bin/gitorade
+    desktop: usr/share/applications/Gitorade.desktop
+    common-id: com.gitorade.desktop
+    extensions: [gnome]
+    environment:
+      # Git staged inside the snap looks for its helpers under /usr by default.
+      GIT_EXEC_PATH: $SNAP/usr/lib/git-core
+      GIT_TEMPLATE_DIR: $SNAP/usr/share/git-core/templates
+    plugs:
+      - network
+      - home
+      - removable-media
+      - ssh-keys
+
+parts:
+  gitorade:
+    plugin: dump
+    source: .
+    build-snaps:
+      - node/22/stable
+      - rustup/latest/stable
+    build-packages:
+      - libwebkit2gtk-4.1-dev
+      - build-essential
+      - curl
+      - wget
+      - file
+      - libxdo-dev
+      - libssl-dev
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
+      - dpkg
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - git
+      - openssh-client
+    override-build: |
+      set -eu
+      craftctl set version="$(node -p "require('./package.json').version")"
+      rustup default stable
+      npm ci
+      npm run tauri build -- --bundles deb
+      dpkg -x src-tauri/target/release/bundle/deb/*.deb "$CRAFT_PART_INSTALL/"
+      sed -i -e "s|^Icon=gitorade$|Icon=/usr/share/icons/hicolor/128x128/apps/gitorade.png|" \
+        "$CRAFT_PART_INSTALL/usr/share/applications/Gitorade.desktop"

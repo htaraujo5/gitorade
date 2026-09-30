@@ -146,11 +146,32 @@ fn fetch_latest() -> AppResult<(UpdateInfo, Option<ReleaseAsset>)> {
         asset_name: asset.as_ref().map(|a| a.name.clone()),
         asset_url: asset.as_ref().map(|a| a.url.clone()),
         asset_size: asset.as_ref().and_then(|a| a.size),
+        managed_by: None,
     };
     Ok((info, asset))
 }
 
+/// Package manager that owns updates for this install, if any.
+fn store_manager() -> Option<&'static str> {
+    std::env::var_os("SNAP").is_some().then_some("snap")
+}
+
 pub fn check() -> AppResult<UpdateInfo> {
+    if let Some(manager) = store_manager() {
+        let current = env!("CARGO_PKG_VERSION").to_string();
+        return Ok(UpdateInfo {
+            latest_version: current.clone(),
+            current_version: current,
+            available: false,
+            notes: String::new(),
+            release_url: format!("https://github.com/{REPO}/releases/latest"),
+            published_at: None,
+            asset_name: None,
+            asset_url: None,
+            asset_size: None,
+            managed_by: Some(manager.to_string()),
+        });
+    }
     fetch_latest().map(|(info, _)| info)
 }
 
@@ -235,6 +256,12 @@ pub fn install(app: &AppHandle) -> AppResult<String> {
     if cfg!(debug_assertions) {
         return Err(AppError::Message(
             "Atualização automática desativada em builds de desenvolvimento.".into(),
+        ));
+    }
+    if store_manager().is_some() {
+        return Err(AppError::Message(
+            "Esta instalação é atualizada pela Snap Store. Para forçar agora: sudo snap refresh gitorade"
+                .into(),
         ));
     }
     let (info, asset) = fetch_latest()?;
@@ -334,6 +361,15 @@ mod tests {
         assert_eq!(pick_asset_name(&names, "macos", "x86_64"), Some("Gitorade_2.1.0_x64.dmg"));
         assert_eq!(pick_asset_name(&names, "linux", "x86_64"), Some("Gitorade_2.1.0_amd64.deb"));
         assert_eq!(pick_asset_name(&names, "linux", "aarch64"), None);
+    }
+
+    #[test]
+    fn snap_installs_defer_to_the_store() {
+        std::env::set_var("SNAP", "/snap/gitorade/x1");
+        let info = check().unwrap();
+        std::env::remove_var("SNAP");
+        assert_eq!(info.managed_by.as_deref(), Some("snap"));
+        assert!(!info.available);
     }
 
     #[test]

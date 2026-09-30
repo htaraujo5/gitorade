@@ -28,5 +28,11 @@ src-tauri/target
 src-tauri/target-test
 src-tauri/gen/schemas
 
+# Snapcraft
+*.snap
+/parts
+/stage
+/prime
+
 # OS
 Thumbs.db

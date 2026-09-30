@@ -416,6 +416,7 @@ export const updateInfoSchema = z.object({
   assetName: z.string().nullable().optional(),
   assetUrl: z.string().nullable().optional(),
   assetSize: z.number().nullable().optional(),
+  managedBy: z.string().nullable().optional(),
 });
 
 export type UpdateInfo = z.infer<typeof updateInfoSchema>;

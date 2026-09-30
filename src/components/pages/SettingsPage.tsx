@@ -425,6 +425,14 @@ function UpdatesCard() {
   const { info, phase, lastCheckedAt, checkNow } = useUpdateStore();
   const checking = phase === "checking";
 
+  if (info?.managedBy === "snap") {
+    return (
+      <InfoCard title={t("settings.updates.title")}>
+        <p>{t("settings.updates.snap")}</p>
+      </InfoCard>
+    );
+  }
+
   return (
     <>
       <InfoCard title={t("settings.updates.title")}>

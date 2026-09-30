@@ -268,6 +268,8 @@ pub struct UpdateInfo {
     pub asset_name: Option<String>,
     pub asset_url: Option<String>,
     pub asset_size: Option<u64>,
+    /// Set when a package manager owns updates (e.g. `"snap"`); the in-app updater stays off.
+    pub managed_by: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

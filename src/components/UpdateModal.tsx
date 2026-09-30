@@ -15,6 +15,7 @@ export function UpdateModal() {
 
   const working = phase === "downloading" || phase === "installing";
   const available = Boolean(info?.available);
+  const snap = info?.managedBy === "snap";
   const percent =
     progress?.total && progress.total > 0
       ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100))
@@ -26,6 +27,7 @@ export function UpdateModal() {
   else if (working) title = `Atualizando para ${info?.latestVersion ?? "nova versão"}`;
   else if (phase === "manual") title = "Instalador aberto";
   else if (available) title = `Gitorade ${info?.latestVersion} disponível`;
+  else if (snap) title = "Atualizações pela Snap Store";
   else if (info) title = "Você está na versão mais recente";
 
   return (
@@ -114,7 +116,18 @@ export function UpdateModal() {
             </p>
           )}
 
-          {phase === "idle" && info && !available && (
+          {phase === "idle" && snap && (
+            <p>
+              O Gitorade instalado pela Snap Store é atualizado automaticamente pelo sistema. Para
+              atualizar agora, rode{" "}
+              <code className="rounded bg-[#12141a] px-1 font-mono text-[12px]">
+                sudo snap refresh gitorade
+              </code>
+              .
+            </p>
+          )}
+
+          {phase === "idle" && info && !available && !snap && (
             <p className="text-[#8b909a]">Nenhuma atualização disponível.</p>
           )}
         </div>

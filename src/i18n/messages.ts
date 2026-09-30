@@ -130,6 +130,8 @@ const ptBR = {
   "settings.about.desc": "Gitorade — cliente Git desktop (Windows e Linux).",
   "settings.about.version": "Versão {version}",
   "settings.updates.title": "Atualizações",
+  "settings.updates.snap":
+    "Instalado pela Snap Store — as atualizações são automáticas (sudo snap refresh gitorade para forçar).",
   "settings.updates.desc": "Novas versões são baixadas das releases do GitHub.",
   "settings.updates.available": "Versão {version} disponível",
   "settings.updates.upToDate": "Você está na versão mais recente.",
@@ -348,6 +350,8 @@ const en: Record<MessageKey, string> = {
   "settings.about.desc": "Gitorade — desktop Git client (Windows and Linux).",
   "settings.about.version": "Version {version}",
   "settings.updates.title": "Updates",
+  "settings.updates.snap":
+    "Installed from the Snap Store — updates are automatic (sudo snap refresh gitorade to force).",
   "settings.updates.desc": "New versions are downloaded from GitHub releases.",
   "settings.updates.available": "Version {version} available",
   "settings.updates.upToDate": "You're on the latest version.",

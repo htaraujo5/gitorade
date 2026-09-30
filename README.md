@@ -136,6 +136,45 @@ O Gitorade consulta a release mais recente do GitHub (`/releases/latest`) ao ini
 Quem está na 2.0.4 ou anterior precisa instalar a 2.0.5 manualmente uma vez; a partir dela o app
 avisa sozinho.
 
+### Snap Store (App Center do Ubuntu)
+
+Receita em [`snap/snapcraft.yaml`](snap/snapcraft.yaml) (confinamento `strict`, extensão `gnome`,
+Git e OpenSSH empacotados dentro do snap). A versão vem do `package.json`.
+
+Configuração única:
+
+```bash
+sudo snap install snapcraft --classic
+snapcraft login                      # conta Ubuntu One
+snapcraft register gitorade          # reserva o nome
+snapcraft export-login --snaps=gitorade \
+  --acls package_access,package_push,package_update,package_release -
+```
+
+Cole a saída do `export-login` no secret **`SNAPCRAFT_STORE_CREDENTIALS`** (Settings → Environments →
+`release`). A partir daí o job `snap` do `release.yml` publica cada release no canal `stable`; sem
+o secret o job só registra um aviso e é pulado.
+
+Build e teste local:
+
+```bash
+snapcraft                                  # usa LXD; na 1ª vez: sudo snap install lxd && sudo lxd init --auto
+sudo snap install ./gitorade_*.snap --dangerous
+sudo snap connect gitorade:ssh-keys        # acesso a ~/.ssh (não conecta sozinho)
+snap run gitorade
+```
+
+Limitações do confinamento `strict`:
+
+- O app só enxerga a home (sem arquivos ocultos) e mídias removíveis; repositórios em outros
+  lugares (ex.: `/opt`, `/srv`) não abrem.
+- `~/.ssh` exige `snap connect gitorade:ssh-keys` (ou pedir auto-connect no
+  [fórum do Snapcraft](https://forum.snapcraft.io/c/store-requests/19)).
+- O Git usado é o do snap, com `HOME` isolado: o `~/.gitconfig` do usuário não é lido (a identidade
+  vem dos perfis do Gitorade).
+- O terminal integrado roda dentro do snap e não vê as ferramentas instaladas no sistema.
+- O updater interno fica desligado; a Snap Store atualiza sozinha (`sudo snap refresh gitorade`).
+
 ## Scripts
 
 | Comando             | Descrição                                                                     |
