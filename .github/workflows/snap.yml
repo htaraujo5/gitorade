@@ -1,0 +1,75 @@
+name: Snap
+
+# Builds snap/snapcraft.yaml for an existing release tag and publishes it to the Snap Store.
+# - Called by release.yml after each new version.
+# - Manual (Actions → Snap → Run workflow) to (re)publish a tag without cutting a new release.
+# Needs the SNAPCRAFT_STORE_CREDENTIALS secret in the "release" environment
+# (snapcraft export-login --snaps=gitorade --acls package_access,package_push,package_update,package_release -).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a publicar (ex.: v2.0.7)"
+        required: true
+        type: string
+      channel:
+        description: "Canal da Snap Store"
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - candidate
+          - beta
+          - edge
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      channel:
+        required: false
+        default: stable
+        type: string
+    secrets:
+      SNAPCRAFT_STORE_CREDENTIALS:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  snap:
+    environment: release
+    runs-on: ubuntu-latest
+    env:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+    steps:
+      - name: Check Snap Store credentials
+        id: creds
+        shell: bash
+        run: |
+          if [ -z "${SNAPCRAFT_STORE_CREDENTIALS}" ]; then
+            echo "::notice::SNAPCRAFT_STORE_CREDENTIALS não configurado — snap não será publicado."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.enabled == 'true'
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Build snap
+        id: build
+        if: steps.creds.outputs.enabled == 'true'
+        uses: snapcore/action-build@v1
+
+      - name: Publish to Snap Store
+        if: steps.creds.outputs.enabled == 'true'
+        uses: snapcore/action-publish@v1
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: ${{ inputs.channel }}
