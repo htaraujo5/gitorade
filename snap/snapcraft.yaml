@@ -24,10 +24,6 @@ icon: src-tauri/icons/128x128@2x.png
 grade: stable
 confinement: strict
 
-layout:
-  /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/webkit2gtk-4.1:
-    bind: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/webkit2gtk-4.1
-
 apps:
   gitorade:
     command: usr/bin/gitorade
@@ -62,8 +58,10 @@ parts:
       - libayatana-appindicator3-dev
       - librsvg2-dev
       - dpkg
+    # WebKitGTK/GTK/Mesa come from the gnome-42-2204 runtime. Staging libwebkit2gtk-4.1-0 here
+    # drags in jammy's Mesa, whose libEGL_mesa then loads the runtime's newer DRI drivers and aborts
+    # with "libEGL fatal: did not find extension DRI_Mesa version 1".
     stage-packages:
-      - libwebkit2gtk-4.1-0
       - git
       - openssh-client
     override-build: |
