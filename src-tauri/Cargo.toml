@@ -3,6 +3,7 @@ name = "gitorade"
 version = "2.0.7"
 description = "Gitorade — Git desktop client"
 authors = ["Helisson"]
+license = "MIT"
 edition = "2021"
 
 [lib]

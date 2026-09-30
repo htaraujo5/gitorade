@@ -2,6 +2,7 @@ name: gitorade
 title: Gitorade
 base: core22
 adopt-info: gitorade
+license: MIT
 summary: Cliente Git desktop com múltiplas identidades por repositório
 description: |
   Gitorade é um cliente Git desktop local-first focado em múltiplas identidades
