@@ -438,6 +438,11 @@ export async function installUpdate(): Promise<string> {
   return z.string().parse(await invoke("install_update"));
 }
 
+/** Snap installs: opens Gitorade in the App Center (or its Snap Store page). */
+export async function openUpdateStore(): Promise<void> {
+  await invoke("open_update_store");
+}
+
 export async function relaunchApp(): Promise<void> {
   await invoke("relaunch_app");
 }

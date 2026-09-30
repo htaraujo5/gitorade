@@ -8,7 +8,7 @@ function formatBytes(n: number): string {
 
 /** Update prompt + download/install progress for GitHub Releases updates. */
 export function UpdateModal() {
-  const { info, phase, progress, error, modalOpen, install, skipVersion, closeModal } =
+  const { info, phase, progress, error, modalOpen, install, openStore, skipVersion, closeModal } =
     useUpdateStore();
 
   if (!modalOpen) return null;
@@ -27,7 +27,6 @@ export function UpdateModal() {
   else if (working) title = `Atualizando para ${info?.latestVersion ?? "nova versão"}`;
   else if (phase === "manual") title = "Instalador aberto";
   else if (available) title = `Gitorade ${info?.latestVersion} disponível`;
-  else if (snap) title = "Atualizações pela Snap Store";
   else if (info) title = "Você está na versão mais recente";
 
   return (
@@ -73,7 +72,7 @@ export function UpdateModal() {
         </div>
 
         <div className="space-y-3 px-4 py-3 text-[13px] leading-relaxed text-[#c8ccd4]">
-          {phase === "checking" && <p className="text-[#8b909a]">Consultando o GitHub…</p>}
+          {phase === "checking" && <p className="text-[#8b909a]">Procurando novas versões…</p>}
 
           {phase === "error" && <p className="whitespace-pre-line text-[#ffb4b0]">{error}</p>}
 
@@ -110,20 +109,22 @@ export function UpdateModal() {
             </div>
           )}
 
-          {phase === "idle" && available && !info?.assetName && (
+          {phase === "idle" && available && !snap && !info?.assetName && (
             <p className="text-[12px] text-[#e3b341]">
               Esta release não tem instalador para o seu sistema — baixe manualmente pelo GitHub.
             </p>
           )}
 
-          {phase === "idle" && snap && (
-            <p>
-              O Gitorade instalado pela Snap Store é atualizado automaticamente pelo sistema. Para
-              atualizar agora, rode{" "}
-              <code className="rounded bg-[#12141a] px-1 font-mono text-[12px]">
-                sudo snap refresh gitorade
-              </code>
-              .
+          {phase === "idle" && snap && available && (
+            <p className="text-[12px]">
+              Clique em <strong>Atualizar</strong> no App Center. Se ele avisar que o Gitorade está
+              aberto, feche o app para concluir — a nova versão abre no próximo início.
+            </p>
+          )}
+
+          {phase === "idle" && snap && !available && (
+            <p className="text-[#8b909a]">
+              Instalado pela Snap Store — o sistema também aplica as atualizações automaticamente.
             </p>
           )}
 
@@ -133,7 +134,7 @@ export function UpdateModal() {
         </div>
 
         <div className="flex items-center gap-2 border-t border-[#2d3139] px-4 py-2.5">
-          {info && !working && (
+          {info && !working && !snap && (
             <button
               type="button"
               className="text-[11px] text-[#8b909a] hover:text-[#e8eaed] hover:underline"
@@ -161,8 +162,22 @@ export function UpdateModal() {
                 {available && phase === "idle" ? "Depois" : "Fechar"}
               </button>
             )}
+            {phase === "idle" && available && snap && (
+              <button
+                type="button"
+                autoFocus
+                className="h-8 min-w-[120px] rounded border border-[#a371f7] bg-[#a371f7]/15 px-4 text-[12px] font-medium text-[#e8eaed] hover:bg-[#a371f7]/25"
+                onClick={() => {
+                  closeModal();
+                  void openStore();
+                }}
+              >
+                Abrir App Center
+              </button>
+            )}
             {((phase === "idle" && available && info?.assetName) || phase === "error") &&
-              available && (
+              available &&
+              !snap && (
                 <button
                   type="button"
                   autoFocus

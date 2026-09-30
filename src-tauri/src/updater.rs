@@ -12,11 +12,14 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::domain::UpdateInfo;
 use crate::error::{AppError, AppResult};
 
 const REPO: &str = "htaraujo5/gitorade";
+const SNAP_NAME: &str = "gitorade";
+const SNAP_STORE_URL: &str = "https://snapcraft.io/gitorade";
 pub const UPDATE_PROGRESS_EVENT: &str = "update://progress";
 
 #[derive(Debug, Clone, Serialize)]
@@ -156,23 +159,85 @@ fn store_manager() -> Option<&'static str> {
     std::env::var_os("SNAP").is_some().then_some("snap")
 }
 
+/// Version (and release time) on the `latest/stable` channel for `arch` in a Snap Store
+/// `/v2/snaps/info` response.
+pub fn snap_stable_version(body: &serde_json::Value, arch: &str) -> Option<(String, Option<String>)> {
+    let arch = match arch {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        other => other,
+    };
+    let entry = body["channel-map"].as_array()?.iter().find(|entry| {
+        let channel = &entry["channel"];
+        channel["architecture"] == arch && channel["track"] == "latest" && channel["risk"] == "stable"
+    })?;
+    Some((
+        entry["version"].as_str()?.to_string(),
+        entry["channel"]["released-at"].as_str().map(str::to_string),
+    ))
+}
+
+/// Snap installs compare against what the store actually serves: the GitHub release goes
+/// out ~30 min before the snap build is published.
+fn fetch_snap_store() -> AppResult<UpdateInfo> {
+    let url = format!("https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}?fields=version");
+    let body: serde_json::Value = agent()
+        .get(&url)
+        .set("Snap-Device-Series", "16")
+        .call()
+        .map_err(|err| AppError::Message(format!("Não foi possível consultar a Snap Store ({err}).")))?
+        .into_json()
+        .map_err(AppError::Io)?;
+
+    let current = env!("CARGO_PKG_VERSION").to_string();
+    let (latest, published_at) = snap_stable_version(&body, std::env::consts::ARCH).ok_or_else(|| {
+        AppError::Message("A Snap Store não tem uma versão estável do Gitorade para este sistema.".into())
+    })?;
+    let available = is_newer(&latest, &current);
+    let notes = if available { release_notes(&latest).unwrap_or_default() } else { String::new() };
+    Ok(UpdateInfo {
+        available,
+        current_version: current,
+        latest_version: latest,
+        notes,
+        release_url: SNAP_STORE_URL.to_string(),
+        published_at,
+        asset_name: None,
+        asset_url: None,
+        asset_size: None,
+        managed_by: Some("snap".to_string()),
+    })
+}
+
+/// Best-effort changelog for a store update, taken from the matching GitHub release.
+fn release_notes(version: &str) -> Option<String> {
+    let url = format!("https://api.github.com/repos/{REPO}/releases/tags/v{version}");
+    let body: serde_json::Value = agent()
+        .get(&url)
+        .set("Accept", "application/vnd.github+json")
+        .call()
+        .ok()?
+        .into_json()
+        .ok()?;
+    body["body"].as_str().map(str::to_string)
+}
+
 pub fn check() -> AppResult<UpdateInfo> {
-    if let Some(manager) = store_manager() {
-        let current = env!("CARGO_PKG_VERSION").to_string();
-        return Ok(UpdateInfo {
-            latest_version: current.clone(),
-            current_version: current,
-            available: false,
-            notes: String::new(),
-            release_url: format!("https://github.com/{REPO}/releases/latest"),
-            published_at: None,
-            asset_name: None,
-            asset_url: None,
-            asset_size: None,
-            managed_by: Some(manager.to_string()),
-        });
+    if store_manager().is_some() {
+        return fetch_snap_store();
     }
     fetch_latest().map(|(info, _)| info)
+}
+
+/// Opens the Gitorade page in Ubuntu's App Center (`snap://`), falling back to the web listing.
+pub fn open_store(app: &AppHandle) -> AppResult<()> {
+    let app_center = Command::new("xdg-open").arg(format!("snap://{SNAP_NAME}")).status();
+    if matches!(app_center, Ok(status) if status.success()) {
+        return Ok(());
+    }
+    app.opener()
+        .open_url(SNAP_STORE_URL, None::<&str>)
+        .map_err(|err| AppError::Message(format!("Não foi possível abrir a loja: {err}")))
 }
 
 fn is_trusted_download(url: &str) -> bool {
@@ -364,12 +429,27 @@ mod tests {
     }
 
     #[test]
-    fn snap_installs_defer_to_the_store() {
-        std::env::set_var("SNAP", "/snap/gitorade/x1");
-        let info = check().unwrap();
-        std::env::remove_var("SNAP");
-        assert_eq!(info.managed_by.as_deref(), Some("snap"));
-        assert!(!info.available);
+    fn reads_stable_version_from_snap_store() {
+        let body = serde_json::json!({
+            "channel-map": [
+                { "channel": { "architecture": "amd64", "name": "edge", "risk": "edge", "track": "latest" }, "version": "2.1.0" },
+                { "channel": { "architecture": "arm64", "name": "stable", "risk": "stable", "track": "latest" }, "version": "2.0.8" },
+                {
+                    "channel": {
+                        "architecture": "amd64", "name": "stable", "risk": "stable", "track": "latest",
+                        "released-at": "2026-09-30T02:46:14+00:00"
+                    },
+                    "version": "2.0.9"
+                }
+            ]
+        });
+        assert_eq!(
+            snap_stable_version(&body, "x86_64"),
+            Some(("2.0.9".into(), Some("2026-09-30T02:46:14+00:00".into())))
+        );
+        assert_eq!(snap_stable_version(&body, "aarch64").map(|v| v.0), Some("2.0.8".into()));
+        assert_eq!(snap_stable_version(&body, "riscv64"), None);
+        assert_eq!(snap_stable_version(&serde_json::json!({}), "x86_64"), None);
     }
 
     #[test]

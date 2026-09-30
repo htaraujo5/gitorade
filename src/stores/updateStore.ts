@@ -6,6 +6,9 @@ import { usePrefsStore } from "./prefsStore";
 
 type Phase = "idle" | "checking" | "downloading" | "installing" | "manual" | "error";
 
+/** How often a running app looks for a new release. */
+export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
 type UpdateState = {
   info: UpdateInfo | null;
   phase: Phase;
@@ -13,12 +16,21 @@ type UpdateState = {
   error: string | null;
   /** Update prompt visible */
   modalOpen: boolean;
+  /** Non-blocking "new version" notice visible */
+  bannerOpen: boolean;
+  /** Version whose notice was closed this session (not persisted, unlike "skip"). */
+  dismissedVersion: string | null;
   lastCheckedAt: number | null;
-  /** Silent startup check: opens the modal only if a new, non-skipped version exists. */
-  checkOnStartup: () => Promise<void>;
+  /** Silent check (startup + interval): shows the notice only for a new, non-skipped version. */
+  checkInBackground: () => Promise<void>;
   /** Manual check (Settings/menu): always opens the modal with the result. */
   checkNow: () => Promise<void>;
+  /** Primary action: App Center for snap installs, in-app install otherwise. */
+  update: () => Promise<void>;
   install: () => Promise<void>;
+  openStore: () => Promise<void>;
+  openDetails: () => void;
+  dismissBanner: () => void;
   skipVersion: () => void;
   closeModal: () => void;
 };
@@ -50,19 +62,24 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   progress: null,
   error: null,
   modalOpen: false,
+  bannerOpen: false,
+  dismissedVersion: null,
   lastCheckedAt: null,
 
-  checkOnStartup: async () => {
+  checkInBackground: async () => {
     if (import.meta.env.DEV) return;
     if (!usePrefsStore.getState().autoCheckUpdates) return;
-    if (get().phase !== "idle") return;
+    if (get().phase !== "idle" || get().modalOpen) return;
     try {
       const info = await api.checkForUpdate();
       set({ info, lastCheckedAt: Date.now() });
-      const skipped = usePrefsStore.getState().skippedUpdateVersion;
-      if (info.available && info.latestVersion !== skipped) set({ modalOpen: true });
+      const { skippedUpdateVersion } = usePrefsStore.getState();
+      const v = info.latestVersion;
+      if (info.available && v !== skippedUpdateVersion && v !== get().dismissedVersion) {
+        set({ bannerOpen: true });
+      }
     } catch {
-      // Offline or rate-limited on boot: stay quiet, the user can check manually.
+      // Offline or rate-limited: stay quiet, the next interval or a manual check retries.
     }
   },
 
@@ -71,7 +88,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
       set({ modalOpen: true });
       return;
     }
-    set({ phase: "checking", error: null, modalOpen: true });
+    set({ phase: "checking", error: null, modalOpen: true, bannerOpen: false });
     try {
       const info = await api.checkForUpdate();
       set({ info, phase: "idle", lastCheckedAt: Date.now() });
@@ -80,9 +97,16 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     }
   },
 
+  update: async () => {
+    const info = get().info;
+    if (info?.managedBy === "snap") return get().openStore();
+    if (info?.assetName) return get().install();
+    get().openDetails();
+  },
+
   install: async () => {
     ensureProgressListener(set);
-    set({ phase: "downloading", progress: null, error: null, modalOpen: true });
+    set({ phase: "downloading", progress: null, error: null, modalOpen: true, bannerOpen: false });
     try {
       const next = await api.installUpdate();
       if (next === "restart") {
@@ -99,15 +123,34 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     }
   },
 
+  openStore: async () => {
+    set({ bannerOpen: false });
+    try {
+      await api.openUpdateStore();
+    } catch (err) {
+      set({ phase: "error", error: errMsg(err), modalOpen: true });
+    }
+  },
+
+  openDetails: () => set({ bannerOpen: false, modalOpen: true }),
+
+  dismissBanner: () =>
+    set({ bannerOpen: false, dismissedVersion: get().info?.latestVersion ?? null }),
+
   skipVersion: () => {
     const v = get().info?.latestVersion;
     if (v) usePrefsStore.getState().setPref("skippedUpdateVersion", v);
-    set({ modalOpen: false });
+    set({ modalOpen: false, bannerOpen: false });
   },
 
   closeModal: () => {
     const phase = get().phase;
     if (phase === "downloading" || phase === "installing") return;
-    set({ modalOpen: false, phase: phase === "error" || phase === "manual" ? "idle" : phase });
+    const info = get().info;
+    set({
+      modalOpen: false,
+      phase: phase === "error" || phase === "manual" ? "idle" : phase,
+      dismissedVersion: info?.available ? info.latestVersion : get().dismissedVersion,
+    });
   },
 }));

@@ -68,6 +68,7 @@ pub fn run() {
             commands::delete_remote_tag,
             commands::check_for_update,
             commands::install_update,
+            commands::open_update_store,
             commands::relaunch_app,
             commands::exit_app,
             commands::get_commit_graph,

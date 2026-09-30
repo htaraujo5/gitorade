@@ -22,8 +22,9 @@ import { CheckoutBranchModal } from "./components/CheckoutBranchModal";
 import { MergeInsightModal } from "./components/MergeInsightModal";
 import { DialogHost } from "./components/DialogHost";
 import { FileInspectorModal } from "./components/FileInspectorModal";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { UpdateModal } from "./components/UpdateModal";
-import { useUpdateStore } from "./stores/updateStore";
+import { UPDATE_CHECK_INTERVAL_MS, useUpdateStore } from "./stores/updateStore";
 import { applyMainWindow, applySetupWindow, applySplashWindow } from "./lib/windowLayout";
 import { applyPlatformDataset, isMacOS } from "./lib/platform";
 import { useNativeAppMenu } from "./lib/nativeMenu";
@@ -138,8 +139,13 @@ function App() {
 
   useEffect(() => {
     if (booting || needsOnboarding || bootError) return;
-    const timer = window.setTimeout(() => void useUpdateStore.getState().checkOnStartup(), 4000);
-    return () => window.clearTimeout(timer);
+    const check = () => void useUpdateStore.getState().checkInBackground();
+    const first = window.setTimeout(check, 4000);
+    const periodic = window.setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(periodic);
+    };
   }, [booting, needsOnboarding, bootError]);
 
   useEffect(() => {
@@ -290,6 +296,7 @@ function App() {
       <MergeInsightModal />
       <FileInspectorModal />
       <UpdateModal />
+      <UpdateBanner />
       {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
       {openingRepoName !== null && <OpeningRepoOverlay name={openingRepoName} />}
       {error && (

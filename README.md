@@ -115,8 +115,10 @@ node scripts/bump-version.mjs fix      # aplica patch localmente
 
 ### Atualização dentro do app (2.0.5+)
 
-O Gitorade consulta a release mais recente do GitHub (`/releases/latest`) ao iniciar
-(desligável em **Preferências → Sobre**) e em **Ajuda → Verificar atualizações**. Ao aceitar:
+O Gitorade consulta a release mais recente do GitHub (`/releases/latest`) ao iniciar e a cada 6 h
+enquanto está aberto (desligável em **Preferências → Sobre**), além de **Ajuda → Verificar
+atualizações**. Quando há versão nova aparece um aviso no canto da janela (**Atualizar agora** /
+**Novidades**). Ao aceitar:
 
 | SO      | O que acontece                                                                              |
 | ------- | ------------------------------------------------------------------------------------------- |
@@ -173,7 +175,9 @@ Limitações do confinamento `strict`:
 - O Git usado é o do snap, com `HOME` isolado: o `~/.gitconfig` do usuário não é lido (a identidade
   vem dos perfis do Gitorade).
 - O terminal integrado roda dentro do snap e não vê as ferramentas instaladas no sistema.
-- O updater interno fica desligado; a Snap Store atualiza sozinha (`sudo snap refresh gitorade`).
+- O app não baixa instaladores: ele consulta a versão do canal `stable` na Snap Store (ao iniciar e a
+  cada 6 h) e, quando há versão nova, mostra um aviso com botão que abre o App Center. O snapd também
+  atualiza sozinho quando o app está fechado (`sudo snap refresh gitorade` força).
 
 ## Scripts
 

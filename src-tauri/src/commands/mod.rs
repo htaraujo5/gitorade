@@ -903,6 +903,13 @@ pub async fn install_update(app: AppHandle) -> AppResult<String> {
 }
 
 #[tauri::command]
+pub async fn open_update_store(app: AppHandle) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || crate::updater::open_store(&app))
+        .await
+        .map_err(|err| AppError::Message(format!("Falha ao abrir a loja: {err}")))?
+}
+
+#[tauri::command]
 pub fn relaunch_app(app: AppHandle) {
     app.restart();
 }

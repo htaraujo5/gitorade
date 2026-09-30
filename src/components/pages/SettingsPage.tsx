@@ -424,14 +424,7 @@ function UpdatesCard() {
   const setPref = usePrefsStore((s) => s.setPref);
   const { info, phase, lastCheckedAt, checkNow } = useUpdateStore();
   const checking = phase === "checking";
-
-  if (info?.managedBy === "snap") {
-    return (
-      <InfoCard title={t("settings.updates.title")}>
-        <p>{t("settings.updates.snap")}</p>
-      </InfoCard>
-    );
-  }
+  const snap = info?.managedBy === "snap";
 
   return (
     <>
@@ -446,6 +439,9 @@ function UpdatesCard() {
               <p>{t("settings.updates.upToDate")}</p>
             ) : (
               <p className="text-[#8b909a]">{t("settings.updates.desc")}</p>
+            )}
+            {snap && (
+              <p className="mt-0.5 text-[11px] text-[#8b909a]">{t("settings.updates.snap")}</p>
             )}
             {lastCheckedAt && (
               <p className="mt-0.5 text-[10px] text-[#6b7280]">

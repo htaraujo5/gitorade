@@ -131,15 +131,16 @@ const ptBR = {
   "settings.about.version": "Versão {version}",
   "settings.updates.title": "Atualizações",
   "settings.updates.snap":
-    "Instalado pela Snap Store — as atualizações são automáticas (sudo snap refresh gitorade para forçar).",
-  "settings.updates.desc": "Novas versões são baixadas das releases do GitHub.",
+    "Instalado pela Snap Store — o aviso de versão nova abre o App Center para atualizar.",
+  "settings.updates.desc": "O Gitorade avisa quando sair uma versão nova.",
   "settings.updates.available": "Versão {version} disponível",
   "settings.updates.upToDate": "Você está na versão mais recente.",
   "settings.updates.lastChecked": "Última verificação às {time}",
   "settings.updates.check": "Verificar agora",
   "settings.updates.checking": "Verificando…",
-  "settings.updates.auto": "Verificar atualizações ao iniciar",
-  "settings.updates.autoHint": "Mostra um aviso quando houver versão nova.",
+  "settings.updates.auto": "Verificar atualizações automaticamente",
+  "settings.updates.autoHint":
+    "Ao iniciar e a cada 6 horas; mostra um aviso quando houver versão nova.",
   "settings.updates.autoHintSkipped":
     "Versão {version} ignorada — reative para voltar a ser avisado dela.",
 
@@ -351,15 +352,16 @@ const en: Record<MessageKey, string> = {
   "settings.about.version": "Version {version}",
   "settings.updates.title": "Updates",
   "settings.updates.snap":
-    "Installed from the Snap Store — updates are automatic (sudo snap refresh gitorade to force).",
-  "settings.updates.desc": "New versions are downloaded from GitHub releases.",
+    "Installed from the Snap Store — the new-version notice opens the App Center to update.",
+  "settings.updates.desc": "Gitorade lets you know when a new version is out.",
   "settings.updates.available": "Version {version} available",
   "settings.updates.upToDate": "You're on the latest version.",
   "settings.updates.lastChecked": "Last checked at {time}",
   "settings.updates.check": "Check now",
   "settings.updates.checking": "Checking…",
-  "settings.updates.auto": "Check for updates on startup",
-  "settings.updates.autoHint": "Shows a prompt when a new version is out.",
+  "settings.updates.auto": "Check for updates automatically",
+  "settings.updates.autoHint":
+    "On startup and every 6 hours; shows a notice when a new version is out.",
   "settings.updates.autoHintSkipped":
     "Version {version} skipped — re-enable to be notified about it again.",
 
