@@ -54,10 +54,16 @@ jobs:
       - name: Decide bump type
         id: decide
         shell: bash
+        # Commit messages are user text: pass via env so quotes/$(…) can't break or inject into the script.
+        env:
+          MSG: ${{ github.event.head_commit.message || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BUMP: ${{ inputs.bump }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
           # A re-run after the bump commit/tag was pushed would try to create the same version again.
-          if [ "${{ github.run_attempt }}" != "1" ]; then
+          if [ "$RUN_ATTEMPT" != "1" ]; then
             for t in $(git tag --sort=-creatordate | head -n 10); do
               if [ "$(git rev-parse "${t}^{commit}^" 2>/dev/null || true)" = "${GITHUB_SHA}" ]; then
                 echo "::error::Este commit já foi lançado como ${t}. Use 'Re-run failed jobs' (não 'all jobs'), ou Actions → Snap → Run workflow com a tag ${t} para publicar só o snap."
@@ -65,7 +71,6 @@ jobs:
               fi
             done
           fi
-          MSG="${{ github.event.head_commit.message || '' }}"
           # Evita loop: commit de release não dispara outro release
           if [[ "$MSG" == chore\(release\):* ]] || [[ "$MSG" == *"chore(release):"* ]]; then
             echo "should_release=false" >> "$GITHUB_OUTPUT"
@@ -74,8 +79,8 @@ jobs:
             exit 0
           fi
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUMP="${{ inputs.bump }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            BUMP="$INPUT_BUMP"
             echo "should_release=true" >> "$GITHUB_OUTPUT"
             echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
             echo "Manual bump: $BUMP"
