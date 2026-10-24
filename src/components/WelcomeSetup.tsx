@@ -73,11 +73,20 @@ export function WelcomeSetup({ onComplete }: { onComplete: () => void }) {
     }
     setSubmitting(true);
     try {
+      let sshKeyPath: string | null = null;
+      try {
+        const { listSshKeys } = await import("../lib/api");
+        const keys = await listSshKeys();
+        sshKeyPath = keys[0] ?? null;
+      } catch {
+        /* optional — profile still works without a key path */
+      }
       await createProfile(
         {
           name: name.trim(),
           email: email.trim(),
           provider: "Local",
+          sshKeyPath,
         },
         { stay: true },
       );

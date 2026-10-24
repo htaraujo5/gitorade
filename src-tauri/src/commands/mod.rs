@@ -30,6 +30,21 @@ pub fn list_profiles(db: State<'_, Database>) -> AppResult<Vec<Profile>> {
     db.list_profiles()
 }
 
+/// Paths of private SSH keys found under `~/.ssh` (empty if inaccessible, e.g. Snap without ssh-keys).
+#[tauri::command]
+pub fn list_ssh_keys() -> AppResult<Vec<String>> {
+    Ok(git::list_ssh_identity_files()
+        .into_iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect())
+}
+
+/// Directory to open in the SSH key file picker (`~/.ssh` when present).
+#[tauri::command]
+pub fn ssh_keys_dir() -> AppResult<Option<String>> {
+    Ok(git::ssh_dir().map(|p| p.to_string_lossy().into_owned()))
+}
+
 #[tauri::command]
 pub fn create_profile(db: State<'_, Database>, input: CreateProfileInput) -> AppResult<Profile> {
     validate_profile_ssh_key(input.ssh_key_path.as_deref())?;

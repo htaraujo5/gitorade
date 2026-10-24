@@ -51,18 +51,11 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
 
   return (
     <header className="shrink-0 border-b border-[#2d3139] bg-[#1a1d24]">
-      {/* Title row — brand · feedback + profile (+ window controls on Win/Linux) */}
-      <div
-        className="grid h-9 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
-        data-tauri-drag-region
-      >
-        <div
-          className={`flex h-full min-w-0 items-center ${mac ? "pl-[76px]" : "pl-1"}`}
-          /* menus must not drag the window */
-          onMouseDown={(e) => e.stopPropagation()}
-        >
+      {/* Title row — drag only on empty fillers + brand (menus/buttons stay clickable). */}
+      <div className="grid h-9 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
+        <div className={`flex h-full min-w-0 items-center ${mac ? "pl-[76px]" : "pl-1"}`}>
           {!mac && <MenuBar embedded />}
-          {mac && <div className="h-full min-w-8 flex-1" data-tauri-drag-region />}
+          <div className="h-full min-w-2 flex-1" data-tauri-drag-region />
         </div>
 
         <div className="flex h-full items-center px-3" data-tauri-drag-region>
@@ -75,10 +68,8 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
           </div>
         </div>
 
-        <div
-          className="flex h-full items-center justify-end gap-0.5 pr-1"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
+        <div className="flex h-full items-center justify-end gap-0.5 pr-1">
+          <div className="h-full min-w-2 flex-1" data-tauri-drag-region />
           <WinBtn title="Feedback" onClick={onFeedback}>
             <IconFeedback className="h-3.5 w-3.5" />
           </WinBtn>

@@ -87,17 +87,108 @@ fn ensure_askpass_helper_cached() -> Option<&'static PathBuf> {
 }
 
 pub fn discover_default_ssh_key() -> Option<PathBuf> {
-    let ssh_dir = dirs::home_dir()?.join(".ssh");
-    for name in ["id_ed25519", "id_ecdsa", "id_rsa"] {
-        let path = ssh_dir.join(name);
-        if path.is_file() {
-            let s = path.to_string_lossy();
-            if validate_ssh_key_path(s.as_ref()).is_ok() {
-                return Some(path);
-            }
-        }
+    list_ssh_identity_files().into_iter().next()
+}
+
+/// Absolute path to `~/.ssh` when the home directory is known.
+pub fn ssh_dir() -> Option<PathBuf> {
+    Some(dirs::home_dir()?.join(".ssh"))
+}
+
+/// Private identity files under `~/.ssh` (standard names first, then other non-public files).
+///
+/// Scans from Rust so the UI does not depend on the native file dialog showing hidden
+/// folders (`.ssh` is hidden on Linux; Windows Explorer often shows it).
+pub fn list_ssh_identity_files() -> Vec<PathBuf> {
+    match ssh_dir() {
+        Some(d) if d.is_dir() => list_ssh_identity_files_in(&d),
+        _ => Vec::new(),
     }
-    None
+}
+
+fn list_ssh_identity_files_in(ssh_dir: &Path) -> Vec<PathBuf> {
+    let preferred = [
+        "id_ed25519",
+        "id_ecdsa",
+        "id_rsa",
+        "id_ed25519_sk",
+        "id_ecdsa_sk",
+        "id_dsa",
+    ];
+    let skip = HashSet::from([
+        "authorized_keys",
+        "known_hosts",
+        "known_hosts.old",
+        "config",
+        "config.d",
+    ]);
+
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+
+    for name in preferred {
+        let path = ssh_dir.join(name);
+        let _ = push_identity(&mut out, &mut seen, &path);
+    }
+
+    let Ok(entries) = fs::read_dir(ssh_dir) else {
+        return out;
+    };
+    let mut extras: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_file())
+        .filter(|p| {
+            let Some(name) = p.file_name().and_then(|n| n.to_str()) else {
+                return false;
+            };
+            if name.starts_with('.') || name.ends_with(".pub") || skip.contains(name) {
+                return false;
+            }
+            !seen.contains(name)
+        })
+        .collect();
+    extras.sort();
+    for path in extras {
+        let _ = push_identity(&mut out, &mut seen, &path);
+    }
+
+    out
+}
+
+fn push_identity(out: &mut Vec<PathBuf>, seen: &mut HashSet<String>, path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    if !path.is_file() {
+        return false;
+    }
+    let s = path.to_string_lossy();
+    if validate_ssh_key_path(s.as_ref()).is_err() {
+        return false;
+    }
+    if !looks_like_private_key(path) {
+        return false;
+    }
+    if seen.insert(name.to_string()) {
+        out.push(path.to_path_buf());
+        true
+    } else {
+        false
+    }
+}
+
+fn looks_like_private_key(path: &Path) -> bool {
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    use std::io::Read;
+    let mut buf = [0u8; 64];
+    let Ok(n) = file.read(&mut buf) else {
+        return false;
+    };
+    let head = String::from_utf8_lossy(&buf[..n]);
+    head.contains("PRIVATE KEY") || head.contains("OPENSSH PRIVATE KEY")
 }
 
 fn resolve_ssh_binary() -> String {
@@ -443,5 +534,37 @@ mod tests {
     fn respond_rejects_unknown_request() {
         let err = respond_askpass("deadbeefdeadbeefdeadbeefdeadbeef", Some("x"));
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn list_identity_files_skips_public_and_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ssh = tmp.path().join(".ssh");
+        fs::create_dir_all(&ssh).unwrap();
+        fs::write(
+            ssh.join("id_ed25519"),
+            b"-----BEGIN OPENSSH PRIVATE KEY-----\ndata\n-----END OPENSSH PRIVATE KEY-----\n",
+        )
+        .unwrap();
+        fs::write(ssh.join("id_ed25519.pub"), b"ssh-ed25519 AAAA comment\n").unwrap();
+        fs::write(ssh.join("known_hosts"), b"github.com ssh-ed25519 AAAA\n").unwrap();
+        fs::write(ssh.join("config"), b"Host *\n").unwrap();
+        fs::write(
+            ssh.join("work_key"),
+            b"-----BEGIN OPENSSH PRIVATE KEY-----\nwork\n-----END OPENSSH PRIVATE KEY-----\n",
+        )
+        .unwrap();
+
+        let keys = list_ssh_identity_files_in(&ssh);
+        let names: Vec<_> = keys
+            .iter()
+            .filter_map(|p| p.file_name()?.to_str())
+            .collect();
+        assert!(names.contains(&"id_ed25519"), "{names:?}");
+        assert!(names.contains(&"work_key"), "{names:?}");
+        assert!(!names.iter().any(|n| n.ends_with(".pub")));
+        assert!(!names.contains(&"known_hosts"));
+        assert!(!names.contains(&"config"));
+        assert_eq!(keys[0].file_name().unwrap(), "id_ed25519");
     }
 }

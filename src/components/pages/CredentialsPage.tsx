@@ -97,12 +97,21 @@ export function CredentialsPage() {
         });
         setMode("view");
       } else {
+        let sshKeyPath: string | null = null;
+        try {
+          const { listSshKeys } = await import("../../lib/api");
+          const keys = await listSshKeys();
+          sshKeyPath = keys[0] ?? null;
+        } catch {
+          /* optional */
+        }
         const created = await createProfile(
           {
             name: name.trim(),
             email: email.trim(),
             provider,
             avatarData,
+            sshKeyPath,
           },
           { stay: true },
         );

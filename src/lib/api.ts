@@ -182,6 +182,16 @@ export async function listProfiles(): Promise<Profile[]> {
   return z.array(profileSchema).parse(await invoke("list_profiles"));
 }
 
+/** Private key paths under ~/.ssh discovered by the backend (works even when the OS dialog hides dotfolders). */
+export async function listSshKeys(): Promise<string[]> {
+  return z.array(z.string()).parse(await invoke("list_ssh_keys"));
+}
+
+/** Preferred start folder for the SSH key picker (`~/.ssh` when available). */
+export async function sshKeysDir(): Promise<string | null> {
+  return z.string().nullable().parse(await invoke("ssh_keys_dir"));
+}
+
 export async function createProfile(input: CreateProfileInput): Promise<Profile> {
   return profileSchema.parse(await invoke("create_profile", { input }));
 }

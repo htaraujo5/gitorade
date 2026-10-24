@@ -32,6 +32,8 @@ pub fn run() {
             commands::get_app_health,
             commands::respond_ssh_askpass,
             commands::list_profiles,
+            commands::list_ssh_keys,
+            commands::ssh_keys_dir,
             commands::create_profile,
             commands::update_profile,
             commands::delete_profile,

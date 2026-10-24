@@ -318,28 +318,58 @@ export function AboutPage() {
 function SshSection() {
   const { profiles, refreshProfiles, busy, setAppView } = useAppStore();
   const [notice, setNotice] = useState<string | null>(null);
+  const [discovered, setDiscovered] = useState<string[]>([]);
+  const [sshDir, setSshDir] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { listSshKeys, sshKeysDir } = await import("../../lib/api");
+        const [keys, dir] = await Promise.all([listSshKeys(), sshKeysDir()]);
+        if (!cancelled) {
+          setDiscovered(keys);
+          setSshDir(dir);
+        }
+      } catch {
+        if (!cancelled) {
+          setDiscovered([]);
+          setSshDir(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const assignKey = async (profileId: string, keyPath: string) => {
+    const profile = profiles.find((p) => p.id === profileId);
+    if (!profile) return;
+    const { updateProfile } = await import("../../lib/api");
+    await updateProfile({
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      provider: profile.provider,
+      sshKeyPath: keyPath,
+      avatarData: profile.avatarData ?? null,
+    });
+    await refreshProfiles();
+    setNotice(`Chave associada a ${profile.name}`);
+  };
 
   const pickKey = async (profileId: string) => {
     try {
       const { open } = await import("@tauri-apps/plugin-dialog");
+      // Open inside ~/.ssh so Linux users don't need to navigate into a hidden folder.
       const selected = await open({
         multiple: false,
         title: "Selecionar chave privada SSH",
+        defaultPath: sshDir ?? discovered[0] ?? undefined,
       });
       if (!selected || Array.isArray(selected)) return;
-      const profile = profiles.find((p) => p.id === profileId);
-      if (!profile) return;
-      const { updateProfile } = await import("../../lib/api");
-      await updateProfile({
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        provider: profile.provider,
-        sshKeyPath: selected,
-        avatarData: profile.avatarData ?? null,
-      });
-      await refreshProfiles();
-      setNotice(`Chave associada a ${profile.name}`);
+      await assignKey(profileId, selected);
     } catch (err) {
       setNotice(err instanceof Error ? err.message : String(err));
     }
@@ -354,7 +384,8 @@ function SshSection() {
         </p>
         <p className="mt-2 text-[11px] text-[#6b7280]">
           Dica: <code className="text-[#8b909a]">ssh-add -l</code> lista chaves carregadas no
-          agente.
+          agente. No Linux o diálogo abre em{" "}
+          <code className="text-[#8b909a]">~/.ssh</code> (pasta oculta).
         </p>
       </InfoCard>
 
@@ -363,6 +394,30 @@ function SshSection() {
           {notice}
         </div>
       )}
+
+      <div className="space-y-2">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">
+          Detectadas em ~/.ssh
+        </div>
+        {discovered.length === 0 ? (
+          <p className="text-[12px] text-[#6b7280]">
+            Nenhuma chave privada encontrada. Se instalou via Snap, rode{" "}
+            <code className="text-[#8b909a]">sudo snap connect gitorade:ssh-keys</code> e
+            reabra o app.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {discovered.map((path) => (
+              <li
+                key={path}
+                className="rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2 font-mono text-[11px] text-[#c8ccd4]"
+              >
+                <div className="truncate">{path}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="space-y-2">
         <div className="text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">
@@ -376,7 +431,7 @@ function SshSection() {
           profiles.map((p) => (
             <div
               key={p.id}
-              className="flex items-center gap-2 rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2"
+              className="flex flex-wrap items-center gap-2 rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2"
             >
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] text-[#e8eaed]">{p.name}</div>
@@ -384,6 +439,29 @@ function SshSection() {
                   {p.sshKeyPath ?? "Nenhuma chave associada"}
                 </div>
               </div>
+              {discovered.length > 0 && (
+                <select
+                  className="max-w-[180px] rounded border border-[#2d3139] bg-[#12141a] px-1.5 py-1 text-[10px] text-[#c8ccd4] disabled:opacity-40"
+                  disabled={busy}
+                  defaultValue=""
+                  aria-label={`Chave detectada para ${p.name}`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    e.target.value = "";
+                    if (!value) return;
+                    void assignKey(p.id, value).catch((err) => {
+                      setNotice(err instanceof Error ? err.message : String(err));
+                    });
+                  }}
+                >
+                  <option value="">Detectada…</option>
+                  {discovered.map((path) => (
+                    <option key={path} value={path}>
+                      {path.split(/[/\\]/).pop() ?? path}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 disabled={busy}
