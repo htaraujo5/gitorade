@@ -78,6 +78,12 @@ No macOS a barra de título usa o estilo **Overlay** do sistema (traffic lights 
 
 Na primeira execução: splash → setup (nome/email/pasta) → dashboard.
 
+## Workspaces
+
+Cada perfil funciona como um workspace. Selecione-o no menu superior para ver os repositórios
+associados àquela identidade; ao abrir um repositório ainda sem perfil, ele é associado ao workspace
+atual. A seleção do workspace permanece salva entre execuções.
+
 ### Release automático (GitHub Actions)
 
 Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):

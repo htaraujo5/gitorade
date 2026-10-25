@@ -384,8 +384,8 @@ function SshSection() {
         </p>
         <p className="mt-2 text-[11px] text-[#6b7280]">
           Dica: <code className="text-[#8b909a]">ssh-add -l</code> lista chaves carregadas no
-          agente. No Linux o diálogo abre em{" "}
-          <code className="text-[#8b909a]">~/.ssh</code> (pasta oculta).
+          agente. No Linux o diálogo abre em <code className="text-[#8b909a]">~/.ssh</code> (pasta
+          oculta).
         </p>
       </InfoCard>
 
@@ -402,8 +402,8 @@ function SshSection() {
         {discovered.length === 0 ? (
           <p className="text-[12px] text-[#6b7280]">
             Nenhuma chave privada encontrada. Se instalou via Snap, rode{" "}
-            <code className="text-[#8b909a]">sudo snap connect gitorade:ssh-keys</code> e
-            reabra o app.
+            <code className="text-[#8b909a]">sudo snap connect gitorade:ssh-keys</code> e reabra o
+            app.
           </p>
         ) : (
           <ul className="space-y-1.5">

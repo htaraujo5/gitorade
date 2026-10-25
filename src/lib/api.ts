@@ -189,7 +189,10 @@ export async function listSshKeys(): Promise<string[]> {
 
 /** Preferred start folder for the SSH key picker (`~/.ssh` when available). */
 export async function sshKeysDir(): Promise<string | null> {
-  return z.string().nullable().parse(await invoke("ssh_keys_dir"));
+  return z
+    .string()
+    .nullable()
+    .parse(await invoke("ssh_keys_dir"));
 }
 
 export async function createProfile(input: CreateProfileInput): Promise<Profile> {
