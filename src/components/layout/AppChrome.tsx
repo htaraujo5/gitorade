@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useAppStore, type ShellTab } from "../../stores/appStore";
+import { shellTabsForWorkspace, useAppStore, type ShellTab } from "../../stores/appStore";
 import { isMacOS } from "../../lib/platform";
 import logo from "../../assets/brand/logo.png";
 import {
@@ -25,12 +25,15 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
   const mac = isMacOS();
   const [maximized, setMaximized] = useState(false);
   const shellTabs = useAppStore((s) => s.shellTabs);
+  const repositories = useAppStore((s) => s.repositories);
+  const workspaceProfileId = useAppStore((s) => s.workspaceProfileId);
   const activeShellTabId = useAppStore((s) => s.activeShellTabId);
   const activateShellTab = useAppStore((s) => s.activateShellTab);
   const closeShellTab = useAppStore((s) => s.closeShellTab);
   const openStartTab = useAppStore((s) => s.openStartTab);
   const openSettingsTab = useAppStore((s) => s.openSettingsTab);
   const openRepositoryDialog = useAppStore((s) => s.openRepositoryDialog);
+  const visibleTabs = shellTabsForWorkspace(shellTabs, repositories, workspaceProfileId);
 
   useEffect(() => {
     if (mac) return;
@@ -119,7 +122,7 @@ export function AppChrome({ onFeedback }: { onFeedback: () => void }) {
       {/* Tab row — flush left under the title bar */}
       <div className="flex h-8 items-stretch border-t border-[#2d3139]/80 bg-[#161920]">
         <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto pl-1">
-          {shellTabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <ShellTabChip
               key={tab.id}
               tab={tab}

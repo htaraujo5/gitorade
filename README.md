@@ -82,7 +82,9 @@ Na primeira execução: splash → setup (nome/email/pasta) → dashboard.
 
 Cada perfil funciona como um workspace. Selecione-o no menu superior para ver os repositórios
 associados àquela identidade; ao abrir um repositório ainda sem perfil, ele é associado ao workspace
-atual. A seleção do workspace permanece salva entre execuções.
+atual. Cada repositório e sua aba pertencem a um único workspace; ao abrir explicitamente um
+repositório associado a outro perfil, a associação é transferida para o workspace atual. A seleção
+do workspace permanece salva entre execuções.
 
 ### Release automático (GitHub Actions)
 

@@ -86,10 +86,37 @@ export function repositoriesForWorkspace(
   workspaceProfileId: string | null,
 ): Repository[] {
   if (!workspaceProfileId) return repositories;
-  return repositories.filter(
-    (repository) =>
-      !repository.defaultProfileId || repository.defaultProfileId === workspaceProfileId,
+  return repositories.filter((repository) => repository.defaultProfileId === workspaceProfileId);
+}
+
+export function shellTabsForWorkspace(
+  tabs: ShellTab[],
+  repositories: Repository[],
+  workspaceProfileId: string | null,
+): ShellTab[] {
+  if (!workspaceProfileId) return tabs;
+  const ownedRepositoryIds = new Set(
+    repositories
+      .filter((repository) => repository.defaultProfileId === workspaceProfileId)
+      .map((repository) => repository.id),
   );
+  return tabs.filter(
+    (tab) => tab.kind !== "repo" || (tab.repoId && ownedRepositoryIds.has(tab.repoId)),
+  );
+}
+
+async function assignUnownedRepositories(
+  repositories: Repository[],
+  profileId: string,
+): Promise<Repository[]> {
+  const unowned = repositories.filter((repository) => !repository.defaultProfileId);
+  if (unowned.length === 0) return repositories;
+
+  const assigned = await Promise.all(
+    unowned.map((repository) => api.setRepositoryProfile(repository.id, profileId)),
+  );
+  const assignedById = new Map(assigned.map((repository) => [repository.id, repository]));
+  return repositories.map((repository) => assignedById.get(repository.id) ?? repository);
 }
 
 const START_TAB: ShellTab = { id: "tab-start", kind: "start", title: "Start" };
@@ -603,7 +630,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const health = await api.getAppHealth();
       set({ health });
-      await Promise.all([get().refreshRepositories(), get().refreshProfiles()]);
+      await get().refreshProfiles();
+      await get().refreshRepositories();
       set({
         bootLoading: false,
         appView: "dashboard",
@@ -616,7 +644,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   refreshRepositories: async () => {
-    const repositories = await api.listRepositories();
+    let repositories = await api.listRepositories();
+    const workspaceProfileId = get().workspaceProfileId;
+    if (workspaceProfileId) {
+      repositories = await assignUnownedRepositories(repositories, workspaceProfileId);
+    }
     set({ repositories });
   },
 
@@ -639,13 +671,44 @@ export const useAppStore = create<AppState>((set, get) => ({
       commitOverrideProfileId:
         profiles.find((profile) => profile.id === currentCommitProfileId)?.id ?? workspaceProfileId,
     });
+    if (workspaceProfileId && get().repositories.length > 0) {
+      const repositories = await assignUnownedRepositories(get().repositories, workspaceProfileId);
+      set({ repositories });
+    }
   },
 
   setWorkspaceProfileId: (id) => {
     if (!get().profiles.some((profile) => profile.id === id)) return;
+    if (get().workspaceProfileId === id) return;
+    const { activeRepoId, graph, shellTabs } = get();
+    if (activeRepoId && graph !== null) repoSnapshots.set(activeRepoId, takeSnapshot(get()));
+    const tabs = shellTabs.some((tab) => tab.id === START_TAB.id)
+      ? shellTabs
+      : [{ ...START_TAB }, ...shellTabs];
     usePrefsStore.getState().setPref("workspaceProfileId", id);
-    set({ workspaceProfileId: id, commitOverrideProfileId: id });
-    get().setAppView("dashboard");
+    set({
+      workspaceProfileId: id,
+      commitOverrideProfileId: id,
+      shellTabs: tabs,
+      activeShellTabId: START_TAB.id,
+      appView: "dashboard",
+      activeRepoId: null,
+      status: null,
+      selectedFile: null,
+      diffText: "",
+      remotes: [],
+      graph: null,
+      filteredCommits: null,
+      branches: [],
+      tags: [],
+      stash: [],
+      selectedCommitHash: null,
+      selectedCommitFile: null,
+      commitFiles: [],
+      commitFileContent: "",
+      openingRepoName: null,
+    });
+    void api.terminalKillAll();
   },
 
   openRepositoryDialog: async () => {
@@ -674,9 +737,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectRepository: async (id) => {
     let repo = get().repositories.find((r) => r.id === id);
     const workspaceProfileId = get().workspaceProfileId;
-    if (repo && !repo.defaultProfileId && workspaceProfileId) {
+    if (repo && workspaceProfileId && repo.defaultProfileId !== workspaceProfileId) {
       try {
         const updatedRepo = await api.setRepositoryProfile(id, workspaceProfileId);
+        if (get().workspaceProfileId !== workspaceProfileId) return;
         repo = updatedRepo;
         set({
           repositories: get().repositories.map((repository) =>
@@ -873,10 +937,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     const repositories = get().repositories.filter((r) => r.id !== id);
     set({ repositories });
     if (get().activeRepoId === id) {
-      if (repositories[0]) {
-        await get().selectRepository(repositories[0].id);
+      const workspaceRepositories = repositoriesForWorkspace(
+        repositories,
+        get().workspaceProfileId,
+      );
+      if (workspaceRepositories[0]) {
+        await get().selectRepository(workspaceRepositories[0].id);
       } else {
-        set({ activeRepoId: null, status: null, diffText: "", selectedFile: null });
+        const shellTabs = get().shellTabs.filter((tab) => tab.repoId !== id);
+        set({
+          shellTabs,
+          activeShellTabId: START_TAB.id,
+          appView: "dashboard",
+          activeRepoId: null,
+          status: null,
+          diffText: "",
+          selectedFile: null,
+        });
       }
     }
   },
@@ -2009,6 +2086,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   activateShellTab: async (id) => {
     const tab = get().shellTabs.find((t) => t.id === id);
     if (!tab) return;
+    if (
+      tab.kind === "repo" &&
+      !repositoriesForWorkspace(get().repositories, get().workspaceProfileId).some(
+        (repository) => repository.id === tab.repoId,
+      )
+    ) {
+      return;
+    }
     set({ activeShellTabId: id, appView: appViewForTab(tab) });
     if (tab.kind === "repo" && tab.repoId) {
       if (tab.repoId !== get().activeRepoId) {
@@ -2023,6 +2108,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const tabs = get().shellTabs;
     const idx = tabs.findIndex((t) => t.id === id);
     if (idx < 0) return;
+    const currentVisibleTabs = shellTabsForWorkspace(
+      tabs,
+      get().repositories,
+      get().workspaceProfileId,
+    );
+    const visibleIndex = currentVisibleTabs.findIndex((tab) => tab.id === id);
     // Always keep at least Start
     let next = tabs.filter((t) => t.id !== id);
     if (next.length === 0) next = [{ ...START_TAB }];
@@ -2033,7 +2124,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const closedRepoId = tabs[idx].kind === "repo" ? tabs[idx].repoId : undefined;
     set({ shellTabs: next });
     if (wasActive) {
-      const focus = next[Math.min(idx, next.length - 1)] ?? next[0];
+      const visibleTabs = shellTabsForWorkspace(next, get().repositories, get().workspaceProfileId);
+      const focus =
+        visibleTabs[Math.min(Math.max(visibleIndex, 0), visibleTabs.length - 1)] ?? visibleTabs[0];
+      if (!focus) {
+        get().openStartTab();
+        return;
+      }
       void get().activateShellTab(focus.id);
     }
     if (closedRepoId) repoSnapshots.delete(closedRepoId);
@@ -2065,7 +2162,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     if (view === "history") {
-      if (get().activeRepoId) {
+      if (
+        get().activeRepoId &&
+        repositoriesForWorkspace(get().repositories, get().workspaceProfileId).some(
+          (repository) => repository.id === get().activeRepoId,
+        )
+      ) {
         void get().selectRepository(get().activeRepoId!);
         return;
       }

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useAppStore, type ShellTab } from "../../stores/appStore";
+import { shellTabsForWorkspace, useAppStore, type ShellTab } from "../../stores/appStore";
 import {
   IconBranch,
   IconClose,
@@ -17,17 +17,20 @@ export function TabBar() {
   const {
     shellTabs,
     activeShellTabId,
+    repositories,
+    workspaceProfileId,
     activateShellTab,
     closeShellTab,
     openStartTab,
     openSettingsTab,
     openRepositoryDialog,
   } = useAppStore();
+  const visibleTabs = shellTabsForWorkspace(shellTabs, repositories, workspaceProfileId);
 
   return (
     <div className="flex h-8 shrink-0 items-stretch border-b border-[#2d3139] bg-[#14161c]">
       <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto pl-1">
-        {shellTabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <ShellTabChip
             key={tab.id}
             tab={tab}
