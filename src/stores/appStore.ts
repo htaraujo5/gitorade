@@ -706,9 +706,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedCommitFile: null,
       commitFiles: [],
       commitFileContent: "",
+      terminalOpen: false,
       openingRepoName: null,
     });
-    void api.terminalKillAll();
   },
 
   openRepositoryDialog: async () => {

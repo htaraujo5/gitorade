@@ -27,7 +27,10 @@ export function Dashboard() {
   const [cloneOpen, setCloneOpen] = useState(false);
   const [cloneUrl, setCloneUrl] = useState("");
 
-  const workspaceRepositories = repositoriesForWorkspace(repositories, workspaceProfileId);
+  const workspaceRepositories = useMemo(
+    () => repositoriesForWorkspace(repositories, workspaceProfileId),
+    [repositories, workspaceProfileId],
+  );
   const workspaceProfile = profiles.find((profile) => profile.id === workspaceProfileId);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

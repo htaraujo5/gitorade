@@ -6,15 +6,13 @@ import { useT } from "../../i18n";
 /** GitKraken-style profile menu: identity lives here, not in the commit form. */
 export function ProfileMenu() {
   const t = useT();
-  const {
-    profiles,
-    workspaceProfileId,
-    commitOverrideProfileId,
-    setWorkspaceProfileId,
-    setAppView,
-    repositories,
-    activeRepoId,
-  } = useAppStore();
+  const profiles = useAppStore((s) => s.profiles);
+  const workspaceProfileId = useAppStore((s) => s.workspaceProfileId);
+  const commitOverrideProfileId = useAppStore((s) => s.commitOverrideProfileId);
+  const setWorkspaceProfileId = useAppStore((s) => s.setWorkspaceProfileId);
+  const setAppView = useAppStore((s) => s.setAppView);
+  const repositories = useAppStore((s) => s.repositories);
+  const activeRepoId = useAppStore((s) => s.activeRepoId);
 
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
