@@ -84,7 +84,8 @@ Cada perfil funciona como um workspace. Selecione-o no menu superior para ver os
 associados àquela identidade; ao abrir um repositório ainda sem perfil, ele é associado ao workspace
 atual. Cada repositório e sua aba pertencem a um único workspace; ao abrir explicitamente um
 repositório associado a outro perfil, a associação é transferida para o workspace atual. A seleção
-do workspace permanece salva entre execuções.
+do workspace permanece salva entre execuções. As abas de repositório abertas e o projeto ativo também
+são restaurados individualmente para cada workspace ao iniciar o Gitorade.
 
 ### Release automático (GitHub Actions)
 

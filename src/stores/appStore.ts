@@ -22,7 +22,7 @@ import { progressEventSchema } from "../lib/api";
 import { tipCommitForBranch } from "../lib/branchGraph";
 import { requireDangerousConfirm } from "../lib/dangerousConfirm";
 import { validateRefName } from "../lib/refName";
-import { usePrefsStore } from "./prefsStore";
+import { usePrefsStore, type WorkspaceTabSession } from "./prefsStore";
 import { confirmDialog, promptDialog, promptText } from "./dialogStore";
 
 function validateRemoteName(value: string): string | null {
@@ -103,6 +103,57 @@ export function shellTabsForWorkspace(
   return tabs.filter(
     (tab) => tab.kind !== "repo" || (tab.repoId && ownedRepositoryIds.has(tab.repoId)),
   );
+}
+
+export function restoreWorkspaceTabs(
+  repositories: Repository[],
+  workspaceProfileId: string,
+  session: WorkspaceTabSession | undefined,
+): { tabs: ShellTab[]; activeRepositoryId: string | null } {
+  const repositoriesById = new Map(
+    repositoriesForWorkspace(repositories, workspaceProfileId).map((repository) => [
+      repository.id,
+      repository,
+    ]),
+  );
+  const repoTabs = (session?.repositoryIds ?? []).flatMap((id) => {
+    const repository = repositoriesById.get(id);
+    return repository
+      ? [{ id: tabIdFor("repo", id), kind: "repo" as const, repoId: id, title: repository.name }]
+      : [];
+  });
+  const activeRepositoryId =
+    session?.activeRepositoryId && repoTabs.some((tab) => tab.repoId === session.activeRepositoryId)
+      ? session.activeRepositoryId
+      : null;
+  return { tabs: [{ ...START_TAB }, ...repoTabs], activeRepositoryId };
+}
+
+function persistWorkspaceTabs(
+  workspaceProfileId: string | null,
+  tabs: ShellTab[],
+  activeTabId: string | null,
+  repositories: Repository[],
+): void {
+  if (!workspaceProfileId) return;
+  const ownedRepositoryIds = new Set(
+    repositoriesForWorkspace(repositories, workspaceProfileId).map((repository) => repository.id),
+  );
+  const preferences = usePrefsStore.getState();
+  const previous = preferences.workspaceTabSessions;
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  preferences.setPref("workspaceTabSessions", {
+    ...previous,
+    [workspaceProfileId]: {
+      repositoryIds: tabs.flatMap((tab) =>
+        tab.kind === "repo" && tab.repoId && ownedRepositoryIds.has(tab.repoId) ? [tab.repoId] : [],
+      ),
+      activeRepositoryId:
+        activeTab?.kind === "repo" && activeTab.repoId && ownedRepositoryIds.has(activeTab.repoId)
+          ? activeTab.repoId
+          : null,
+    },
+  });
 }
 
 async function assignUnownedRepositories(
@@ -632,12 +683,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ health });
       await get().refreshProfiles();
       await get().refreshRepositories();
+      const workspaceProfileId = get().workspaceProfileId;
+      const savedSession = workspaceProfileId
+        ? usePrefsStore.getState().workspaceTabSessions[workspaceProfileId]
+        : undefined;
+      const restored = restoreWorkspaceTabs(
+        get().repositories,
+        workspaceProfileId ?? "",
+        savedSession,
+      );
+      const activeShellTabId = restored.activeRepositoryId
+        ? tabIdFor("repo", restored.activeRepositoryId)
+        : START_TAB.id;
       set({
-        bootLoading: false,
-        appView: "dashboard",
-        shellTabs: [START_TAB],
-        activeShellTabId: START_TAB.id,
+        shellTabs: restored.tabs,
+        activeShellTabId,
+        appView: restored.activeRepositoryId ? "history" : "dashboard",
       });
+      if (restored.activeRepositoryId) {
+        await get().selectRepository(restored.activeRepositoryId);
+      }
+      set({ bootLoading: false });
     } catch (err) {
       set({ bootLoading: false, bootError: errMsg(err) });
     }
@@ -685,6 +751,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const tabs = shellTabs.some((tab) => tab.id === START_TAB.id)
       ? shellTabs
       : [{ ...START_TAB }, ...shellTabs];
+    persistWorkspaceTabs(
+      get().workspaceProfileId,
+      tabs,
+      get().activeShellTabId,
+      get().repositories,
+    );
     usePrefsStore.getState().setPref("workspaceProfileId", id);
     set({
       workspaceProfileId: id,
@@ -761,6 +833,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       tabs.push({ id: tabId, kind: "repo", repoId: id, title });
     }
+    persistWorkspaceTabs(workspaceProfileId, tabs, tabId, get().repositories);
 
     const prevId = get().activeRepoId;
     const refreshInBackground = () => {
@@ -935,7 +1008,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     await api.removeRepository(id);
     repoSnapshots.delete(id);
     const repositories = get().repositories.filter((r) => r.id !== id);
-    set({ repositories });
+    const shellTabs = get().shellTabs.filter((tab) => tab.repoId !== id);
+    set({ repositories, shellTabs });
+    persistWorkspaceTabs(get().workspaceProfileId, shellTabs, get().activeShellTabId, repositories);
     if (get().activeRepoId === id) {
       const workspaceRepositories = repositoriesForWorkspace(
         repositories,
@@ -2036,6 +2111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeShellTabId: START_TAB.id,
       appView: "dashboard",
     });
+    persistWorkspaceTabs(get().workspaceProfileId, tabs, START_TAB.id, get().repositories);
   },
 
   openSettingsTab: () => {
@@ -2094,6 +2170,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     ) {
       return;
     }
+    persistWorkspaceTabs(get().workspaceProfileId, get().shellTabs, id, get().repositories);
     set({ activeShellTabId: id, appView: appViewForTab(tab) });
     if (tab.kind === "repo" && tab.repoId) {
       if (tab.repoId !== get().activeRepoId) {
@@ -2131,7 +2208,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         get().openStartTab();
         return;
       }
+      persistWorkspaceTabs(get().workspaceProfileId, next, focus.id, get().repositories);
       void get().activateShellTab(focus.id);
+    } else {
+      persistWorkspaceTabs(
+        get().workspaceProfileId,
+        next,
+        get().activeShellTabId,
+        get().repositories,
+      );
     }
     if (closedRepoId) repoSnapshots.delete(closedRepoId);
   },

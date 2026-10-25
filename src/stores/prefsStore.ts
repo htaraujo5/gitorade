@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type WorkspaceTabSession = {
+  repositoryIds: string[];
+  activeRepositoryId: string | null;
+};
+
 export type AppPrefs = {
   language: "pt-BR" | "en";
   relativeDates: boolean;
@@ -19,6 +24,8 @@ export type AppPrefs = {
   projectsPath: string;
   /** Profile whose repositories are shown as the current workspace */
   workspaceProfileId: string;
+  /** Open repository tabs and selected repository, stored separately for each workspace */
+  workspaceTabSessions: Record<string, WorkspaceTabSession>;
   /** Check GitHub Releases for a newer version on startup */
   autoCheckUpdates: boolean;
   /** Version the user chose to skip in the update prompt */
@@ -40,6 +47,7 @@ const defaults: AppPrefs = {
   onboardingComplete: false,
   projectsPath: "",
   workspaceProfileId: "",
+  workspaceTabSessions: {},
   autoCheckUpdates: true,
   skippedUpdateVersion: "",
 };

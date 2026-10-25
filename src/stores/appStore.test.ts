@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Repository } from "../lib/api";
-import { repositoriesForWorkspace, shellTabsForWorkspace, type ShellTab } from "./appStore";
+import {
+  repositoriesForWorkspace,
+  restoreWorkspaceTabs,
+  shellTabsForWorkspace,
+  type ShellTab,
+} from "./appStore";
 
 function repository(id: string, defaultProfileId: string | null): Repository {
   return {
@@ -45,5 +50,25 @@ describe("workspace repository and tab visibility", () => {
   it("keeps all repositories visible when no workspace is selected", () => {
     expect(repositoriesForWorkspace(repositories, null)).toEqual(repositories);
     expect(shellTabsForWorkspace(tabs, repositories, null)).toEqual(tabs);
+  });
+
+  it("restores saved tabs and the active repository for the matching workspace", () => {
+    const restored = restoreWorkspaceTabs(repositories, "profile-a", {
+      repositoryIds: ["repo-b", "repo-a", "removed-repo"],
+      activeRepositoryId: "repo-a",
+    });
+
+    expect(restored.tabs.map((tab) => tab.id)).toEqual(["tab-start", "tab-repo-repo-a"]);
+    expect(restored.activeRepositoryId).toBe("repo-a");
+  });
+
+  it("falls back to Start if the saved active repository no longer belongs to the workspace", () => {
+    const restored = restoreWorkspaceTabs(repositories, "profile-a", {
+      repositoryIds: ["repo-b"],
+      activeRepositoryId: "repo-b",
+    });
+
+    expect(restored.tabs.map((tab) => tab.id)).toEqual(["tab-start"]);
+    expect(restored.activeRepositoryId).toBeNull();
   });
 });
