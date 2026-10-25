@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { UserAvatar } from "../UserAvatar";
+import { useT } from "../../i18n";
 
 /** GitKraken-style profile menu: identity lives here, not in the commit form. */
 export function ProfileMenu() {
+  const t = useT();
   const {
     profiles,
+    workspaceProfileId,
     commitOverrideProfileId,
-    setCommitOverrideProfileId,
-    associateProfile,
+    setWorkspaceProfileId,
     setAppView,
     repositories,
     activeRepoId,
@@ -17,11 +19,9 @@ export function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const repo = repositories.find((r) => r.id === activeRepoId);
-  const active =
-    profiles.find((p) => p.id === commitOverrideProfileId) ??
-    repo?.activeProfile ??
-    profiles[0] ??
-    null;
+  const workspace = profiles.find((p) => p.id === workspaceProfileId) ?? profiles[0] ?? null;
+  const signature =
+    profiles.find((p) => p.id === commitOverrideProfileId) ?? repo?.activeProfile ?? workspace;
 
   useEffect(() => {
     if (!open) return;
@@ -49,27 +49,27 @@ export function ProfileMenu() {
         }`}
       >
         <Avatar
-          name={active?.name ?? "?"}
-          email={active?.email}
-          src={active?.avatarData}
+          name={workspace?.name ?? "?"}
+          email={workspace?.email}
+          src={workspace?.avatarData}
           size={22}
         />
         <span className="max-w-[110px] truncate text-[11px] font-normal text-[#d8dbe2]">
-          {active?.name ?? "Profile"}
+          {workspace?.name ?? "Workspace"}
         </span>
         <ChevronDown />
       </button>
 
       {open && (
         <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-[280px] overflow-hidden rounded-md border border-[#3a3f4b] bg-[#252830] shadow-2xl shadow-black/50">
-          <Section title="Current profile">
+          <Section title={t("profile.workspace")}>
             {profiles.length === 0 ? (
               <p className="px-3 py-2 text-[11px] text-[#8b909a]">
                 Nenhum perfil. Crie um em Credenciais.
               </p>
             ) : (
               profiles.map((p) => {
-                const selected = p.id === active?.id;
+                const selected = p.id === workspace?.id;
                 return (
                   <button
                     key={p.id}
@@ -78,9 +78,7 @@ export function ProfileMenu() {
                       selected ? "bg-[#1e3a5f]" : ""
                     }`}
                     onClick={() => {
-                      setCommitOverrideProfileId(p.id);
-                      // Persist as repo default when a repo is open (optional convenience)
-                      if (activeRepoId) void associateProfile(p.id);
+                      setWorkspaceProfileId(p.id);
                       setOpen(false);
                     }}
                   >
@@ -100,16 +98,16 @@ export function ProfileMenu() {
 
           <Section title="Commit signature">
             <div className="px-3 py-2">
-              <div className="text-[12px] text-[#f0f1f4]">{active?.name ?? "—"}</div>
+              <div className="text-[12px] text-[#f0f1f4]">{signature?.name ?? "—"}</div>
               <div className="truncate text-[11px] text-[#8b909a]">
-                {active?.email ?? "sem email"}
+                {signature?.email ?? "sem email"}
               </div>
             </div>
           </Section>
 
           <Section title="Account">
             <MenuItem
-              label="Manage profiles"
+              label={t("profile.manageWorkspaces")}
               onClick={() => {
                 setOpen(false);
                 setAppView("credentials");

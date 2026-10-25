@@ -81,6 +81,17 @@ export type ShellTab = {
 
 export type { WorkspaceTab, AppView };
 
+export function repositoriesForWorkspace(
+  repositories: Repository[],
+  workspaceProfileId: string | null,
+): Repository[] {
+  if (!workspaceProfileId) return repositories;
+  return repositories.filter(
+    (repository) =>
+      !repository.defaultProfileId || repository.defaultProfileId === workspaceProfileId,
+  );
+}
+
 const START_TAB: ShellTab = { id: "tab-start", kind: "start", title: "Start" };
 
 function tabIdFor(kind: ShellTabKind, repoId?: string): string {
@@ -126,6 +137,7 @@ type AppState = {
   repositories: Repository[];
   activeRepoId: string | null;
   profiles: Profile[];
+  workspaceProfileId: string | null;
   status: RepoStatus | null;
   selectedFile: SelectedFile | null;
   diffText: string;
@@ -169,6 +181,7 @@ type AppState = {
   bootstrap: () => Promise<void>;
   refreshRepositories: () => Promise<void>;
   refreshProfiles: () => Promise<void>;
+  setWorkspaceProfileId: (id: string) => void;
   openRepositoryDialog: () => Promise<void>;
   initRepositoryDialog: () => Promise<void>;
   cloneRepository: (url: string) => Promise<void>;
@@ -453,6 +466,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   repositories: [],
   activeRepoId: null,
   profiles: [],
+  workspaceProfileId: null,
   status: null,
   selectedFile: null,
   diffText: "",
@@ -608,12 +622,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   refreshProfiles: async () => {
     const profiles = await api.listProfiles();
-    const current = get().commitOverrideProfileId;
-    const stillValid = current && profiles.some((p) => p.id === current);
+    const savedWorkspaceId = usePrefsStore.getState().workspaceProfileId;
+    const currentWorkspaceId = get().workspaceProfileId;
+    const workspaceProfileId =
+      profiles.find((profile) => profile.id === savedWorkspaceId)?.id ??
+      profiles.find((profile) => profile.id === currentWorkspaceId)?.id ??
+      profiles[0]?.id ??
+      null;
+    if (workspaceProfileId !== savedWorkspaceId) {
+      usePrefsStore.getState().setPref("workspaceProfileId", workspaceProfileId ?? "");
+    }
+    const currentCommitProfileId = get().commitOverrideProfileId;
     set({
       profiles,
-      commitOverrideProfileId: stillValid ? current : (profiles[0]?.id ?? null),
+      workspaceProfileId,
+      commitOverrideProfileId:
+        profiles.find((profile) => profile.id === currentCommitProfileId)?.id ?? workspaceProfileId,
     });
+  },
+
+  setWorkspaceProfileId: (id) => {
+    if (!get().profiles.some((profile) => profile.id === id)) return;
+    usePrefsStore.getState().setPref("workspaceProfileId", id);
+    set({ workspaceProfileId: id, commitOverrideProfileId: id });
+    get().setAppView("dashboard");
   },
 
   openRepositoryDialog: async () => {
@@ -640,7 +672,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectRepository: async (id) => {
-    const repo = get().repositories.find((r) => r.id === id);
+    let repo = get().repositories.find((r) => r.id === id);
+    const workspaceProfileId = get().workspaceProfileId;
+    if (repo && !repo.defaultProfileId && workspaceProfileId) {
+      try {
+        const updatedRepo = await api.setRepositoryProfile(id, workspaceProfileId);
+        repo = updatedRepo;
+        set({
+          repositories: get().repositories.map((repository) =>
+            repository.id === id ? updatedRepo : repository,
+          ),
+        });
+      } catch (err) {
+        set({ error: errMsg(err) });
+        return;
+      }
+    }
     const title = repo?.name ?? "Repository";
     const tabId = tabIdFor("repo", id);
     const tabs = [...get().shellTabs];
@@ -2022,7 +2069,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         void get().selectRepository(get().activeRepoId!);
         return;
       }
-      const first = get().repositories[0];
+      const first = repositoriesForWorkspace(get().repositories, get().workspaceProfileId)[0];
       if (first) {
         void get().selectRepository(first.id);
         return;

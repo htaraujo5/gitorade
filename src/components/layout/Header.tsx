@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useAppStore } from "../../stores/appStore";
+import { repositoriesForWorkspace, useAppStore } from "../../stores/appStore";
 import {
   IconBranch,
   IconCommit,
@@ -21,6 +21,7 @@ import {
 export function RepoToolbar() {
   const {
     repositories,
+    workspaceProfileId,
     activeRepoId,
     selectRepository,
     status,
@@ -64,7 +65,7 @@ export function RepoToolbar() {
               <HeaderSelect
                 value={activeRepoId ?? ""}
                 display={repo?.name ?? "—"}
-                options={repositories.map((r) => ({
+                options={repositoriesForWorkspace(repositories, workspaceProfileId).map((r) => ({
                   value: r.id,
                   label: r.name,
                 }))}

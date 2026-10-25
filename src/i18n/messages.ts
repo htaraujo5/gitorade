@@ -54,11 +54,14 @@ const ptBR = {
   "menu.addRemote": "Adicionar remote…",
   "menu.checkUpdates": "Verificar atualizações…",
   "header.undo": "Undo",
+  "profile.workspace": "Workspace",
+  "profile.manageWorkspaces": "Gerenciar workspaces",
 
   // Dashboard
   "dash.tagline": "Seu Git. Seu fluxo. Seu jeito. Abra um repositório e continue.",
   "dash.favorites": "Favoritos",
   "dash.recent": "Recentes",
+  "dash.workspaceProjects": "Projetos de {name}",
   "dash.empty": "Nenhum repositório ainda.",
   "dash.searchPlaceholder": "Buscar repositórios…",
   "dash.cloneUrl": "URL do repositório",
@@ -276,10 +279,13 @@ const en: Record<MessageKey, string> = {
   "menu.addRemote": "Add remote…",
   "menu.checkUpdates": "Check for updates…",
   "header.undo": "Undo",
+  "profile.workspace": "Workspace",
+  "profile.manageWorkspaces": "Manage workspaces",
 
   "dash.tagline": "Your Git. Your flow. Your way. Open a repository and keep going.",
   "dash.favorites": "Favorites",
   "dash.recent": "Recent",
+  "dash.workspaceProjects": "Projects in {name}",
   "dash.empty": "No repositories yet.",
   "dash.searchPlaceholder": "Search repositories…",
   "dash.cloneUrl": "Repository URL",

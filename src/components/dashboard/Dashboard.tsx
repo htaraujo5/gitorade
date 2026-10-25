@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { useAppStore } from "../../stores/appStore";
+import { repositoriesForWorkspace, useAppStore } from "../../stores/appStore";
 import { useT } from "../../i18n";
 import logo from "../../assets/brand/logo.png";
 import { IconRepos, IconPlus, IconStar } from "../Icons";
@@ -9,6 +9,8 @@ export function Dashboard() {
   const t = useT();
   const {
     repositories,
+    profiles,
+    workspaceProfileId,
     selectRepository,
     openRepositoryDialog,
     initRepositoryDialog,
@@ -25,13 +27,15 @@ export function Dashboard() {
   const [cloneOpen, setCloneOpen] = useState(false);
   const [cloneUrl, setCloneUrl] = useState("");
 
+  const workspaceRepositories = repositoriesForWorkspace(repositories, workspaceProfileId);
+  const workspaceProfile = profiles.find((profile) => profile.id === workspaceProfileId);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return repositories;
-    return repositories.filter(
+    if (!q) return workspaceRepositories;
+    return workspaceRepositories.filter(
       (r) => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q),
     );
-  }, [repositories, query]);
+  }, [workspaceRepositories, query]);
 
   const favorites = filtered.filter((r) => r.isFavorite);
   const recent = [...filtered]
@@ -171,7 +175,9 @@ export function Dashboard() {
 
         <section className="min-h-0 flex-1">
           <SectionTitle icon={<IconRepos className="h-3 w-3" />}>
-            Repositórios recentes
+            {workspaceProfile
+              ? t("dash.workspaceProjects", { name: workspaceProfile.name })
+              : "Repositórios recentes"}
           </SectionTitle>
           {recent.length === 0 ? (
             <EmptyState

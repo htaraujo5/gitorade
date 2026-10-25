@@ -17,6 +17,8 @@ export type AppPrefs = {
   onboardingComplete: boolean;
   /** Default folder for open/clone dialogs */
   projectsPath: string;
+  /** Profile whose repositories are shown as the current workspace */
+  workspaceProfileId: string;
   /** Check GitHub Releases for a newer version on startup */
   autoCheckUpdates: boolean;
   /** Version the user chose to skip in the update prompt */
@@ -37,6 +39,7 @@ const defaults: AppPrefs = {
   diffLayout: "unified",
   onboardingComplete: false,
   projectsPath: "",
+  workspaceProfileId: "",
   autoCheckUpdates: true,
   skippedUpdateVersion: "",
 };
