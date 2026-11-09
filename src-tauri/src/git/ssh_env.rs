@@ -32,7 +32,7 @@ pub struct AskpassRequest {
 
 /// Apply env vars so remote Git (fetch/pull/push/clone) can authenticate via SSH.
 pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Option<&Path>) {
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = user_home_dir().or_else(dirs::home_dir) {
         cmd.env("HOME", &home);
         #[cfg(windows)]
         {
@@ -50,10 +50,11 @@ pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Opti
     let mut ssh_cmd = format!("\"{ssh}\"");
     ssh_cmd.push_str(" -o StrictHostKeyChecking=yes");
 
-    let key = identity_file
-        .filter(|p| p.is_file())
-        .map(Path::to_path_buf)
-        .or_else(discover_default_ssh_key);
+    let resolved_key = identity_file
+        .map(|p| expand_ssh_path(&p.to_string_lossy()))
+        .filter(|p| p.is_file());
+
+    let key = resolved_key.or_else(discover_default_ssh_key);
 
     if let Some(key) = key {
         let key_s = key.to_string_lossy();
@@ -90,9 +91,55 @@ pub fn discover_default_ssh_key() -> Option<PathBuf> {
     list_ssh_identity_files().into_iter().next()
 }
 
+/// User's real home directory.
+///
+/// On Linux with Snap confinement, `$HOME` is overridden to `/home/user/snap/gitorade/current`
+/// while the user's real home is provided in `$SNAP_REAL_HOME`. The `gitorade:ssh-keys` plug
+/// grants access to the real `~/.ssh`.
+pub fn user_home_dir() -> Option<PathBuf> {
+    if let Some(snap_real) = std::env::var_os("SNAP_REAL_HOME") {
+        if !snap_real.is_empty() {
+            let p = PathBuf::from(snap_real);
+            if p.is_dir() {
+                return Some(p);
+            }
+        }
+    }
+    dirs::home_dir().filter(|p| p.is_dir())
+}
+
+/// Expands leading `~` or `~/` or `~\` in a path using `user_home_dir()`.
+pub fn expand_ssh_path(path: &str) -> PathBuf {
+    let trimmed = path.trim();
+    if trimmed == "~" {
+        if let Some(home) = user_home_dir().or_else(dirs::home_dir) {
+            return home;
+        }
+    } else if let Some(rest) = trimmed.strip_prefix("~/").or_else(|| trimmed.strip_prefix("~\\")) {
+        if let Some(home) = user_home_dir().or_else(dirs::home_dir) {
+            return home.join(rest);
+        }
+    }
+    PathBuf::from(trimmed)
+}
+
 /// Absolute path to `~/.ssh` when the home directory is known.
 pub fn ssh_dir() -> Option<PathBuf> {
-    Some(dirs::home_dir()?.join(".ssh"))
+    if let Some(home) = user_home_dir() {
+        let p = home.join(".ssh");
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+    if let Some(dirs_home) = dirs::home_dir() {
+        let p = dirs_home.join(".ssh");
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+    user_home_dir()
+        .or_else(dirs::home_dir)
+        .map(|h| h.join(".ssh"))
 }
 
 /// Private identity files under `~/.ssh` (standard names first, then other non-public files).
@@ -167,7 +214,16 @@ fn push_identity(out: &mut Vec<PathBuf>, seen: &mut HashSet<String>, path: &Path
     if validate_ssh_key_path(s.as_ref()).is_err() {
         return false;
     }
-    if !looks_like_private_key(path) {
+    let is_preferred = matches!(
+        name,
+        "id_ed25519"
+            | "id_ecdsa"
+            | "id_rsa"
+            | "id_ed25519_sk"
+            | "id_ecdsa_sk"
+            | "id_dsa"
+    );
+    if !is_preferred && !looks_like_private_key(path) {
         return false;
     }
     if seen.insert(name.to_string()) {
@@ -183,12 +239,14 @@ fn looks_like_private_key(path: &Path) -> bool {
         return false;
     };
     use std::io::Read;
-    let mut buf = [0u8; 64];
+    let mut buf = [0u8; 1024];
     let Ok(n) = file.read(&mut buf) else {
         return false;
     };
     let head = String::from_utf8_lossy(&buf[..n]);
-    head.contains("PRIVATE KEY") || head.contains("OPENSSH PRIVATE KEY")
+    head.contains("PRIVATE KEY")
+        || head.contains("OPENSSH PRIVATE KEY")
+        || head.contains("PuTTY-User-Key-File")
 }
 
 fn resolve_ssh_binary() -> String {
@@ -566,5 +624,12 @@ mod tests {
         assert!(!names.contains(&"known_hosts"));
         assert!(!names.contains(&"config"));
         assert_eq!(keys[0].file_name().unwrap(), "id_ed25519");
+    }
+
+    #[test]
+    fn expands_tilde_ssh_path() {
+        let expanded = expand_ssh_path("~/.ssh/id_ed25519");
+        assert!(!expanded.to_string_lossy().starts_with('~'));
+        assert!(expanded.ends_with(".ssh/id_ed25519") || expanded.ends_with(r".ssh\id_ed25519"));
     }
 }

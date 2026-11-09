@@ -955,7 +955,7 @@ fn resolve_ssh_key(
     if git::validate_ssh_key_path(&path).is_err() {
         return None;
     }
-    let p = std::path::PathBuf::from(path);
+    let p = git::expand_ssh_path(&path);
     if p.is_file() {
         Some(p)
     } else {

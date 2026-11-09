@@ -320,6 +320,8 @@ function SshSection() {
   const [notice, setNotice] = useState<string | null>(null);
   const [discovered, setDiscovered] = useState<string[]>([]);
   const [sshDir, setSshDir] = useState<string | null>(null);
+  const [manualProfileId, setManualProfileId] = useState<string | null>(null);
+  const [manualPathInput, setManualPathInput] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
@@ -343,20 +345,27 @@ function SshSection() {
     };
   }, []);
 
-  const assignKey = async (profileId: string, keyPath: string) => {
+  const assignKey = async (profileId: string, keyPath: string | null) => {
     const profile = profiles.find((p) => p.id === profileId);
     if (!profile) return;
     const { updateProfile } = await import("../../lib/api");
+    const normalized = keyPath && keyPath.trim().length > 0 ? keyPath.trim() : null;
     await updateProfile({
       id: profile.id,
       name: profile.name,
       email: profile.email,
       provider: profile.provider,
-      sshKeyPath: keyPath,
+      sshKeyPath: normalized,
       avatarData: profile.avatarData ?? null,
     });
     await refreshProfiles();
-    setNotice(`Chave associada a ${profile.name}`);
+    setManualProfileId(null);
+    setManualPathInput("");
+    setNotice(
+      normalized
+        ? `Chave associada a ${profile.name}`
+        : `Chave desvinculada de ${profile.name}`
+    );
   };
 
   const pickKey = async (profileId: string) => {
@@ -375,6 +384,12 @@ function SshSection() {
     }
   };
 
+  const handleManualSubmit = (profileId: string) => {
+    void assignKey(profileId, manualPathInput).catch((err) => {
+      setNotice(err instanceof Error ? err.message : String(err));
+    });
+  };
+
   return (
     <>
       <InfoCard title="Agente SSH">
@@ -383,9 +398,8 @@ function SshSection() {
           Associe uma chave privada a um perfil para referência (path).
         </p>
         <p className="mt-2 text-[11px] text-[#6b7280]">
-          Dica: <code className="text-[#8b909a]">ssh-add -l</code> lista chaves carregadas no
-          agente. No Linux o diálogo abre em <code className="text-[#8b909a]">~/.ssh</code> (pasta
-          oculta).
+          Dica Linux: No seletor de arquivos, pastas que começam com ponto (<code className="text-[#8b909a]">.ssh</code>)
+          são ocultadas por padrão. Pressione <kbd className="rounded border border-[#3a3f4a] bg-[#12141a] px-1 py-0.5 text-[10px] text-[#c8ccd4]">Ctrl+H</kbd> na janela do seletor para exibir pastas ocultas, ou use o botão <strong>Digitar caminho</strong> abaixo.
         </p>
       </InfoCard>
 
@@ -395,15 +409,21 @@ function SshSection() {
         </div>
       )}
 
+      {sshDir && (
+        <div className="rounded border border-[#2d3139] bg-[#12141a] px-3 py-2 text-[11px] text-[#8b909a]">
+          Pasta ~/.ssh identificada: <code className="font-mono text-[#c8ccd4]">{sshDir}</code>
+        </div>
+      )}
+
       <div className="space-y-2">
         <div className="text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">
           Detectadas em ~/.ssh
         </div>
         {discovered.length === 0 ? (
           <p className="text-[12px] text-[#6b7280]">
-            Nenhuma chave privada encontrada. Se instalou via Snap, rode{" "}
+            Nenhuma chave privada encontrada automaticamente. Se instalou via Snap, certifique-se de conectar a interface:{" "}
             <code className="text-[#8b909a]">sudo snap connect gitorade:ssh-keys</code> e reabra o
-            app.
+            app. Você também pode digitar o caminho manualmente abaixo.
           </p>
         ) : (
           <ul className="space-y-1.5">
@@ -428,50 +448,122 @@ function SshSection() {
             Crie um perfil em Credenciais para vincular uma chave.
           </p>
         ) : (
-          profiles.map((p) => (
-            <div
-              key={p.id}
-              className="flex flex-wrap items-center gap-2 rounded border border-[#2d3139] bg-[#1c1f26] px-3 py-2"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] text-[#e8eaed]">{p.name}</div>
-                <div className="truncate font-mono text-[10px] text-[#6b7280]">
-                  {p.sshKeyPath ?? "Nenhuma chave associada"}
-                </div>
-              </div>
-              {discovered.length > 0 && (
-                <select
-                  className="max-w-[180px] rounded border border-[#2d3139] bg-[#12141a] px-1.5 py-1 text-[10px] text-[#c8ccd4] disabled:opacity-40"
-                  disabled={busy}
-                  defaultValue=""
-                  aria-label={`Chave detectada para ${p.name}`}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    e.target.value = "";
-                    if (!value) return;
-                    void assignKey(p.id, value).catch((err) => {
-                      setNotice(err instanceof Error ? err.message : String(err));
-                    });
-                  }}
-                >
-                  <option value="">Detectada…</option>
-                  {discovered.map((path) => (
-                    <option key={path} value={path}>
-                      {path.split(/[/\\]/).pop() ?? path}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button
-                type="button"
-                disabled={busy}
-                className="shrink-0 rounded border border-[#2d3139] px-2 py-1 text-[10px] text-[#c8ccd4] hover:bg-[#252830] disabled:opacity-40"
-                onClick={() => void pickKey(p.id)}
+          profiles.map((p) => {
+            const isEditing = manualProfileId === p.id;
+            return (
+              <div
+                key={p.id}
+                className="space-y-2 rounded border border-[#2d3139] bg-[#1c1f26] p-3"
               >
-                Escolher…
-              </button>
-            </div>
-          ))
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-medium text-[#e8eaed]">{p.name}</div>
+                    <div className="truncate font-mono text-[10px] text-[#8b909a]">
+                      {p.sshKeyPath ?? "Nenhuma chave associada"}
+                    </div>
+                  </div>
+
+                  {!isEditing && (
+                    <>
+                      {discovered.length > 0 && (
+                        <select
+                          className="max-w-[180px] rounded border border-[#2d3139] bg-[#12141a] px-1.5 py-1 text-[10px] text-[#c8ccd4] disabled:opacity-40"
+                          disabled={busy}
+                          defaultValue=""
+                          aria-label={`Chave detectada para ${p.name}`}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            e.target.value = "";
+                            if (!value) return;
+                            void assignKey(p.id, value).catch((err) => {
+                              setNotice(err instanceof Error ? err.message : String(err));
+                            });
+                          }}
+                        >
+                          <option value="">Detectada…</option>
+                          {discovered.map((path) => (
+                            <option key={path} value={path}>
+                              {path.split(/[/\\]/).pop() ?? path}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="shrink-0 rounded border border-[#2d3139] px-2 py-1 text-[10px] text-[#c8ccd4] hover:bg-[#252830] disabled:opacity-40"
+                        onClick={() => void pickKey(p.id)}
+                        title="Abrir seletor de arquivos (pressione Ctrl+H se a pasta .ssh estiver oculta)"
+                      >
+                        Escolher…
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="shrink-0 rounded border border-[#2d3139] px-2 py-1 text-[10px] text-[#c8ccd4] hover:bg-[#252830] disabled:opacity-40"
+                        onClick={() => {
+                          setManualProfileId(p.id);
+                          setManualPathInput(p.sshKeyPath ?? "");
+                        }}
+                      >
+                        Digitar caminho
+                      </button>
+
+                      {p.sshKeyPath && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="shrink-0 rounded border border-[#f85149]/30 px-2 py-1 text-[10px] text-[#f85149] hover:bg-[#f85149]/10 disabled:opacity-40"
+                          onClick={() => void assignKey(p.id, null)}
+                        >
+                          Desvincular
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {isEditing && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 pt-2 border-t border-[#2d3139]/60">
+                    <input
+                      type="text"
+                      className="min-w-0 flex-1 rounded border border-[#2d3139] bg-[#12141a] px-2 py-1 font-mono text-[11px] text-[#e8eaed] placeholder-[#5c6370] focus:border-[#388bfd] focus:outline-none"
+                      placeholder="Ex: ~/.ssh/id_ed25519 ou /home/usuario/.ssh/id_rsa"
+                      value={manualPathInput}
+                      onChange={(e) => setManualPathInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleManualSubmit(p.id);
+                        } else if (e.key === "Escape") {
+                          setManualProfileId(null);
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="rounded bg-[#238636] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#2ea043] disabled:opacity-40"
+                      onClick={() => handleManualSubmit(p.id)}
+                    >
+                      Salvar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="rounded border border-[#2d3139] px-2 py-1 text-[10px] text-[#8b909a] hover:bg-[#252830] hover:text-[#c8ccd4]"
+                      onClick={() => setManualProfileId(null)}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

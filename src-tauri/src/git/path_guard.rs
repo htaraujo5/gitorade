@@ -116,7 +116,7 @@ pub fn validate_ssh_key_path(path: &str) -> AppResult<&str> {
     let windows_drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
     for (i, ch) in path.char_indices() {
         let allowed = ch.is_ascii_alphanumeric()
-            || matches!(ch, '/' | '\\' | '.' | '_' | '-' | ' ' | '~')
+            || matches!(ch, '/' | '\\' | '.' | '_' | '-' | ' ' | '~' | '@' | '+')
             // Allow `C:` drive prefix on any host (tests + cross-platform configs).
             || (ch == ':' && windows_drive && i == 1);
         if !allowed {
@@ -185,6 +185,8 @@ mod tests {
     #[test]
     fn ssh_key_path_rejects_metacharacters() {
         assert!(validate_ssh_key_path(r"C:\Users\me\.ssh\id_ed25519").is_ok());
+        assert!(validate_ssh_key_path("/home/me/.ssh/id_rsa_user@domain").is_ok());
+        assert!(validate_ssh_key_path("~/.ssh/id_ed25519").is_ok());
         assert!(validate_ssh_key_path(r#"C:\Users\me\evil"; calc"#).is_err());
         assert!(validate_ssh_key_path("/home/me/.ssh/id_rsa;id").is_err());
         assert!(validate_ssh_key_path("/tmp/key$(reboot)").is_err());

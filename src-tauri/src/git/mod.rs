@@ -31,8 +31,8 @@ pub use integrate::{
     read_file as read_worktree_file, rebase_onto, resolve_conflict,
 };
 pub use ssh_env::{
-    apply_git_remote_env, discover_default_ssh_key, enhance_ssh_error, list_ssh_identity_files,
-    ssh_dir,
+    apply_git_remote_env, discover_default_ssh_key, enhance_ssh_error, expand_ssh_path,
+    list_ssh_identity_files, ssh_dir, user_home_dir,
 };
 pub use stash::{apply_stash, create_stash, drop_stash, list_stash};
 
@@ -102,7 +102,7 @@ pub(crate) fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8
 
 /// Cheap env for local git (config/identity). No SSH agent / AskPass.
 fn apply_local_git_env(cmd: &mut Command) {
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = user_home_dir().or_else(dirs::home_dir) {
         cmd.env("HOME", &home);
         #[cfg(windows)]
         {
