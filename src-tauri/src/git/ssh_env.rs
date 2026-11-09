@@ -32,7 +32,7 @@ pub struct AskpassRequest {
 
 /// Apply env vars so remote Git (fetch/pull/push/clone) can authenticate via SSH.
 pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Option<&Path>) {
-    if let Some(home) = user_home_dir().or_else(dirs::home_dir) {
+    if let Some(home) = dirs::home_dir() {
         cmd.env("HOME", &home);
         #[cfg(windows)]
         {
@@ -49,6 +49,23 @@ pub fn apply_git_remote_env(cmd: &mut std::process::Command, identity_file: Opti
     // Quote only validated absolute-ish ssh path; never interpolate untrusted input.
     let mut ssh_cmd = format!("\"{ssh}\"");
     ssh_cmd.push_str(" -o StrictHostKeyChecking=yes");
+
+    if let Some(dir) = ssh_dir() {
+        let known_hosts = dir.join("known_hosts");
+        if known_hosts.is_file() {
+            let kh_s = known_hosts.to_string_lossy();
+            if validate_ssh_key_path(kh_s.as_ref()).is_ok() {
+                ssh_cmd.push_str(&format!(" -o UserKnownHostsFile=\"{kh_s}\""));
+            }
+        }
+        let config = dir.join("config");
+        if config.is_file() {
+            let cfg_s = config.to_string_lossy();
+            if validate_ssh_key_path(cfg_s.as_ref()).is_ok() {
+                ssh_cmd.push_str(&format!(" -F \"{cfg_s}\""));
+            }
+        }
+    }
 
     let resolved_key = identity_file
         .map(|p| expand_ssh_path(&p.to_string_lossy()))

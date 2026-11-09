@@ -102,7 +102,7 @@ pub(crate) fn run_git_raw(args: &[&str], cwd: Option<&Path>) -> AppResult<Vec<u8
 
 /// Cheap env for local git (config/identity). No SSH agent / AskPass.
 fn apply_local_git_env(cmd: &mut Command) {
-    if let Some(home) = user_home_dir().or_else(dirs::home_dir) {
+    if let Some(home) = dirs::home_dir() {
         cmd.env("HOME", &home);
         #[cfg(windows)]
         {
